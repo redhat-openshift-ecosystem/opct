@@ -24,6 +24,8 @@ type RunOptions struct {
 	plugins *[]string
 }
 
+const runTimeoutSeconds = 21600
+
 var defaultPlugins = []string{
 	"https://raw.githubusercontent.com/openshift/provider-certification-tool/mvp/tools/plugins/openshift-kube-conformance.yaml",
 	"https://raw.githubusercontent.com/openshift/provider-certification-tool/mvp/tools/plugins/openshift-provider-cert-level-1.yaml",
@@ -91,7 +93,7 @@ func NewCmdRun(config *pkg.Config) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&o.config.SonobuoyImage, "sonobuoy-image", "", "Image override for the Sonobuoy worker and aggregator")
-	cmd.Flags().IntVar(&o.config.Timeout, "timeout", 21600, "Execution timeout")
+	cmd.Flags().IntVar(&o.config.Timeout, "timeout", runTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.config.Watch, "watch", "w", false, "Keep watch status after running")
 	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times (defaults to latest plugins in https://github.com/openshift/provider-certification-tool)")
 
