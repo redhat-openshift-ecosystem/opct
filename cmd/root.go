@@ -27,10 +27,9 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:     "openshift-provider-cert",
-	Short:   "OpenShift Provider Certification Tool",
-	Long:    `OpenShift Provider Certification Tool is used to evaluate an OpenShift installation on a provider or hardware is in conformance`,
-	Version: version.Version.String(),
+	Use:   "openshift-provider-cert",
+	Short: "OpenShift Provider Certification Tool",
+	Long:  `OpenShift Provider Certification Tool is used to evaluate an OpenShift installation on a provider or hardware is in conformance`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 
@@ -72,6 +71,7 @@ func init() {
 	rootCmd.AddCommand(retrieve.NewCmdRetrieve(config))
 	rootCmd.AddCommand(run.NewCmdRun(config))
 	rootCmd.AddCommand(status.NewCmdStatus(config))
+	rootCmd.AddCommand(version.NewCmdVersion())
 
 	rootCmd.AddCommand(app.NewSonobuoyCommand())
 }

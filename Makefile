@@ -4,8 +4,8 @@ export GO111MODULE=on
 # Disable CGO so that we always generate static binaries:
 export CGO_ENABLED=0
 
-VERSION=$(shell git rev-parse HEAD)
-RELEASE_TAG ?= "0.0.0"
+VERSION=$(shell git rev-parse --short HEAD)
+RELEASE_TAG ?= 0.0.0
 
 GO_BUILD_FLAGS := -ldflags '-X github.com/openshift/provider-certification-tool/version.commit=$(VERSION) -X github.com/openshift/provider-certification-tool/version.version=$(RELEASE_TAG)'
 

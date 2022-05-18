@@ -2,7 +2,12 @@
 // describing the preflight project.
 package version
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+	"github.com/vmware-tanzu/sonobuoy/pkg/buildinfo"
+)
 
 var (
 	projectName = "openshift-provider-cert"
@@ -23,5 +28,15 @@ type VersionContext struct {
 }
 
 func (vc *VersionContext) String() string {
-	return fmt.Sprintf("%s <commit: %s>", vc.Version, vc.Commit)
+	return fmt.Sprintf("OpenShift Provider Certification Tool: v%s+%s", vc.Version, vc.Commit)
+}
+func NewCmdVersion() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print provider certification tool version",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(Version.String())
+			fmt.Printf("Sonobuoy Version: %s\n", buildinfo.Version)
+		},
+	}
 }
