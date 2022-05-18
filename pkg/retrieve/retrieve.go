@@ -39,7 +39,7 @@ func NewCmdRetrieve(config *pkg.Config) *cobra.Command {
 				return
 			}
 
-			// Untar the request into current directory
+			// Download results into cache directory
 			err, results := retrieveResults(pkg.ResultsDirectory, reader, ec)
 			if err != nil {
 				log.WithError(err).Error("error retrieving certification results from sonobyuoy")
@@ -81,42 +81,3 @@ func retrieveResults(outputDir string, r io.Reader, ec <-chan error) (error, []s
 
 	return eg.Wait(), results
 }
-
-/**
-func NewCmdRetrieve(config *runtime.Config) *cobra.Command {
-	return &cobra.Command{
-		Use:   "retrieve",
-		Short: "Collect results from Certification environment",
-		Long:  ``,
-		Run: func(cmd *cobra.Command, args []string) {
-			log.Info("Collecting results...")
-
-			// Setup Sonobuoy command call
-			retrieveCmd := app.NewCmdRetrieve()
-
-			// Configure the flags
-			retrieveCmd.Flags().Set("kubeconfig", config.Kubeconfig)
-
-			// Retry the retrieve command
-			retries := 1
-			err := wait2.PollImmediateUntilWithContext(context.TODO(), status.StatusInterval, func(ctx context.Context) (done bool, err error) {
-				if retries == status.StatusRetryLimit {
-					return true, errors.New("retry limit reached trying to retrieve results")
-				}
-
-				err = retrieveCmd.Execute()
-				if err != nil {
-					retries++
-					return false, err
-				}
-
-				return true, nil
-			})
-
-			if err != nil {
-				log.WithError(err).Error("error retrieving certification results")
-			}
-		},
-	}
-}
-*/
