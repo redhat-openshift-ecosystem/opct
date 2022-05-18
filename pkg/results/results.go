@@ -76,8 +76,13 @@ func SaveToResultsFile(names []string) error {
 		}
 	}()
 
-	for _, n := range names {
-		_, err = output.WriteString(n + ";")
+	for i, n := range names {
+		outputStr := n
+		if i < len(names)-1 {
+			// don't include semicolon on last entry
+			outputStr += ";"
+		}
+		_, err = output.WriteString(outputStr)
 		if err != nil {
 			return err
 		}
@@ -93,9 +98,5 @@ func GetResultFileNames() ([]string, error) {
 		return results, err
 	}
 	splitInput := strings.Split(string(contents), ";")
-	// Remove trailing empty string
-	if len(splitInput) > 1 {
-		splitInput = splitInput[:len(splitInput)-1]
-	}
 	return splitInput, nil
 }
