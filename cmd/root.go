@@ -18,7 +18,7 @@ import (
 	"github.com/openshift/provider-certification-tool/pkg/retrieve"
 	"github.com/openshift/provider-certification-tool/pkg/run"
 	"github.com/openshift/provider-certification-tool/pkg/status"
-	"github.com/openshift/provider-certification-tool/version"
+	"github.com/openshift/provider-certification-tool/pkg/version"
 )
 
 var (
