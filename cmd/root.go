@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
@@ -33,12 +34,22 @@ var rootCmd = &cobra.Command{
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 
+		// Validate logging level
+		loglevel := viper.GetString("loglevel")
+		logrusLevel, err := log.ParseLevel(loglevel)
+		if err != nil {
+			return err
+		}
+		log.SetLevel(logrusLevel)
+
+		// Prepare kube client config
 		config.Kubeconfig = viper.GetString("kubeconfig")
 		config.ClientConfig, err = clientcmd.BuildConfigFromFlags("", config.Kubeconfig)
 		if err != nil {
 			return err
 		}
 
+		// Prepare sonobuoy client
 		skc, err := sonodynamic.NewAPIHelperFromRESTConfig(config.ClientConfig)
 		if err != nil {
 			return errors.Wrap(err, "couldn't get sonobuoy api helper")
@@ -63,7 +74,9 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().String("kubeconfig", "", "kubeconfig for target OpenShift cluster")
+	rootCmd.PersistentFlags().String("loglevel", "info", "logging level")
 	viper.BindPFlag("kubeconfig", rootCmd.PersistentFlags().Lookup("kubeconfig"))
+	viper.BindPFlag("loglevel", rootCmd.PersistentFlags().Lookup("loglevel"))
 
 	// Link in child commands
 	rootCmd.AddCommand(destroy.NewCmdDestroy(config))
