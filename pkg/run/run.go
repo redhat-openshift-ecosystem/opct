@@ -207,9 +207,9 @@ func (r *RunOptions) Run() error {
 
 	if r.plugins == nil || len(*r.plugins) == 0 {
 		// Use default built-in plugins
-		log.Trace("Loading default certification plugins")
+		log.Debugf("Loading default certification plugins")
 		for _, m := range defaultPlugins {
-			log.Trace("Loading certification plugin: %s", m)
+			log.Debugf("Loading certification plugin: %s", m)
 			asset, err := loader.LoadDefinition(assets.MustAsset(m))
 			if err != nil {
 				return err
@@ -218,7 +218,7 @@ func (r *RunOptions) Run() error {
 		}
 	} else {
 		// User provided their own plugins at command line
-		log.Trace("Loading plugins specific at command line")
+		log.Debugf("Loading plugins specific at command line")
 		for _, p := range *r.plugins {
 			asset, err := loader.LoadDefinitionFromFile(p)
 			if err != nil {
