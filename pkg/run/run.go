@@ -2,19 +2,22 @@ package run
 
 import (
 	"context"
-	"fmt"
 
 	projectv1 "github.com/openshift/client-go/project/clientset/versioned/typed/project/v1"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	sonobuoy "github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
+	"github.com/vmware-tanzu/sonobuoy/pkg/client"
+	"github.com/vmware-tanzu/sonobuoy/pkg/config"
+	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/loader"
+	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/manifest"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
 
 	"github.com/openshift/provider-certification-tool/pkg"
+	"github.com/openshift/provider-certification-tool/pkg/assets"
 	"github.com/openshift/provider-certification-tool/pkg/status"
 	"github.com/openshift/provider-certification-tool/pkg/wait"
 )
@@ -27,10 +30,10 @@ type RunOptions struct {
 const runTimeoutSeconds = 21600
 
 var defaultPlugins = []string{
-	"https://raw.githubusercontent.com/openshift/provider-certification-tool/mvp/tools/plugins/openshift-kube-conformance.yaml",
-	"https://raw.githubusercontent.com/openshift/provider-certification-tool/mvp/tools/plugins/openshift-provider-cert-level-1.yaml",
-	"https://raw.githubusercontent.com/openshift/provider-certification-tool/mvp/tools/plugins/openshift-provider-cert-level-2.yaml",
-	"https://raw.githubusercontent.com/openshift/provider-certification-tool/mvp/tools/plugins/openshift-provider-cert-level-3.yaml",
+	"manifests/openshift-kube-conformance.yaml",
+	"manifests/openshift-provider-cert-level-1.yaml",
+	"manifests/openshift-provider-cert-level-2.yaml",
+	"manifests/openshift-provider-cert-level-3.yaml",
 }
 
 func NewRunOptions(config *pkg.Config) *RunOptions {
@@ -53,10 +56,6 @@ func NewCmdRun(config *pkg.Config) *cobra.Command {
 			if err != nil {
 				log.WithError(err).Error("error running pre-checks")
 				return
-			}
-
-			if len(*o.plugins) == 0 {
-				o.plugins = &defaultPlugins
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
@@ -191,34 +190,68 @@ func (r *RunOptions) PreRunCheck() error {
 }
 
 func (r *RunOptions) Run() error {
+	var manifests []*manifest.Manifest
 
-	// Setup Sonobuoy command call
-	runCmd := sonobuoy.NewCmdRun()
-
-	// TODO Do any of these flags need to be configurable?
-	// TODO Check error result of each command below.
-	// TODO Use SonobuoyClient instead?
-	runCmd.Flags().Set("dns-namespace", "openshift-dns")
-	runCmd.Flags().Set("dns-pod-labels", "dns.operator.openshift.io/daemonset-dns=default")
-	runCmd.Flags().Set("kubeconfig", r.config.Kubeconfig)
-	for _, plugin := range *r.plugins {
-		runCmd.Flags().Set("plugin", plugin)
+	// Let Sonobuoy do some preflight checks before we run
+	errs := r.config.SonobuoyClient.PreflightChecks(&client.PreflightConfig{
+		Namespace:    "sonobuoy",
+		DNSNamespace: "openshift-dns",
+		DNSPodLabels: []string{"dns.operator.openshift.io/daemonset-dns=default"},
+	})
+	if len(errs) > 0 {
+		for _, err := range errs {
+			log.Error(err)
+		}
+		return errors.New("preflight checks failed")
 	}
+
+	if r.plugins == nil || len(*r.plugins) == 0 {
+		// Use default built-in plugins
+		log.Trace("Loading default certification plugins")
+		for _, m := range defaultPlugins {
+			log.Trace("Loading certification plugin: %s", m)
+			asset, err := loader.LoadDefinition(assets.MustAsset(m))
+			if err != nil {
+				return err
+			}
+			manifests = append(manifests, &asset)
+		}
+	} else {
+		// User provided their own plugins at command line
+		log.Trace("Loading plugins specific at command line")
+		for _, p := range *r.plugins {
+			asset, err := loader.LoadDefinitionFromFile(p)
+			if err != nil {
+				return err
+			}
+			manifests = append(manifests, asset)
+		}
+	}
+
+	if len(manifests) == 0 {
+		return errors.New("No certification plugins to run")
+	}
+
+	// Fill out the aggregator and worker configs
+	aggConfig := config.New()
 	if r.config.Timeout > 0 {
-		runCmd.Flags().Set("timeout", fmt.Sprint(r.config.Timeout))
+		aggConfig.Aggregation.TimeoutSeconds = r.config.Timeout
 	}
 	if r.config.SonobuoyImage != "" {
-		runCmd.Flags().Set("sonobuoy-image", r.config.SonobuoyImage)
+		aggConfig.WorkerImage = r.config.SonobuoyImage
 	}
 
-	// Clear args, otherwise they are inherited from real command line and causes failure.
-	runCmd.SetArgs([]string{})
-
-	// Execute with all the flags
-	err := runCmd.Execute()
-	if err != nil {
-		return err
+	// Fill out the Run configuration
+	runConfig := &client.RunConfig{
+		GenConfig: client.GenConfig{
+			Config:             aggConfig,
+			EnableRBAC:         true, // True because OpenShift uses RBAC
+			ImagePullPolicy:    config.DefaultSonobuoyPullPolicy,
+			StaticPlugins:      manifests,
+			PluginEnvOverrides: nil, // TODO We'll use this later
+		},
 	}
 
-	return nil
+	err := r.config.SonobuoyClient.Run(runConfig)
+	return err
 }
