@@ -1,5 +1,5 @@
 // Package version contains all identifiable versioning info for
-// describing the preflight project.
+// describing the openshift provider cert project.
 package version
 
 import (
