@@ -16,6 +16,10 @@ unexport GOFLAGS
 build:
 	go build -o openshift-provider-cert $(GO_BUILD_FLAGS)
 
+.PHONY: update
+update:
+	./hack/update-generated-bindata.sh
+
 .PHONY: cross-build-windows-amd64
 cross-build-windows-amd64:
 	GOOS=windows GOARCH=amd64 go build -o openshift-provider-cert.exe $(GO_BUILD_FLAGS)
