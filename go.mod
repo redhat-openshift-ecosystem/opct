@@ -4,8 +4,6 @@ go 1.16
 
 require (
 	github.com/adrg/xdg v0.4.0
-	github.com/openshift/api v0.0.0-20210910062324-a41d3573a3ba // indirect
-	github.com/openshift/client-go v0.0.0-20210521082421-73d9475a9142
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v1.4.0

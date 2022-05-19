@@ -3,7 +3,6 @@ package run
 import (
 	"context"
 
-	projectv1 "github.com/openshift/client-go/project/clientset/versioned/typed/project/v1"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -14,6 +13,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	nsv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
 
 	"github.com/openshift/provider-certification-tool/pkg"
@@ -101,23 +101,23 @@ func NewCmdRun(config *pkg.Config) *cobra.Command {
 
 // PreRunCheck performs some checks before kicking off Sonobuoy
 func (r *RunOptions) PreRunCheck() error {
-	projectClient, err := projectv1.NewForConfig(r.config.ClientConfig)
+	nsClient, err := nsv1.NewForConfig(r.config.ClientConfig)
 	if err != nil {
 		return err
 	}
 
-	// Check if sonobuoy project already exists
-	p, err := projectClient.Projects().Get(context.TODO(), "sonobuoy", metav1.GetOptions{})
+	// Check if sonobuoy namespace already exists
+	p, err := nsClient.Namespaces().Get(context.TODO(), "sonobuoy", metav1.GetOptions{})
 	if err != nil {
-		// If error is due to project not being found, we continue.
+		// If error is due to namespace not being found, we continue.
 		if !kerrors.IsNotFound(err) {
 			return err
 		}
 	}
 
-	// sonobuoy project exists so return error
+	// sonobuoy namespace exists so return error
 	if p.Name != "" {
-		return errors.New("sonobuoy project already exists")
+		return errors.New("sonobuoy namespace already exists")
 	}
 
 	log.Info("Ensuring the tool will run in the privileged environment...")
