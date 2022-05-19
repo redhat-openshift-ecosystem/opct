@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/adrg/xdg v0.4.0
+	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/openshift/api v0.0.0-20210910062324-a41d3573a3ba // indirect
 	github.com/openshift/client-go v0.0.0-20210521082421-73d9475a9142
 	github.com/pkg/errors v0.9.1
