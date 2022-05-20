@@ -4,7 +4,7 @@
 This tool builds heavily on 
 [Sonobuoy](https://sonobuoy.io) therefore at least
 some high level knowledge of Sonobuoy is needed to really understand this tool. A 
-good place to start with Sonobuoy is [its product docs](https://sonobuoy.io/docs).
+good place to start with Sonobuoy is [its documentation](https://sonobuoy.io/docs).
 
 The OpenShift provider certification tool extends Sonobuoy in two places:
 
