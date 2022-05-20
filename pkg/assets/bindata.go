@@ -67,7 +67,7 @@ var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
     operator: Exists
   containers:
     - name: report-progress
-      image: quay.io/mrbraga/openshift-tests-provider-cert:latest
+      image: quay.io/mrbraga/openshift-tests-provider-cert:stable
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -87,7 +87,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/mrbraga/openshift-tests-provider-cert:latest
+  image: quay.io/mrbraga/openshift-tests-provider-cert:stable
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   resources: {}
@@ -125,7 +125,7 @@ var _manifestsOpenshiftProviderCertLevel1Yaml = []byte(`podSpec:
     operator: Exists
   containers:
     - name: report-progress
-      image: quay.io/mrbraga/openshift-tests-provider-cert:latest
+      image: quay.io/mrbraga/openshift-tests-provider-cert:stable
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -145,7 +145,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/mrbraga/openshift-tests-provider-cert:latest
+  image: quay.io/mrbraga/openshift-tests-provider-cert:stable
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   resources: {}
@@ -183,7 +183,7 @@ var _manifestsOpenshiftProviderCertLevel2Yaml = []byte(`podSpec:
     operator: Exists
   containers:
     - name: report-progress
-      image: quay.io/mrbraga/openshift-tests-provider-cert:latest
+      image: quay.io/mrbraga/openshift-tests-provider-cert:stable
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -203,7 +203,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/mrbraga/openshift-tests-provider-cert:latest
+  image: quay.io/mrbraga/openshift-tests-provider-cert:stable
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   resources: {}
@@ -241,7 +241,7 @@ var _manifestsOpenshiftProviderCertLevel3Yaml = []byte(`podSpec:
     operator: Exists
   containers:
     - name: report-progress
-      image: quay.io/mrbraga/openshift-tests-provider-cert:latest
+      image: quay.io/mrbraga/openshift-tests-provider-cert:stable
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -261,7 +261,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/mrbraga/openshift-tests-provider-cert:latest
+  image: quay.io/mrbraga/openshift-tests-provider-cert:stable
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   resources: {}
