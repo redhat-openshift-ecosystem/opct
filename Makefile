@@ -13,7 +13,7 @@ GO_BUILD_FLAGS := -ldflags '-X github.com/openshift/provider-certification-tool/
 unexport GOFLAGS
 
 .PHONY: build
-build:
+build: update
 	go build -o openshift-provider-cert $(GO_BUILD_FLAGS)
 
 .PHONY: update
