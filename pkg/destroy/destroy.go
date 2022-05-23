@@ -17,7 +17,7 @@ import (
 
 const (
 	DeleteSonobuoyEnvWaitTime = time.Hour * 1
-	NonOpenShiftNamespace     = "(openshift)|(kube-(system|public|node-lease))|(default)"
+	NonOpenShiftNamespace     = "e2e-.*"
 )
 
 type DestroyOptions struct {
@@ -106,7 +106,7 @@ func (d *DestroyOptions) DeleteTestNamespaces() error {
 	var nonOpenShiftNamespaces []string
 	pattern := regexp.MustCompile(NonOpenShiftNamespace)
 	for _, ns := range nsList.Items {
-		if !pattern.MatchString(ns.Name) {
+		if pattern.MatchString(ns.Name) {
 			log.Infof("stale namespace was found: %s, removing...", ns.Name)
 			nonOpenShiftNamespaces = append(nonOpenShiftNamespaces, ns.Name)
 		}
