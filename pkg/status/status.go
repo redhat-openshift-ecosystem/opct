@@ -85,7 +85,7 @@ func (s *StatusOptions) PreRunCheck() error {
 	}
 
 	// Check if sonobuoy namespac already exists
-	_, err = nsClient.Namespaces().Get(context.TODO(), "sonobuoy", metav1.GetOptions{})
+	_, err = nsClient.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
 	if err != nil {
 		// If error is due to namespace not being found, return guidance.
 		if kerrors.IsNotFound(err) {
@@ -100,7 +100,7 @@ func (s *StatusOptions) PreRunCheck() error {
 // Update the Sonobuoy state saved in StatusOptions
 func (s *StatusOptions) Update() error {
 	// TODO Is a retry in here needed?
-	sstatus, err := s.config.SonobuoyClient.GetStatus(&client.StatusConfig{Namespace: "sonobuoy"})
+	sstatus, err := s.config.SonobuoyClient.GetStatus(&client.StatusConfig{Namespace: pkg.CertificationNamespace})
 	if err != nil {
 		return err
 	}

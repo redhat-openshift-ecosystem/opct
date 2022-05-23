@@ -75,7 +75,7 @@ func NewCmdDestroy(config *pkg.Config) *cobra.Command {
 // DeleteSonobuoyEnv initiates deletion of Sonobuoy environment and waits until completion.
 func (d *DestroyOptions) DeleteSonobuoyEnv() error {
 	deleteConfig := &client.DeleteConfig{
-		Namespace: "sonobuoy",
+		Namespace: pkg.CertificationNamespace,
 		Wait:      DeleteSonobuoyEnvWaitTime,
 	}
 

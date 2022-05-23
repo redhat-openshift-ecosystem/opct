@@ -107,7 +107,7 @@ func (r *RunOptions) PreRunCheck() error {
 	}
 
 	// Check if sonobuoy namespace already exists
-	p, err := nsClient.Namespaces().Get(context.TODO(), "sonobuoy", metav1.GetOptions{})
+	p, err := nsClient.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
 	if err != nil {
 		// If error is due to namespace not being found, we continue.
 		if !kerrors.IsNotFound(err) {
@@ -194,7 +194,7 @@ func (r *RunOptions) Run() error {
 
 	// Let Sonobuoy do some preflight checks before we run
 	errs := r.config.SonobuoyClient.PreflightChecks(&client.PreflightConfig{
-		Namespace:    "sonobuoy",
+		Namespace:    pkg.CertificationNamespace,
 		DNSNamespace: "openshift-dns",
 		DNSPodLabels: []string{"dns.operator.openshift.io/daemonset-dns=default"},
 	})
@@ -240,6 +240,9 @@ func (r *RunOptions) Run() error {
 	if r.config.SonobuoyImage != "" {
 		aggConfig.WorkerImage = r.config.SonobuoyImage
 	}
+
+	// Set aggregator deployment namespace
+	aggConfig.Namespace = pkg.CertificationNamespace
 
 	// Fill out the Run configuration
 	runConfig := &client.RunConfig{

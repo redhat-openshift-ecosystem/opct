@@ -27,7 +27,7 @@ func WaitForRequiredResources(config *pkg.Config) error {
 		return err
 	}
 
-	lw := cache.NewFilteredListWatchFromClient(client.CoreV1().RESTClient(), "pods", "sonobuoy", func(options *metav1.ListOptions) {
+	lw := cache.NewFilteredListWatchFromClient(client.CoreV1().RESTClient(), "pods", pkg.CertificationNamespace, func(options *metav1.ListOptions) {
 		options.LabelSelector = "component=sonobuoy,sonobuoy-component=aggregator"
 	})
 

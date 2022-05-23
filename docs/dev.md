@@ -33,7 +33,7 @@ is necessarily as some complex code is present in Sonobuoy's Run command
 implementation.
 
 This direct usage of Sonobuoy's Cobra commands should be avoided since that
-creates and odd development experience and the ability to cleanly set Sonobuoy's
+creates an odd development experience and the ability to cleanly set Sonobuoy's
 flags is muddied by code like this:
 
 ```golang
@@ -42,9 +42,7 @@ runCmd.Flags().Set("dns-namespace", "openshift-dns")
 runCmd.Flags().Set("kubeconfig", r.config.Kubeconfig)
 ```
 
-Once there is more confidence or just understanding of the Sonobuoy Client code
-then the OpenShift provider certification tool's commands should all be using it.
-Like this:
+Instead, use the Sonobuoy Client includes with the project like this:
 
 ```golang
 // Great
