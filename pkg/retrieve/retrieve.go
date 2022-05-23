@@ -66,7 +66,7 @@ func retrieveResultsRetry(config *pkg.Config) error {
 func retrieveResults(config *pkg.Config) error {
 	// Get a reader that contains the tar output of the results directory.
 	reader, ec, err := config.SonobuoyClient.RetrieveResults(&client.RetrieveConfig{
-		Namespace: "sonobuoy",
+		Namespace: pkg.CertificationNamespace,
 		Path:      config2.AggregatorResultsPath,
 	})
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 const (
 	AnyUIDClusterRoleBinding     = "opct-anyuid"
 	PrivilegedClusterRoleBinding = "opct-privileged"
+	CertificationNamespace       = "openshift-provider-certification"
 	ResultsFileName              = "results-latest.txt"
 )
 
