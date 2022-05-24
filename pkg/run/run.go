@@ -2,10 +2,12 @@ package run
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/vmware-tanzu/sonobuoy/pkg/buildinfo"
 	"github.com/vmware-tanzu/sonobuoy/pkg/client"
 	"github.com/vmware-tanzu/sonobuoy/pkg/config"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/loader"
@@ -91,7 +93,7 @@ func NewCmdRun(config *pkg.Config) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&o.config.SonobuoyImage, "sonobuoy-image", "", "Image override for the Sonobuoy worker and aggregator")
+	cmd.Flags().StringVar(&o.config.SonobuoyImage, "sonobuoy-image", fmt.Sprintf("quay.io/mrbraga/sonobuoy:%s", buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
 	cmd.Flags().IntVar(&o.config.Timeout, "timeout", runTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.config.Watch, "watch", "w", false, "Keep watch status after running")
 	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times (defaults to latest plugins in https://github.com/openshift/provider-certification-tool)")
