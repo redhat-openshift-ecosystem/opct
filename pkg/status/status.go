@@ -163,11 +163,19 @@ func (s *StatusOptions) Print(cmd *cobra.Command) error {
 		return err
 	}
 
+	tries := 1
 	return wait2.PollImmediateInfiniteWithContext(cmd.Context(), StatusInterval, func(ctx context.Context) (done bool, err error) {
+		if tries == StatusRetryLimit {
+			// we hit back-to-back errors too many times.
+			return true, errors.New("retry limit reached checking status")
+		}
 		err = s.Update()
 		if err != nil {
-			return false, err
+			tries++ // increment retries sinc we hit error.
+			log.Error(err)
+			return false, nil
 		}
+		tries = 1 // reset retries
 		return s.doPrint(cmd)
 	})
 }
