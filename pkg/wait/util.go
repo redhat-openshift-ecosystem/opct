@@ -10,7 +10,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	watchtools "k8s.io/client-go/tools/watch"
 
@@ -22,19 +21,16 @@ import (
 func WaitForRequiredResources(config *pkg.Config) error {
 	var obj kruntime.Object
 
-	client, err := kubernetes.NewForConfig(config.ClientConfig)
-	if err != nil {
-		return err
-	}
+	restClient := config.Clientset.CoreV1().RESTClient()
 
-	lw := cache.NewFilteredListWatchFromClient(client.CoreV1().RESTClient(), "pods", pkg.CertificationNamespace, func(options *metav1.ListOptions) {
+	lw := cache.NewFilteredListWatchFromClient(restClient, "pods", pkg.CertificationNamespace, func(options *metav1.ListOptions) {
 		options.LabelSelector = "component=sonobuoy,sonobuoy-component=aggregator"
 	})
 
 	// Wait for Sonobuoy Pods to become Ready
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*10)
 	defer cancel()
-	_, err = watchtools.UntilWithSync(ctx, lw, obj, nil, func(event watch.Event) (bool, error) {
+	_, err := watchtools.UntilWithSync(ctx, lw, obj, nil, func(event watch.Event) (bool, error) {
 		switch event.Type {
 		case watch.Error:
 			return false, fmt.Errorf("error waiting for sonobuoy to start: %w", event.Object.(error))

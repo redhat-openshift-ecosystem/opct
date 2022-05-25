@@ -12,7 +12,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	wait2 "k8s.io/apimachinery/pkg/util/wait"
-	nsv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/openshift/provider-certification-tool/pkg"
 	"github.com/openshift/provider-certification-tool/pkg/wait"
@@ -79,13 +78,10 @@ func NewCmdStatus(config *pkg.Config) *cobra.Command {
 }
 
 func (s *StatusOptions) PreRunCheck() error {
-	nsClient, err := nsv1.NewForConfig(s.config.ClientConfig)
-	if err != nil {
-		return err
-	}
+	client := s.config.Clientset.CoreV1()
 
 	// Check if sonobuoy namespac already exists
-	_, err = nsClient.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
+	_, err := client.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
 	if err != nil {
 		// If error is due to namespace not being found, return guidance.
 		if kerrors.IsNotFound(err) {

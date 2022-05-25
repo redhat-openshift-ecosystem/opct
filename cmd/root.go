@@ -11,6 +11,7 @@ import (
 	"github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
 	"github.com/vmware-tanzu/sonobuoy/pkg/client"
 	sonodynamic "github.com/vmware-tanzu/sonobuoy/pkg/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/openshift/provider-certification-tool/pkg"
@@ -44,18 +45,23 @@ var rootCmd = &cobra.Command{
 
 		// Prepare kube client config
 		config.Kubeconfig = viper.GetString("kubeconfig")
-		config.ClientConfig, err = clientcmd.BuildConfigFromFlags("", config.Kubeconfig)
+		clientConfig, err := clientcmd.BuildConfigFromFlags("", config.Kubeconfig)
+		if err != nil {
+			return err
+		}
+
+		config.Clientset, err = kubernetes.NewForConfig(clientConfig)
 		if err != nil {
 			return err
 		}
 
 		// Prepare sonobuoy client
-		skc, err := sonodynamic.NewAPIHelperFromRESTConfig(config.ClientConfig)
+		skc, err := sonodynamic.NewAPIHelperFromRESTConfig(clientConfig)
 		if err != nil {
 			return errors.Wrap(err, "couldn't get sonobuoy api helper")
 		}
 
-		config.SonobuoyClient, err = client.NewSonobuoyClient(config.ClientConfig, skc)
+		config.SonobuoyClient, err = client.NewSonobuoyClient(clientConfig, skc)
 
 		return nil
 	},

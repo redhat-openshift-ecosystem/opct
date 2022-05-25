@@ -6,7 +6,7 @@ import (
 	"github.com/adrg/xdg"
 	log "github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/sonobuoy/pkg/client"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -31,7 +31,7 @@ func init() {
 
 type Config struct {
 	Kubeconfig     string
-	ClientConfig   *rest.Config
+	Clientset      *kubernetes.Clientset
 	SonobuoyClient *client.SonobuoyClient
 	SonobuoyImage  string
 	Timeout        int

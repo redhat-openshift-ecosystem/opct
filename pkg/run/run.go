@@ -15,8 +15,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	nsv1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
 
 	"github.com/openshift/provider-certification-tool/pkg"
 	"github.com/openshift/provider-certification-tool/pkg/assets"
@@ -103,13 +101,10 @@ func NewCmdRun(config *pkg.Config) *cobra.Command {
 
 // PreRunCheck performs some checks before kicking off Sonobuoy
 func (r *RunOptions) PreRunCheck() error {
-	nsClient, err := nsv1.NewForConfig(r.config.ClientConfig)
-	if err != nil {
-		return err
-	}
+	client := r.config.Clientset.CoreV1()
 
 	// Check if sonobuoy namespace already exists
-	p, err := nsClient.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
+	p, err := client.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
 	if err != nil {
 		// If error is due to namespace not being found, we continue.
 		if !kerrors.IsNotFound(err) {
@@ -124,10 +119,7 @@ func (r *RunOptions) PreRunCheck() error {
 
 	log.Info("Ensuring the tool will run in the privileged environment...")
 	// Configure SCC
-	rbacClient, err := rbacv1client.NewForConfig(r.config.ClientConfig)
-	if err != nil {
-		return err
-	}
+	rbacClient := r.config.Clientset.RbacV1()
 
 	anyuid := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
