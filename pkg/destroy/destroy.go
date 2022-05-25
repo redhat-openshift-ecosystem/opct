@@ -9,8 +9,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/sonobuoy/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	nsv1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
 
 	"github.com/openshift/provider-certification-tool/pkg"
 )
@@ -32,7 +30,6 @@ func NewDestroyOptions(config *pkg.Config) *DestroyOptions {
 
 func NewCmdDestroy(config *pkg.Config) *cobra.Command {
 	o := NewDestroyOptions(config)
-
 	cmd := &cobra.Command{
 		Use:     "destroy",
 		Aliases: []string{"delete"},
@@ -91,13 +88,10 @@ func (d *DestroyOptions) DeleteStateFile() error {
 
 // DeleteTestNamespaces deletes any non-openshift namespace.
 func (d *DestroyOptions) DeleteTestNamespaces() error {
-	nsClient, err := nsv1.NewForConfig(d.config.ClientConfig)
-	if err != nil {
-		return err
-	}
+	client := d.config.Clientset.CoreV1()
 
 	// Get list of all namespaces (TODO is there way to filter these server-side?)
-	nsList, err := nsClient.Namespaces().List(context.TODO(), metav1.ListOptions{})
+	nsList, err := client.Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -114,7 +108,7 @@ func (d *DestroyOptions) DeleteTestNamespaces() error {
 
 	// Delete filtered namespaces
 	for _, ns := range nonOpenShiftNamespaces {
-		err := nsClient.Namespaces().Delete(context.TODO(), ns, metav1.DeleteOptions{})
+		err := client.Namespaces().Delete(context.TODO(), ns, metav1.DeleteOptions{})
 		if err != nil {
 			log.WithError(err).Warnf("error deleting namespace %s", ns)
 		}
@@ -124,18 +118,15 @@ func (d *DestroyOptions) DeleteTestNamespaces() error {
 }
 
 func (d *DestroyOptions) RestoreSCC() error {
-	rbacClient, err := rbacv1client.NewForConfig(d.config.ClientConfig)
-	if err != nil {
-		return err
-	}
+	client := d.config.Clientset.RbacV1()
 
-	err = rbacClient.ClusterRoleBindings().Delete(context.TODO(), pkg.AnyUIDClusterRoleBinding, metav1.DeleteOptions{})
+	err := client.ClusterRoleBindings().Delete(context.TODO(), pkg.AnyUIDClusterRoleBinding, metav1.DeleteOptions{})
 	if err != nil {
 		return err
 	}
 	log.Infof("Deleted %s ClusterRoleBinding", pkg.AnyUIDClusterRoleBinding)
 
-	err = rbacClient.ClusterRoleBindings().Delete(context.TODO(), pkg.PrivilegedClusterRoleBinding, metav1.DeleteOptions{})
+	err = client.ClusterRoleBindings().Delete(context.TODO(), pkg.PrivilegedClusterRoleBinding, metav1.DeleteOptions{})
 	if err != nil {
 		return err
 	}
