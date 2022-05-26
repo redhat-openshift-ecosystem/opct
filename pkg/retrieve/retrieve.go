@@ -2,6 +2,7 @@ package retrieve
 
 import (
 	"io"
+	"os"
 	"time"
 
 	"github.com/pkg/errors"
@@ -12,18 +13,31 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/openshift/provider-certification-tool/pkg"
-	results2 "github.com/openshift/provider-certification-tool/pkg/results"
 	"github.com/openshift/provider-certification-tool/pkg/status"
 )
 
 func NewCmdRetrieve(config *pkg.Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "retrieve",
+		Args:  cobra.MaximumNArgs(1),
 		Short: "Collect results from certification environment",
 		Long:  `Downloads the results archive from the certification environment`,
 		Run: func(cmd *cobra.Command, args []string) {
+			destinationDirectory, err := os.Getwd()
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			if len(args) == 1 {
+				destinationDirectory = args[0]
+				if _, err := os.Stat(destinationDirectory); err != nil {
+					log.Error(err)
+					return
+				}
+			}
+
 			s := status.NewStatusOptions(config)
-			err := s.PreRunCheck()
+			err = s.PreRunCheck()
 			if err != nil {
 				log.Error(err)
 				return
@@ -31,7 +45,7 @@ func NewCmdRetrieve(config *pkg.Config) *cobra.Command {
 
 			log.Info("Collecting results...")
 
-			if err := retrieveResultsRetry(config); err != nil {
+			if err := retrieveResultsRetry(config, destinationDirectory); err != nil {
 				log.Error(err)
 				return
 			}
@@ -41,13 +55,13 @@ func NewCmdRetrieve(config *pkg.Config) *cobra.Command {
 	}
 }
 
-func retrieveResultsRetry(config *pkg.Config) error {
+func retrieveResultsRetry(config *pkg.Config, destinationDirectory string) error {
 	var err error
 	limit := 10 // Retry retrieve 10 times
 	pause := time.Second * 2
 	retries := 1
 	for retries <= limit {
-		err = retrieveResults(config)
+		err = retrieveResults(config, destinationDirectory)
 		if err != nil {
 			log.Warn(err)
 			if retries+1 < limit {
@@ -63,7 +77,7 @@ func retrieveResultsRetry(config *pkg.Config) error {
 	return errors.New("Retrieval retry limit reached")
 }
 
-func retrieveResults(config *pkg.Config) error {
+func retrieveResults(config *pkg.Config, destinationDirectory string) error {
 	// Get a reader that contains the tar output of the results directory.
 	reader, ec, err := config.SonobuoyClient.RetrieveResults(&client.RetrieveConfig{
 		Namespace: pkg.CertificationNamespace,
@@ -73,20 +87,15 @@ func retrieveResults(config *pkg.Config) error {
 		return errors.Wrap(err, "error retrieving results from sonobuoy")
 	}
 
-	// Download results into cache directory
-	err, results := writeResultsToDirectory(pkg.ResultsDirectory, reader, ec)
+	// Download results into target directory
+	err, results := writeResultsToDirectory(destinationDirectory, reader, ec)
 	if err != nil {
 		return errors.Wrap(err, "error retrieving certification results from sonobyuoy")
 	}
 
-	// Log the new files to stdout and save them to a cache for results and upload commands
+	// Log the new files to stdout
 	for _, result := range results {
 		log.Infof("Results saved to %s", result)
-	}
-
-	err = results2.SaveToResultsFile(results)
-	if err != nil {
-		return errors.Wrap(err, "error saving results to cache file")
 	}
 
 	return nil
