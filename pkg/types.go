@@ -31,7 +31,7 @@ func init() {
 
 type Config struct {
 	Kubeconfig     string
-	Clientset      *kubernetes.Clientset
+	Clientset      kubernetes.Interface
 	SonobuoyClient *client.SonobuoyClient
 	SonobuoyImage  string
 	Timeout        int
