@@ -16,7 +16,6 @@ import (
 
 	"github.com/openshift/provider-certification-tool/pkg"
 	"github.com/openshift/provider-certification-tool/pkg/destroy"
-	"github.com/openshift/provider-certification-tool/pkg/results"
 	"github.com/openshift/provider-certification-tool/pkg/retrieve"
 	"github.com/openshift/provider-certification-tool/pkg/run"
 	"github.com/openshift/provider-certification-tool/pkg/status"
@@ -86,13 +85,14 @@ func init() {
 
 	// Link in child commands
 	rootCmd.AddCommand(destroy.NewCmdDestroy(config))
-	rootCmd.AddCommand(results.NewCmdResults(config))
 	rootCmd.AddCommand(retrieve.NewCmdRetrieve(config))
 	rootCmd.AddCommand(run.NewCmdRun(config))
 	rootCmd.AddCommand(status.NewCmdStatus(config))
 	rootCmd.AddCommand(version.NewCmdVersion())
 
+	// Link in child commands direct from Sonobuoy
 	rootCmd.AddCommand(app.NewSonobuoyCommand())
+	rootCmd.AddCommand(app.NewCmdResults())
 }
 
 // initConfig reads in config file and ENV variables if set.
