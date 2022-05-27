@@ -30,8 +30,13 @@ func NewCmdRetrieve(config *pkg.Config) *cobra.Command {
 			}
 			if len(args) == 1 {
 				destinationDirectory = args[0]
-				if _, err := os.Stat(destinationDirectory); err != nil {
+				finfo, err := os.Stat(destinationDirectory)
+				if err != nil {
 					log.Error(err)
+					return
+				}
+				if !finfo.IsDir() {
+					log.Error("Retrieval destination must be directory")
 					return
 				}
 			}
