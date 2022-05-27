@@ -12,9 +12,11 @@ import (
 	"github.com/vmware-tanzu/sonobuoy/pkg/config"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/loader"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/manifest"
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/json"
 
 	"github.com/openshift/provider-certification-tool/pkg"
 	"github.com/openshift/provider-certification-tool/pkg/assets"
@@ -23,8 +25,9 @@ import (
 )
 
 type RunOptions struct {
-	config  *pkg.Config
-	plugins *[]string
+	config    *pkg.Config
+	plugins   *[]string
+	dedicated bool
 }
 
 const runTimeoutSeconds = 21600
@@ -50,13 +53,13 @@ func NewCmdRun(config *pkg.Config) *cobra.Command {
 		Use:   "run",
 		Short: "Run the suite of tests for provider certification",
 		Long:  `Launches the provider certification environment inside of an already running OpenShift cluster`,
-		PreRun: func(cmd *cobra.Command, args []string) {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Pre-checks and setup
 			err := o.PreRunCheck()
 			if err != nil {
-				log.WithError(err).Error("error running pre-checks")
-				return
+				return err
 			}
+			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			log.Info("Running OpenShift Provider Certification Tool...")
@@ -91,10 +94,11 @@ func NewCmdRun(config *pkg.Config) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&o.dedicated, "dedicated", false, "Setup plugins to run in dedicated test environment.")
+	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times (defaults to latest plugins in https://github.com/openshift/provider-certification-tool)")
 	cmd.Flags().StringVar(&o.config.SonobuoyImage, "sonobuoy-image", fmt.Sprintf("quay.io/mrbraga/sonobuoy:%s", buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
 	cmd.Flags().IntVar(&o.config.Timeout, "timeout", runTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.config.Watch, "watch", "w", false, "Keep watch status after running")
-	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times (defaults to latest plugins in https://github.com/openshift/provider-certification-tool)")
 
 	return cmd
 }
@@ -115,6 +119,19 @@ func (r *RunOptions) PreRunCheck() error {
 	// sonobuoy namespace exists so return error
 	if p.Name != "" {
 		return errors.New("sonobuoy namespace already exists")
+	}
+
+	if r.dedicated {
+		log.Info("Ensuring proper node label for dedicated mode")
+		nodes, err := client.Nodes().List(context.TODO(), metav1.ListOptions{
+			LabelSelector: "node-role.kubernetes.io/tests=",
+		})
+		if err != nil {
+			return err
+		}
+		if nodes.Items != nil && len(nodes.Items) == 0 {
+			return errors.New("No nodes with role required for dedicated mode (node-role.kubernetes.io/tests)")
+		}
 	}
 
 	log.Info("Ensuring the tool will run in the privileged environment...")
@@ -186,17 +203,45 @@ func (r *RunOptions) PreRunCheck() error {
 func (r *RunOptions) Run() error {
 	var manifests []*manifest.Manifest
 
-	// Let Sonobuoy do some preflight checks before we run
-	errs := r.config.SonobuoyClient.PreflightChecks(&client.PreflightConfig{
-		Namespace:    pkg.CertificationNamespace,
-		DNSNamespace: "openshift-dns",
-		DNSPodLabels: []string{"dns.operator.openshift.io/daemonset-dns=default"},
-	})
-	if len(errs) > 0 {
-		for _, err := range errs {
-			log.Error(err)
+	if r.dedicated {
+		// Skip preflight checks and create namespace manually with Tolerations
+		tolerations, err := json.Marshal([]v1.Toleration{{
+			Key:      "node-role.kubernetes.io/tests",
+			Operator: v1.TolerationOpExists,
+			Value:    "",
+			Effect:   v1.TaintEffectNoSchedule,
+		}})
+		if err != nil {
+			return err
 		}
-		return errors.New("preflight checks failed")
+
+		dedicatedNamespace := &v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: pkg.CertificationNamespace,
+				Annotations: map[string]string{
+					v1.TolerationsAnnotationKey:  string(tolerations),
+					"openshift.io/node-selector": "node-role.kubernetes.io/tests=",
+				},
+			},
+		}
+
+		_, err = r.config.Clientset.CoreV1().Namespaces().Create(context.TODO(), dedicatedNamespace, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	} else {
+		// Let Sonobuoy do some preflight checks before we run
+		errs := r.config.SonobuoyClient.PreflightChecks(&client.PreflightConfig{
+			Namespace:    pkg.CertificationNamespace,
+			DNSNamespace: "openshift-dns",
+			DNSPodLabels: []string{"dns.operator.openshift.io/daemonset-dns=default"},
+		})
+		if len(errs) > 0 {
+			for _, err := range errs {
+				log.Error(err)
+			}
+			return errors.New("preflight checks failed")
+		}
 	}
 
 	if r.plugins == nil || len(*r.plugins) == 0 {
