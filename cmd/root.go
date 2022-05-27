@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/openshift/provider-certification-tool/pkg"
+	"github.com/openshift/provider-certification-tool/pkg/assets"
 	"github.com/openshift/provider-certification-tool/pkg/destroy"
 	"github.com/openshift/provider-certification-tool/pkg/retrieve"
 	"github.com/openshift/provider-certification-tool/pkg/run"
@@ -87,6 +88,7 @@ func init() {
 	viper.BindPFlag("loglevel", rootCmd.PersistentFlags().Lookup("loglevel"))
 
 	// Link in child commands
+	rootCmd.AddCommand(assets.NewCmdAssets())
 	rootCmd.AddCommand(destroy.NewCmdDestroy(config))
 	rootCmd.AddCommand(retrieve.NewCmdRetrieve(config))
 	rootCmd.AddCommand(run.NewCmdRun(config))
