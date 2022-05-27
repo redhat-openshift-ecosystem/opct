@@ -61,6 +61,9 @@ var rootCmd = &cobra.Command{
 		}
 
 		config.SonobuoyClient, err = client.NewSonobuoyClient(clientConfig, skc)
+		if err != nil {
+			return err
+		}
 
 		return nil
 	},

@@ -88,7 +88,7 @@ func retrieveResults(config *pkg.Config, destinationDirectory string) error {
 	}
 
 	// Download results into target directory
-	err, results := writeResultsToDirectory(destinationDirectory, reader, ec)
+	results, err := writeResultsToDirectory(destinationDirectory, reader, ec)
 	if err != nil {
 		return errors.Wrap(err, "error retrieving certification results from sonobyuoy")
 	}
@@ -101,7 +101,7 @@ func retrieveResults(config *pkg.Config, destinationDirectory string) error {
 	return nil
 }
 
-func writeResultsToDirectory(outputDir string, r io.Reader, ec <-chan error) (error, []string) {
+func writeResultsToDirectory(outputDir string, r io.Reader, ec <-chan error) ([]string, error) {
 	eg := &errgroup.Group{}
 	var results []string
 	eg.Go(func() error { return <-ec })
@@ -112,12 +112,10 @@ func writeResultsToDirectory(outputDir string, r io.Reader, ec <-chan error) (er
 			return err
 		}
 		// Only print the filename if not extracting. Allows capturing the filename for scripting.
-		for _, name := range filesCreated {
-			results = append(results, name)
-		}
+		results = append(results, filesCreated...)
 
 		return nil
 	})
 
-	return eg.Wait(), results
+	return results, eg.Wait()
 }
