@@ -32,13 +32,6 @@ type RunOptions struct {
 
 const runTimeoutSeconds = 21600
 
-var defaultPlugins = []string{
-	"manifests/openshift-kube-conformance.yaml",
-	"manifests/openshift-provider-cert-level-1.yaml",
-	"manifests/openshift-provider-cert-level-2.yaml",
-	"manifests/openshift-provider-cert-level-3.yaml",
-}
-
 func NewRunOptions(config *pkg.Config) *RunOptions {
 	return &RunOptions{
 		config:  config,
@@ -247,7 +240,7 @@ func (r *RunOptions) Run() error {
 	if r.plugins == nil || len(*r.plugins) == 0 {
 		// Use default built-in plugins
 		log.Debugf("Loading default certification plugins")
-		for _, m := range defaultPlugins {
+		for _, m := range assets.AssetNames() {
 			log.Debugf("Loading certification plugin: %s", m)
 			asset, err := loader.LoadDefinition(assets.MustAsset(m))
 			if err != nil {
