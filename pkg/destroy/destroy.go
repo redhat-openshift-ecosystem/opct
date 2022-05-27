@@ -45,11 +45,6 @@ func NewCmdDestroy(config *pkg.Config) *cobra.Command {
 				log.Warn(err)
 			}
 
-			err = o.DeleteStateFile()
-			if err != nil {
-				log.Warn(err)
-			}
-
 			log.Info("removing non-openshift NS...")
 			err = o.DeleteTestNamespaces()
 			if err != nil {
@@ -77,13 +72,6 @@ func (d *DestroyOptions) DeleteSonobuoyEnv() error {
 	}
 
 	return d.config.SonobuoyClient.Delete(deleteConfig)
-}
-
-// DeleteStateFile deletes the on-disk saved state.
-// TODO Implement on-disk saved state
-func (d *DestroyOptions) DeleteStateFile() error {
-	log.Warn("DeleteStateFile not implemented yet")
-	return nil
 }
 
 // DeleteTestNamespaces deletes any non-openshift namespace.
