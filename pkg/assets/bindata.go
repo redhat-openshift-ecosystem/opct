@@ -1,9 +1,7 @@
 // Code generated for package assets by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// manifests/openshift-conformance-validated.yaml
 // manifests/openshift-kube-conformance.yaml
-// manifests/openshift-provider-cert-level-1.yaml
-// manifests/openshift-provider-cert-level-2.yaml
-// manifests/openshift-provider-cert-level-3.yaml
 package assets
 
 import (
@@ -56,18 +54,66 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
+var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
+  restartPolicy: Never
+  serviceAccountName: sonobuoy-serviceaccount
+  containers:
+    - name: report-progress
+      image: quay.io/mrbraga/openshift-tests-provider-cert:devel
+      imagePullPolicy: Always
+      priorityClassName: system-node-critical
+      command: ["./report-progress.sh"]
+      volumeMounts:
+      - mountPath: /tmp/sonobuoy/results
+        name: results
+      env:
+        - name: CERT_LEVEL
+          value: "1"
+
+sonobuoy-config:
+  driver: Job
+  plugin-name: openshift-conformance-validated
+  result-format: junit
+  description: The end-to-end tests maintained by OpenShift to certify the Provider running the OpenShift Container Platform.
+  source-url: https://github.com/openshift/provider-certification-tool/blob/mvp/tools/plugins/openshift-conformance-validated.yaml
+  skipCleanup: true
+spec:
+  name: plugin
+  image: quay.io/mrbraga/openshift-tests-provider-cert:devel
+  imagePullPolicy: Always
+  priorityClassName: system-node-critical
+  volumeMounts:
+  - mountPath: /tmp/sonobuoy/results
+    name: results
+  env:
+    - name: CERT_LEVEL
+      value: "1"
+  resources:
+    requests:
+      memory: "4096Mi"
+`)
+
+func manifestsOpenshiftConformanceValidatedYamlBytes() ([]byte, error) {
+	return _manifestsOpenshiftConformanceValidatedYaml, nil
+}
+
+func manifestsOpenshiftConformanceValidatedYaml() (*asset, error) {
+	bytes, err := manifestsOpenshiftConformanceValidatedYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "manifests/openshift-conformance-validated.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
   restartPolicy: Never
   serviceAccountName: sonobuoy-serviceaccount
-  tolerations:
-  - effect: NoSchedule
-    key: node-role.kubernetes.io/master
-    operator: Exists
-  - key: CriticalAddonsOnly
-    operator: Exists
   containers:
     - name: report-progress
-      image: quay.io/mrbraga/openshift-tests-provider-cert:stable
+      image: quay.io/mrbraga/openshift-tests-provider-cert:devel
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -87,16 +133,18 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/mrbraga/openshift-tests-provider-cert:stable
+  image: quay.io/mrbraga/openshift-tests-provider-cert:devel
   imagePullPolicy: Always
   priorityClassName: system-node-critical
-  resources: {}
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
     name: results
   env:
     - name: CERT_LEVEL
       value: "0"
+  resources:
+    requests:
+      memory: "4096Mi"
 `)
 
 func manifestsOpenshiftKubeConformanceYamlBytes() ([]byte, error) {
@@ -110,180 +158,6 @@ func manifestsOpenshiftKubeConformanceYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "manifests/openshift-kube-conformance.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _manifestsOpenshiftProviderCertLevel1Yaml = []byte(`podSpec:
-  restartPolicy: Never
-  serviceAccountName: sonobuoy-serviceaccount
-  tolerations:
-  - effect: NoSchedule
-    key: node-role.kubernetes.io/master
-    operator: Exists
-  - key: CriticalAddonsOnly
-    operator: Exists
-  containers:
-    - name: report-progress
-      image: quay.io/mrbraga/openshift-tests-provider-cert:stable
-      imagePullPolicy: Always
-      priorityClassName: system-node-critical
-      command: ["./report-progress.sh"]
-      volumeMounts:
-      - mountPath: /tmp/sonobuoy/results
-        name: results
-      env:
-        - name: CERT_LEVEL
-          value: "1"
-
-sonobuoy-config:
-  driver: Job
-  plugin-name: openshift-provider-cert-level1
-  result-format: junit
-  description: The end-to-end tests maintained by OpenShift to certify the Provider running the OpenShift Container Platform.
-  source-url: https://github.com/openshift/provider-certification-tool/blob/mvp/tools/plugins/openshift-provider-cert-level-1.yaml
-  skipCleanup: true
-spec:
-  name: plugin
-  image: quay.io/mrbraga/openshift-tests-provider-cert:stable
-  imagePullPolicy: Always
-  priorityClassName: system-node-critical
-  resources: {}
-  volumeMounts:
-  - mountPath: /tmp/sonobuoy/results
-    name: results
-  env:
-    - name: CERT_LEVEL
-      value: "1"
-`)
-
-func manifestsOpenshiftProviderCertLevel1YamlBytes() ([]byte, error) {
-	return _manifestsOpenshiftProviderCertLevel1Yaml, nil
-}
-
-func manifestsOpenshiftProviderCertLevel1Yaml() (*asset, error) {
-	bytes, err := manifestsOpenshiftProviderCertLevel1YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "manifests/openshift-provider-cert-level-1.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _manifestsOpenshiftProviderCertLevel2Yaml = []byte(`podSpec:
-  restartPolicy: Never
-  serviceAccountName: sonobuoy-serviceaccount
-  tolerations:
-  - effect: NoSchedule
-    key: node-role.kubernetes.io/master
-    operator: Exists
-  - key: CriticalAddonsOnly
-    operator: Exists
-  containers:
-    - name: report-progress
-      image: quay.io/mrbraga/openshift-tests-provider-cert:stable
-      imagePullPolicy: Always
-      priorityClassName: system-node-critical
-      command: ["./report-progress.sh"]
-      volumeMounts:
-      - mountPath: /tmp/sonobuoy/results
-        name: results
-      env:
-        - name: CERT_LEVEL
-          value: "2"
-
-sonobuoy-config:
-  driver: Job
-  plugin-name: openshift-provider-cert-level2
-  result-format: junit
-  description: The end-to-end tests maintained by OpenShift to certify the Provider running the OpenShift Container Platform.
-  source-url: https://github.com/openshift/provider-certification-tool/blob/mvp/tools/plugins/openshift-provider-cert-level-2.yaml
-  skipCleanup: true
-spec:
-  name: plugin
-  image: quay.io/mrbraga/openshift-tests-provider-cert:stable
-  imagePullPolicy: Always
-  priorityClassName: system-node-critical
-  resources: {}
-  volumeMounts:
-  - mountPath: /tmp/sonobuoy/results
-    name: results
-  env:
-    - name: CERT_LEVEL
-      value: "2"
-`)
-
-func manifestsOpenshiftProviderCertLevel2YamlBytes() ([]byte, error) {
-	return _manifestsOpenshiftProviderCertLevel2Yaml, nil
-}
-
-func manifestsOpenshiftProviderCertLevel2Yaml() (*asset, error) {
-	bytes, err := manifestsOpenshiftProviderCertLevel2YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "manifests/openshift-provider-cert-level-2.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _manifestsOpenshiftProviderCertLevel3Yaml = []byte(`podSpec:
-  restartPolicy: Never
-  serviceAccountName: sonobuoy-serviceaccount
-  tolerations:
-  - effect: NoSchedule
-    key: node-role.kubernetes.io/master
-    operator: Exists
-  - key: CriticalAddonsOnly
-    operator: Exists
-  containers:
-    - name: report-progress
-      image: quay.io/mrbraga/openshift-tests-provider-cert:stable
-      imagePullPolicy: Always
-      priorityClassName: system-node-critical
-      command: ["./report-progress.sh"]
-      volumeMounts:
-      - mountPath: /tmp/sonobuoy/results
-        name: results
-      env:
-        - name: CERT_LEVEL
-          value: "3"
-
-sonobuoy-config:
-  driver: Job
-  plugin-name: openshift-provider-cert-level3
-  result-format: junit
-  description: The end-to-end tests maintained by OpenShift to certify the Provider running the OpenShift Container Platform.
-  source-url: https://github.com/openshift/provider-certification-tool/blob/mvp/tools/plugins/openshift-provider-cert-level-3.yaml
-  skipCleanup: true
-spec:
-  name: plugin
-  image: quay.io/mrbraga/openshift-tests-provider-cert:stable
-  imagePullPolicy: Always
-  priorityClassName: system-node-critical
-  resources: {}
-  volumeMounts:
-  - mountPath: /tmp/sonobuoy/results
-    name: results
-  env:
-    - name: CERT_LEVEL
-      value: "3"
-`)
-
-func manifestsOpenshiftProviderCertLevel3YamlBytes() ([]byte, error) {
-	return _manifestsOpenshiftProviderCertLevel3Yaml, nil
-}
-
-func manifestsOpenshiftProviderCertLevel3Yaml() (*asset, error) {
-	bytes, err := manifestsOpenshiftProviderCertLevel3YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "manifests/openshift-provider-cert-level-3.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -340,10 +214,8 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"manifests/openshift-conformance-validated.yaml": manifestsOpenshiftConformanceValidatedYaml,
 	"manifests/openshift-kube-conformance.yaml":      manifestsOpenshiftKubeConformanceYaml,
-	"manifests/openshift-provider-cert-level-1.yaml": manifestsOpenshiftProviderCertLevel1Yaml,
-	"manifests/openshift-provider-cert-level-2.yaml": manifestsOpenshiftProviderCertLevel2Yaml,
-	"manifests/openshift-provider-cert-level-3.yaml": manifestsOpenshiftProviderCertLevel3Yaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -388,10 +260,8 @@ type bintree struct {
 
 var _bintree = &bintree{nil, map[string]*bintree{
 	"manifests": &bintree{nil, map[string]*bintree{
+		"openshift-conformance-validated.yaml": &bintree{manifestsOpenshiftConformanceValidatedYaml, map[string]*bintree{}},
 		"openshift-kube-conformance.yaml":      &bintree{manifestsOpenshiftKubeConformanceYaml, map[string]*bintree{}},
-		"openshift-provider-cert-level-1.yaml": &bintree{manifestsOpenshiftProviderCertLevel1Yaml, map[string]*bintree{}},
-		"openshift-provider-cert-level-2.yaml": &bintree{manifestsOpenshiftProviderCertLevel2Yaml, map[string]*bintree{}},
-		"openshift-provider-cert-level-3.yaml": &bintree{manifestsOpenshiftProviderCertLevel3Yaml, map[string]*bintree{}},
 	}},
 }}
 
