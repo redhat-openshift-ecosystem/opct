@@ -1,15 +1,9 @@
 podSpec:
   restartPolicy: Never
   serviceAccountName: sonobuoy-serviceaccount
-  tolerations:
-  - effect: NoSchedule
-    key: node-role.kubernetes.io/master
-    operator: Exists
-  - key: CriticalAddonsOnly
-    operator: Exists
   containers:
     - name: report-progress
-      image: quay.io/mrbraga/openshift-tests-provider-cert:stable
+      image: quay.io/mrbraga/openshift-tests-provider-cert:devel
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -18,24 +12,26 @@ podSpec:
         name: results
       env:
         - name: CERT_LEVEL
-          value: "2"
+          value: "1"
 
 sonobuoy-config:
   driver: Job
-  plugin-name: openshift-provider-cert-level2
+  plugin-name: openshift-conformance-validated
   result-format: junit
   description: The end-to-end tests maintained by OpenShift to certify the Provider running the OpenShift Container Platform.
-  source-url: https://github.com/openshift/provider-certification-tool/blob/mvp/tools/plugins/openshift-provider-cert-level-2.yaml
+  source-url: https://github.com/openshift/provider-certification-tool/blob/mvp/tools/plugins/openshift-conformance-validated.yaml
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/mrbraga/openshift-tests-provider-cert:stable
+  image: quay.io/mrbraga/openshift-tests-provider-cert:devel
   imagePullPolicy: Always
   priorityClassName: system-node-critical
-  resources: {}
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
     name: results
   env:
     - name: CERT_LEVEL
-      value: "2"
+      value: "1"
+  resources:
+    requests:
+      memory: "4096Mi"
