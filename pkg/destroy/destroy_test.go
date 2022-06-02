@@ -9,8 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-
-	"github.com/openshift/provider-certification-tool/pkg"
 )
 
 func Test_DeleteTestNamespaces(t *testing.T) {
@@ -41,14 +39,10 @@ func Test_DeleteTestNamespaces(t *testing.T) {
 
 		// Get Clientset and initialize with namespaces
 		clientset := fake.NewSimpleClientset(namespaces...)
-		d := DestroyOptions{
-			config: &pkg.Config{
-				Clientset: clientset,
-			},
-		}
+		d := DestroyOptions{}
 
 		// Delete namespaces
-		err := d.DeleteTestNamespaces()
+		err := d.DeleteTestNamespaces(clientset)
 		assert.Nil(t, err)
 
 		// Get actual list of namespaces after deletion

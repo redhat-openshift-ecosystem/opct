@@ -4,18 +4,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
-	"github.com/vmware-tanzu/sonobuoy/pkg/client"
-	sonodynamic "github.com/vmware-tanzu/sonobuoy/pkg/dynamic"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/openshift/provider-certification-tool/pkg"
 	"github.com/openshift/provider-certification-tool/pkg/assets"
+	"github.com/openshift/provider-certification-tool/pkg/client"
 	"github.com/openshift/provider-certification-tool/pkg/destroy"
 	"github.com/openshift/provider-certification-tool/pkg/retrieve"
 	"github.com/openshift/provider-certification-tool/pkg/run"
@@ -23,9 +18,7 @@ import (
 	"github.com/openshift/provider-certification-tool/pkg/version"
 )
 
-var (
-	config = &pkg.Config{}
-)
+var ()
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -43,28 +36,8 @@ var rootCmd = &cobra.Command{
 		}
 		log.SetLevel(logrusLevel)
 
-		// Prepare kube client config
-		config.Kubeconfig = viper.GetString("kubeconfig")
-		clientConfig, err := clientcmd.BuildConfigFromFlags("", config.Kubeconfig)
-		if err != nil {
-			return err
-		}
-
-		config.Clientset, err = kubernetes.NewForConfig(clientConfig)
-		if err != nil {
-			return err
-		}
-
-		// Prepare sonobuoy client
-		skc, err := sonodynamic.NewAPIHelperFromRESTConfig(clientConfig)
-		if err != nil {
-			return errors.Wrap(err, "couldn't get sonobuoy api helper")
-		}
-
-		config.SonobuoyClient, err = client.NewSonobuoyClient(clientConfig, skc)
-		if err != nil {
-			return err
-		}
+		// Save kubeconfig
+		client.Kubeconfig = viper.GetString("kubeconfig")
 
 		return nil
 	},
@@ -89,10 +62,10 @@ func init() {
 
 	// Link in child commands
 	rootCmd.AddCommand(assets.NewCmdAssets())
-	rootCmd.AddCommand(destroy.NewCmdDestroy(config))
-	rootCmd.AddCommand(retrieve.NewCmdRetrieve(config))
-	rootCmd.AddCommand(run.NewCmdRun(config))
-	rootCmd.AddCommand(status.NewCmdStatus(config))
+	rootCmd.AddCommand(destroy.NewCmdDestroy())
+	rootCmd.AddCommand(retrieve.NewCmdRetrieve())
+	rootCmd.AddCommand(run.NewCmdRun())
+	rootCmd.AddCommand(status.NewCmdStatus())
 	rootCmd.AddCommand(version.NewCmdVersion())
 
 	// Link in child commands direct from Sonobuoy

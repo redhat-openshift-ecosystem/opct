@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	watchtools "k8s.io/client-go/tools/watch"
 
@@ -18,10 +19,10 @@ import (
 
 // WaitForRequiredResources will wait for the sonobuoy pod in the sonobuoy namespace to go into
 // a Running/Ready state and then return nil.
-func WaitForRequiredResources(config *pkg.Config) error {
+func WaitForRequiredResources(kclient kubernetes.Interface) error {
 	var obj kruntime.Object
 
-	restClient := config.Clientset.CoreV1().RESTClient()
+	restClient := kclient.CoreV1().RESTClient()
 
 	lw := cache.NewFilteredListWatchFromClient(restClient, "pods", pkg.CertificationNamespace, func(options *metav1.ListOptions) {
 		options.LabelSelector = "component=sonobuoy,sonobuoy-component=aggregator"

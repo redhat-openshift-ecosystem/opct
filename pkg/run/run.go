@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/sonobuoy/pkg/buildinfo"
-	"github.com/vmware-tanzu/sonobuoy/pkg/client"
+	sonobuoyclient "github.com/vmware-tanzu/sonobuoy/pkg/client"
 	"github.com/vmware-tanzu/sonobuoy/pkg/config"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/loader"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/manifest"
@@ -17,38 +17,50 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/openshift/provider-certification-tool/pkg"
 	"github.com/openshift/provider-certification-tool/pkg/assets"
+	"github.com/openshift/provider-certification-tool/pkg/client"
 	"github.com/openshift/provider-certification-tool/pkg/status"
 	"github.com/openshift/provider-certification-tool/pkg/wait"
 )
 
 type RunOptions struct {
-	config    *pkg.Config
-	plugins   *[]string
-	dedicated bool
+	plugins       *[]string
+	dedicated     bool
+	sonobuoyImage string
+	timeout       int
+	watch         bool
 }
 
 const runTimeoutSeconds = 21600
 
-func NewRunOptions(config *pkg.Config) *RunOptions {
+func newRunOptions() *RunOptions {
 	return &RunOptions{
-		config:  config,
 		plugins: &[]string{},
 	}
 }
 
-func NewCmdRun(config *pkg.Config) *cobra.Command {
-	o := NewRunOptions(config)
+func NewCmdRun() *cobra.Command {
+	var err error
+	var kclient kubernetes.Interface
+	var sclient sonobuoyclient.Interface
+	o := newRunOptions()
 
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run the suite of tests for provider certification",
 		Long:  `Launches the provider certification environment inside of an already running OpenShift cluster`,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// Client setup
+			kclient, sclient, err = client.CreateClients()
+			if err != nil {
+				return err
+			}
+
 			// Pre-checks and setup
-			err := o.PreRunCheck()
+			err = o.PreRunCheck(kclient)
 			if err != nil {
 				return err
 			}
@@ -58,7 +70,7 @@ func NewCmdRun(config *pkg.Config) *cobra.Command {
 			log.Info("Running OpenShift Provider Certification Tool...")
 
 			// Fire off sonobuoy
-			err := o.Run()
+			err := o.Run(kclient, sclient)
 			if err != nil {
 				log.WithError(err).Error("Error running the tool. Please check the errors and try again.")
 				return
@@ -67,21 +79,22 @@ func NewCmdRun(config *pkg.Config) *cobra.Command {
 			log.Info("Jobs scheduled! Waiting for resources be created...")
 
 			// Wait for Sonobuoy to create
-			wait.WaitForRequiredResources(o.config)
+			wait.WaitForRequiredResources(kclient)
 			if err != nil {
 				log.WithError(err).Error("error waiting for sonobuoy pods to become ready")
 				return
 			}
 
-			s := status.NewStatusOptions(o.config)
-			err = s.WaitForStatusReport(cmd.Context())
+			s := status.NewStatusOptions(o.watch)
+			err = s.WaitForStatusReport(cmd.Context(), sclient)
 			if err != nil {
 				log.WithError(err).Error("error retrieving aggregator status")
 			}
 
-			st := status.NewStatusOptions(o.config)
-			st.Update()
-			st.Print(cmd)
+			// TODO Why's there a second StatusOptions instance?
+			st := status.NewStatusOptions(o.watch)
+			st.Update(sclient)
+			st.Print(cmd, sclient)
 
 			log.Info("Sonobuoy pods are ready!")
 		},
@@ -89,19 +102,20 @@ func NewCmdRun(config *pkg.Config) *cobra.Command {
 
 	cmd.Flags().BoolVar(&o.dedicated, "dedicated", false, "Setup plugins to run in dedicated test environment.")
 	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times (defaults to latest plugins in https://github.com/openshift/provider-certification-tool)")
-	cmd.Flags().StringVar(&o.config.SonobuoyImage, "sonobuoy-image", fmt.Sprintf("quay.io/mrbraga/sonobuoy:%s", buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
-	cmd.Flags().IntVar(&o.config.Timeout, "timeout", runTimeoutSeconds, "Execution timeout in seconds")
-	cmd.Flags().BoolVarP(&o.config.Watch, "watch", "w", false, "Keep watch status after running")
+	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", fmt.Sprintf("quay.io/mrbraga/sonobuoy:%s", buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
+	cmd.Flags().IntVar(&o.timeout, "timeout", runTimeoutSeconds, "Execution timeout in seconds")
+	cmd.Flags().BoolVarP(&o.watch, "watch", "w", false, "Keep watch status after running")
 
 	return cmd
 }
 
 // PreRunCheck performs some checks before kicking off Sonobuoy
-func (r *RunOptions) PreRunCheck() error {
-	client := r.config.Clientset.CoreV1()
+func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
+	coreClient := kclient.CoreV1()
+	rbacClient := kclient.RbacV1()
 
 	// Check if sonobuoy namespace already exists
-	p, err := client.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
+	p, err := coreClient.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
 	if err != nil {
 		// If error is due to namespace not being found, we continue.
 		if !kerrors.IsNotFound(err) {
@@ -116,7 +130,7 @@ func (r *RunOptions) PreRunCheck() error {
 
 	if r.dedicated {
 		log.Info("Ensuring proper node label for dedicated mode")
-		nodes, err := client.Nodes().List(context.TODO(), metav1.ListOptions{
+		nodes, err := coreClient.Nodes().List(context.TODO(), metav1.ListOptions{
 			LabelSelector: "node-role.kubernetes.io/tests=",
 		})
 		if err != nil {
@@ -129,8 +143,6 @@ func (r *RunOptions) PreRunCheck() error {
 
 	log.Info("Ensuring the tool will run in the privileged environment...")
 	// Configure SCC
-	rbacClient := r.config.Clientset.RbacV1()
-
 	anyuid := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: pkg.AnyUIDClusterRoleBinding,
@@ -193,7 +205,7 @@ func (r *RunOptions) PreRunCheck() error {
 	return nil
 }
 
-func (r *RunOptions) Run() error {
+func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.Interface) error {
 	var manifests []*manifest.Manifest
 
 	if r.dedicated {
@@ -218,13 +230,13 @@ func (r *RunOptions) Run() error {
 			},
 		}
 
-		_, err = r.config.Clientset.CoreV1().Namespaces().Create(context.TODO(), dedicatedNamespace, metav1.CreateOptions{})
+		_, err = kclient.CoreV1().Namespaces().Create(context.TODO(), dedicatedNamespace, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
 	} else {
 		// Let Sonobuoy do some preflight checks before we run
-		errs := r.config.SonobuoyClient.PreflightChecks(&client.PreflightConfig{
+		errs := sclient.PreflightChecks(&sonobuoyclient.PreflightConfig{
 			Namespace:    pkg.CertificationNamespace,
 			DNSNamespace: "openshift-dns",
 			DNSPodLabels: []string{"dns.operator.openshift.io/daemonset-dns=default"},
@@ -266,19 +278,19 @@ func (r *RunOptions) Run() error {
 
 	// Fill out the aggregator and worker configs
 	aggConfig := config.New()
-	if r.config.Timeout > 0 {
-		aggConfig.Aggregation.TimeoutSeconds = r.config.Timeout
+	if r.timeout > 0 {
+		aggConfig.Aggregation.TimeoutSeconds = r.timeout
 	}
-	if r.config.SonobuoyImage != "" {
-		aggConfig.WorkerImage = r.config.SonobuoyImage
+	if r.sonobuoyImage != "" {
+		aggConfig.WorkerImage = r.sonobuoyImage
 	}
 
 	// Set aggregator deployment namespace
 	aggConfig.Namespace = pkg.CertificationNamespace
 
 	// Fill out the Run configuration
-	runConfig := &client.RunConfig{
-		GenConfig: client.GenConfig{
+	runConfig := &sonobuoyclient.RunConfig{
+		GenConfig: sonobuoyclient.GenConfig{
 			Config:             aggConfig,
 			EnableRBAC:         true, // True because OpenShift uses RBAC
 			ImagePullPolicy:    config.DefaultSonobuoyPullPolicy,
@@ -287,6 +299,6 @@ func (r *RunOptions) Run() error {
 		},
 	}
 
-	err := r.config.SonobuoyClient.Run(runConfig)
+	err := sclient.Run(runConfig)
 	return err
 }
