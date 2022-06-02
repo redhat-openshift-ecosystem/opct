@@ -7,10 +7,12 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/vmware-tanzu/sonobuoy/pkg/client"
+	sonobuoyclient "github.com/vmware-tanzu/sonobuoy/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/openshift/provider-certification-tool/pkg"
+	"github.com/openshift/provider-certification-tool/pkg/client"
 )
 
 const (
@@ -19,17 +21,14 @@ const (
 )
 
 type DestroyOptions struct {
-	config *pkg.Config
 }
 
-func NewDestroyOptions(config *pkg.Config) *DestroyOptions {
-	return &DestroyOptions{
-		config: config,
-	}
+func NewDestroyOptions() *DestroyOptions {
+	return &DestroyOptions{}
 }
 
-func NewCmdDestroy(config *pkg.Config) *cobra.Command {
-	o := NewDestroyOptions(config)
+func NewCmdDestroy() *cobra.Command {
+	o := NewDestroyOptions()
 	cmd := &cobra.Command{
 		Use:     "destroy",
 		Aliases: []string{"delete"},
@@ -38,21 +37,26 @@ func NewCmdDestroy(config *pkg.Config) *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			log.Info("Starting the destroy flow...")
 
-			// TODO Should we exit on error anywhere below?
+			// Client setup
+			kclient, sclient, err := client.CreateClients()
+			if err != nil {
+				log.Error(err)
+				return
+			}
 
-			err := o.DeleteSonobuoyEnv()
+			err = o.DeleteSonobuoyEnv(sclient)
 			if err != nil {
 				log.Warn(err)
 			}
 
 			log.Info("removing non-openshift NS...")
-			err = o.DeleteTestNamespaces()
+			err = o.DeleteTestNamespaces(kclient)
 			if err != nil {
 				log.Warn(err)
 			}
 
 			log.Info("restoring privileged environment...")
-			err = o.RestoreSCC()
+			err = o.RestoreSCC(kclient)
 			if err != nil {
 				log.Warn(err)
 			}
@@ -65,18 +69,18 @@ func NewCmdDestroy(config *pkg.Config) *cobra.Command {
 }
 
 // DeleteSonobuoyEnv initiates deletion of Sonobuoy environment and waits until completion.
-func (d *DestroyOptions) DeleteSonobuoyEnv() error {
-	deleteConfig := &client.DeleteConfig{
+func (d *DestroyOptions) DeleteSonobuoyEnv(sclient sonobuoyclient.Interface) error {
+	deleteConfig := &sonobuoyclient.DeleteConfig{
 		Namespace: pkg.CertificationNamespace,
 		Wait:      DeleteSonobuoyEnvWaitTime,
 	}
 
-	return d.config.SonobuoyClient.Delete(deleteConfig)
+	return sclient.Delete(deleteConfig)
 }
 
 // DeleteTestNamespaces deletes any non-openshift namespace.
-func (d *DestroyOptions) DeleteTestNamespaces() error {
-	client := d.config.Clientset.CoreV1()
+func (d *DestroyOptions) DeleteTestNamespaces(kclient kubernetes.Interface) error {
+	client := kclient.CoreV1()
 
 	// Get list of all namespaces (TODO is there way to filter these server-side?)
 	nsList, err := client.Namespaces().List(context.TODO(), metav1.ListOptions{})
@@ -105,8 +109,8 @@ func (d *DestroyOptions) DeleteTestNamespaces() error {
 	return nil
 }
 
-func (d *DestroyOptions) RestoreSCC() error {
-	client := d.config.Clientset.RbacV1()
+func (d *DestroyOptions) RestoreSCC(kclient kubernetes.Interface) error {
+	client := kclient.RbacV1()
 
 	err := client.ClusterRoleBindings().Delete(context.TODO(), pkg.AnyUIDClusterRoleBinding, metav1.DeleteOptions{})
 	if err != nil {
