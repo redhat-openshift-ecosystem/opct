@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	coclient "github.com/openshift/client-go/config/clientset/versioned"
+	irclient "github.com/openshift/client-go/imageregistry/clientset/versioned"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -116,13 +118,38 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	coreClient := kclient.CoreV1()
 	rbacClient := kclient.RbacV1()
 
+	// Get ConfigV1 client for Cluster Operators
+	restConfig, err := client.CreateRestConfig()
+	if err != nil {
+		return err
+	}
+	configClient, err := coclient.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+
 	// Check if Cluster Operators are stable
-	stable, err := checkClusterOperators()
+	stable, err := checkClusterOperators(configClient)
 	if err != nil {
 		return err
 	}
 	if !stable {
 		return errors.New("All Cluster Operators must be available, not progressing, and not degraded before certification can run")
+	}
+
+	// Get ConfigV1 client for Cluster Operators
+	irClient, err := irclient.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+
+	// Check if Registry is in managed state or exit
+	managed, err := checkRegistry(irClient)
+	if err != nil {
+		return err
+	}
+	if !managed {
+		return errors.New("OpenShift Image Registry must deployed before certification can run")
 	}
 
 	// Check if sonobuoy namespace already exists
@@ -314,16 +341,9 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 	return err
 }
 
-func checkClusterOperators() (bool, error) {
-	restConfig, err := client.CreateRestConfig()
-	if err != nil {
-		return false, err
-	}
-	c, err := coclient.NewForConfig(restConfig)
-	if err != nil {
-		return false, err
-	}
-	coList, err := c.ConfigV1().ClusterOperators().List(context.TODO(), metav1.ListOptions{})
+func checkClusterOperators(configClient coclient.Interface) (bool, error) {
+	// List all Cluster Operators
+	coList, err := configClient.ConfigV1().ClusterOperators().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -351,6 +371,16 @@ func checkClusterOperators() (bool, error) {
 	return true, nil
 }
 
-func checkRegistry() (bool, error) {
+// Check registry is in managed state. We assume Cluster Operator is stable.
+func checkRegistry(irClient irclient.Interface) (bool, error) {
+	irConfig, err := irClient.ImageregistryV1().Configs().Get(context.TODO(), "cluster", metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	if irConfig.Spec.ManagementState != operatorv1.Managed {
+		return false, nil
+	}
+
 	return true, nil
 }
