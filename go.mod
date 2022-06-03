@@ -3,6 +3,8 @@ module github.com/openshift/provider-certification-tool
 go 1.17
 
 require (
+	github.com/openshift/api v0.0.0-20210910062324-a41d3573a3ba // indirect
+	github.com/openshift/client-go v0.0.0-20210521082421-73d9475a9142
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v1.4.0

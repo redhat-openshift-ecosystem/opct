@@ -34,10 +34,6 @@ func NewCmdVersion() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Print provider certification tool version",
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Override root cmd
-			return nil
-		},
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println(Version.String())
 			fmt.Printf("Sonobuoy Version: %s\n", buildinfo.Version)

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	configv1 "github.com/openshift/api/config/v1"
+	coclient "github.com/openshift/client-go/config/clientset/versioned"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -113,6 +115,15 @@ func NewCmdRun() *cobra.Command {
 func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	coreClient := kclient.CoreV1()
 	rbacClient := kclient.RbacV1()
+
+	// Check if Cluster Operators are stable
+	stable, err := checkClusterOperators()
+	if err != nil {
+		return err
+	}
+	if !stable {
+		return errors.New("All Cluster Operators must be available, not progressing, and not degraded before certification can run")
+	}
 
 	// Check if sonobuoy namespace already exists
 	p, err := coreClient.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
@@ -301,4 +312,45 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 
 	err := sclient.Run(runConfig)
 	return err
+}
+
+func checkClusterOperators() (bool, error) {
+	restConfig, err := client.CreateRestConfig()
+	if err != nil {
+		return false, err
+	}
+	c, err := coclient.NewForConfig(restConfig)
+	if err != nil {
+		return false, err
+	}
+	coList, err := c.ConfigV1().ClusterOperators().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	// Each Cluster Operator should be available, not progressing, and not degraded
+	for _, co := range coList.Items {
+		for _, cond := range co.Status.Conditions {
+			switch cond.Type {
+			case configv1.OperatorAvailable:
+				if cond.Status == configv1.ConditionFalse {
+					return false, nil
+				}
+			case configv1.OperatorProgressing:
+				if cond.Status == configv1.ConditionTrue {
+					return false, nil
+				}
+			case configv1.OperatorDegraded:
+				if cond.Status == configv1.ConditionTrue {
+					return false, nil
+				}
+			}
+		}
+	}
+
+	return true, nil
+}
+
+func checkRegistry() (bool, error) {
+	return true, nil
 }
