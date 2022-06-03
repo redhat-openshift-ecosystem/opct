@@ -16,10 +16,6 @@ func NewCmdAssets() *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		Short: "Save provider certification tool plugin assets to disk",
 		Long:  `Saves the provider certification tool's plugin asset YAML files locally for troubleshooting with run command'`,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Override root cmd
-			return nil
-		},
 		Run: func(cmd *cobra.Command, args []string) {
 			// Parse optional destination directory argument
 			destinationDirectory, err := os.Getwd()
