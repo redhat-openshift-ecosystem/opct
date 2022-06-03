@@ -1,0 +1,34 @@
+name: "Go"
+
+on:
+  pull_request:
+    branches:
+      - main
+      - mvp
+      - release-*
+
+jobs:
+  static:
+    name: "Run Continuous Integration"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
+      - name: Verify bindata was generated
+        run: |
+          go install github.com/go-bindata/go-bindata/go-bindata@latest
+          set -xe
+          ./hack/update-generated-bindata.sh
+          set +ex
+          git diff --exit-code
+      - name: Run unit tests
+        run: make test
+      - name: Run go vet
+        run: make vet
+      - name: Run static code analysis
+        uses: dominikh/staticcheck-action@v1.2.0
+        with:
+          version: "2022.1.1"
