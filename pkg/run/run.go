@@ -129,11 +129,11 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	}
 
 	// Check if Cluster Operators are stable
-	stable, err := checkClusterOperators(configClient)
-	if err != nil {
-		return err
-	}
-	if !stable {
+	errs := checkClusterOperators(configClient)
+	if errs != nil {
+		for _, err := range errs {
+			log.Warn(err)
+		}
 		return errors.New("All Cluster Operators must be available, not progressing, and not degraded before certification can run")
 	}
 
@@ -341,11 +341,12 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 	return err
 }
 
-func checkClusterOperators(configClient coclient.Interface) (bool, error) {
+func checkClusterOperators(configClient coclient.Interface) []error {
+	var result []error
 	// List all Cluster Operators
 	coList, err := configClient.ConfigV1().ClusterOperators().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return false, err
+		return []error{err}
 	}
 
 	// Each Cluster Operator should be available, not progressing, and not degraded
@@ -354,21 +355,21 @@ func checkClusterOperators(configClient coclient.Interface) (bool, error) {
 			switch cond.Type {
 			case configv1.OperatorAvailable:
 				if cond.Status == configv1.ConditionFalse {
-					return false, nil
+					result = append(result, errors.Errorf("%s is unavailable", co.Name))
 				}
 			case configv1.OperatorProgressing:
 				if cond.Status == configv1.ConditionTrue {
-					return false, nil
+					result = append(result, errors.Errorf("%s is still progressing", co.Name))
 				}
 			case configv1.OperatorDegraded:
 				if cond.Status == configv1.ConditionTrue {
-					return false, nil
+					result = append(result, errors.Errorf("%s is in degraded state", co.Name))
 				}
 			}
 		}
 	}
 
-	return true, nil
+	return result
 }
 
 // Check registry is in managed state. We assume Cluster Operator is stable.
