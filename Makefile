@@ -16,9 +16,13 @@ unexport GOFLAGS
 build: update
 	go build -o openshift-provider-cert $(GO_BUILD_FLAGS)
 
-.PHONY: update
+.PHONY: generate
 update:
 	./hack/update-generated-bindata.sh
+
+.PHONY: verify-codegen
+verify-codegen:
+	./hack/verify-codegen.sh
 
 .PHONY: cross-build-windows-amd64
 cross-build-windows-amd64:
