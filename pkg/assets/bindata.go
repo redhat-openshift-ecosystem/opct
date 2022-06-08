@@ -111,9 +111,6 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
-  resources:
-    requests:
-      memory: "4096Mi"
 `)
 
 func manifestsOpenshiftConformanceValidatedYamlBytes() ([]byte, error) {
@@ -188,9 +185,6 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
-  resources:
-    requests:
-      memory: "4096Mi"
 `)
 
 func manifestsOpenshiftKubeConformanceYamlBytes() ([]byte, error) {
