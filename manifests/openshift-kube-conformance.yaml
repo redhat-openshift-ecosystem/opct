@@ -55,6 +55,3 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
-  resources:
-    requests:
-      memory: "4096Mi"

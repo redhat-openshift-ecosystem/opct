@@ -262,8 +262,8 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			ObjectMeta: metav1.ObjectMeta{
 				Name: pkg.CertificationNamespace,
 				Annotations: map[string]string{
-					v1.TolerationsAnnotationKey:  string(tolerations),
-					"openshift.io/node-selector": "node-role.kubernetes.io/tests=",
+					"scheduler.alpha.kubernetes.io/defaultTolerations": string(tolerations),
+					"openshift.io/node-selector":                       "node-role.kubernetes.io/tests=",
 				},
 			},
 		}
