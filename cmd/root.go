@@ -5,6 +5,7 @@ import (
 	"os"
 
 	log "github.com/sirupsen/logrus"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
@@ -18,28 +19,37 @@ import (
 	"github.com/openshift/provider-certification-tool/pkg/version"
 )
 
-var ()
-
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "openshift-provider-cert",
 	Short: "OpenShift Provider Certification Tool",
 	Long:  `OpenShift Provider Certification Tool is used to evaluate an OpenShift installation on a provider or hardware is in conformance`,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		var err error
 
 		// Validate logging level
 		loglevel := viper.GetString("loglevel")
 		logrusLevel, err := log.ParseLevel(loglevel)
 		if err != nil {
-			return err
+			log.Fatal(err)
 		}
 		log.SetLevel(logrusLevel)
 
+		// Additional log options
+		customFormatter := new(log.TextFormatter)
+		customFormatter.FullTimestamp = true
+		log.SetFormatter(customFormatter)
+
 		// Save kubeconfig
 		client.Kubeconfig = viper.GetString("kubeconfig")
+		if client.Kubeconfig == "" {
+			log.Fatal("--kubeconfig or KUBECONFIG environment variable must be set")
+		}
 
-		return nil
+		// Check kubeconfig exists
+		if _, err := os.Stat(client.Kubeconfig); err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 
