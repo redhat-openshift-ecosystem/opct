@@ -1,6 +1,10 @@
 package client
 
 import (
+	"os"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/vmware-tanzu/sonobuoy/pkg/client"
 	sonodynamic "github.com/vmware-tanzu/sonobuoy/pkg/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -11,6 +15,20 @@ import (
 var Kubeconfig string
 
 func CreateRestConfig() (*rest.Config, error) {
+
+	// Singleton kubeconfig
+	if Kubeconfig == "" {
+		Kubeconfig = viper.GetString("kubeconfig")
+		if Kubeconfig == "" {
+			log.Fatal("--kubeconfig or KUBECONFIG environment variable must be set")
+		}
+
+		// Check kubeconfig exists
+		if _, err := os.Stat(Kubeconfig); err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	clientConfig, err := clientcmd.BuildConfigFromFlags("", Kubeconfig)
 	return clientConfig, err
 }
