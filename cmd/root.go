@@ -35,9 +35,9 @@ var rootCmd = &cobra.Command{
 		log.SetLevel(logrusLevel)
 
 		// Additional log options
-		customFormatter := new(log.TextFormatter)
-		customFormatter.FullTimestamp = true
-		log.SetFormatter(customFormatter)
+		log.SetFormatter(&log.TextFormatter{
+		    FullTimestamp: true,
+		})
 	},
 }
 
