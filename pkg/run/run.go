@@ -56,19 +56,18 @@ func NewCmdRun() *cobra.Command {
 		Use:   "run",
 		Short: "Run the suite of tests for provider certification",
 		Long:  `Launches the provider certification environment inside of an already running OpenShift cluster`,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRun: func(cmd *cobra.Command, args []string) {
 			// Client setup
 			kclient, sclient, err = client.CreateClients()
 			if err != nil {
-				return err
+				log.Fatal(err)
 			}
 
 			// Pre-checks and setup
 			err = o.PreRunCheck(kclient)
 			if err != nil {
-				return err
+				log.Fatal(err)
 			}
-			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			log.Info("Running OpenShift Provider Certification Tool...")
