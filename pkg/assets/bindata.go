@@ -69,7 +69,18 @@ var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
       env:
         - name: CERT_LEVEL
           value: "1"
-
+        - name: ENV_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: ENV_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ENV_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
 sonobuoy-config:
   driver: Job
   plugin-name: openshift-conformance-validated
@@ -88,9 +99,18 @@ spec:
   env:
     - name: CERT_LEVEL
       value: "1"
-  resources:
-    requests:
-      memory: "4096Mi"
+    - name: ENV_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: ENV_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: ENV_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
 `)
 
 func manifestsOpenshiftConformanceValidatedYamlBytes() ([]byte, error) {
@@ -123,7 +143,18 @@ var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
       env:
         - name: CERT_LEVEL
           value: "0"
-
+        - name: ENV_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: ENV_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ENV_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
 sonobuoy-config:
   driver: Job
   plugin-name: openshift-kube-conformance
@@ -142,9 +173,18 @@ spec:
   env:
     - name: CERT_LEVEL
       value: "0"
-  resources:
-    requests:
-      memory: "4096Mi"
+    - name: ENV_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: ENV_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: ENV_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
 `)
 
 func manifestsOpenshiftKubeConformanceYamlBytes() ([]byte, error) {
