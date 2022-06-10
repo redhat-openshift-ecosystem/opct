@@ -11,7 +11,6 @@ import (
 	"github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
 
 	"github.com/openshift/provider-certification-tool/pkg/assets"
-	"github.com/openshift/provider-certification-tool/pkg/client"
 	"github.com/openshift/provider-certification-tool/pkg/destroy"
 	"github.com/openshift/provider-certification-tool/pkg/retrieve"
 	"github.com/openshift/provider-certification-tool/pkg/run"
@@ -39,17 +38,6 @@ var rootCmd = &cobra.Command{
 		customFormatter := new(log.TextFormatter)
 		customFormatter.FullTimestamp = true
 		log.SetFormatter(customFormatter)
-
-		// Save kubeconfig
-		client.Kubeconfig = viper.GetString("kubeconfig")
-		if client.Kubeconfig == "" {
-			log.Fatal("--kubeconfig or KUBECONFIG environment variable must be set")
-		}
-
-		// Check kubeconfig exists
-		if _, err := os.Stat(client.Kubeconfig); err != nil {
-			log.Fatal(err)
-		}
 	},
 }
 
