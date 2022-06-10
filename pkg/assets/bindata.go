@@ -59,7 +59,7 @@ var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
   serviceAccountName: sonobuoy-serviceaccount
   containers:
     - name: report-progress
-      image: quay.io/mrbraga/openshift-tests-provider-cert:devel
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:stable
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -90,7 +90,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/mrbraga/openshift-tests-provider-cert:devel
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:stable
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
@@ -133,7 +133,7 @@ var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
   serviceAccountName: sonobuoy-serviceaccount
   containers:
     - name: report-progress
-      image: quay.io/mrbraga/openshift-tests-provider-cert:devel
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:stable
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -164,7 +164,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/mrbraga/openshift-tests-provider-cert:devel
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:stable
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
