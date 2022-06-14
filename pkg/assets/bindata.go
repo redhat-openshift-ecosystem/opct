@@ -86,7 +86,7 @@ sonobuoy-config:
   plugin-name: openshift-conformance-validated
   result-format: junit
   description: The end-to-end tests maintained by OpenShift to certify the Provider running the OpenShift Container Platform.
-  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/mvp/tools/plugins/openshift-conformance-validated.yaml
+  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/mvp/manifests/openshift-conformance-validated.yaml
   skipCleanup: true
 spec:
   name: plugin
@@ -160,7 +160,7 @@ sonobuoy-config:
   plugin-name: openshift-kube-conformance
   result-format: junit
   description: The end-to-end tests maintained by Kubernetes to certify the platform.
-  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/mvp/tools/plugins/openshift-kube-conformance.yaml
+  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/mvp/manifests/openshift-kube-conformance.yaml
   skipCleanup: true
 spec:
   name: plugin
