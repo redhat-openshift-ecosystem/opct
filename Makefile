@@ -7,7 +7,7 @@ export CGO_ENABLED=0
 VERSION=$(shell git rev-parse --short HEAD)
 RELEASE_TAG ?= 0.0.0
 
-GO_BUILD_FLAGS := -ldflags '-X github.com/openshift/provider-certification-tool/version.commit=$(VERSION) -X github.com/openshift/provider-certification-tool/version.version=$(RELEASE_TAG)'
+GO_BUILD_FLAGS := -ldflags '-X github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version.commit=$(VERSION) -X github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version.version=$(RELEASE_TAG)'
 
 # Unset GOFLAG for CI and ensure we've got nothing accidently set
 unexport GOFLAGS
