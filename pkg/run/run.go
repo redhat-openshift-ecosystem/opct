@@ -23,11 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/openshift/provider-certification-tool/pkg"
-	"github.com/openshift/provider-certification-tool/pkg/assets"
-	"github.com/openshift/provider-certification-tool/pkg/client"
-	"github.com/openshift/provider-certification-tool/pkg/status"
-	"github.com/openshift/provider-certification-tool/pkg/wait"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/assets"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/client"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/status"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/wait"
 )
 
 type RunOptions struct {
@@ -104,7 +104,7 @@ func NewCmdRun() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&o.dedicated, "dedicated", false, "Setup plugins to run in dedicated test environment.")
-	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times (defaults to latest plugins in https://github.com/openshift/provider-certification-tool)")
+	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times. (default plugins can be reviewed with assets subcommand)")
 	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", fmt.Sprintf("quay.io/ocp-cert/sonobuoy:%s", buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
 	cmd.Flags().IntVar(&o.timeout, "timeout", runTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", false, "Keep watch status after running")

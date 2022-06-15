@@ -10,12 +10,12 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
 
-	"github.com/openshift/provider-certification-tool/pkg/assets"
-	"github.com/openshift/provider-certification-tool/pkg/destroy"
-	"github.com/openshift/provider-certification-tool/pkg/retrieve"
-	"github.com/openshift/provider-certification-tool/pkg/run"
-	"github.com/openshift/provider-certification-tool/pkg/status"
-	"github.com/openshift/provider-certification-tool/pkg/version"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/assets"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/destroy"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/retrieve"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/run"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/status"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -36,7 +36,7 @@ var rootCmd = &cobra.Command{
 
 		// Additional log options
 		log.SetFormatter(&log.TextFormatter{
-		    FullTimestamp: true,
+			FullTimestamp: true,
 		})
 	},
 }
