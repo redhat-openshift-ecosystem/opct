@@ -57,6 +57,9 @@ func (fi bindataFileInfo) Sys() interface{} {
 var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
   restartPolicy: Never
   serviceAccountName: sonobuoy-serviceaccount
+  volumes:
+    - name: shared
+      emptyDir: {}
   containers:
     - name: report-progress
       image: quay.io/ocp-cert/openshift-tests-provider-cert:stable
@@ -66,6 +69,8 @@ var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
       volumeMounts:
       - mountPath: /tmp/sonobuoy/results
         name: results
+      - mountPath: /tmp/shared
+        name: shared
       env:
         - name: CERT_LEVEL
           value: "1"
@@ -96,6 +101,8 @@ spec:
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
     name: results
+  - mountPath: /tmp/shared
+    name: shared
   env:
     - name: CERT_LEVEL
       value: "1"
@@ -131,6 +138,9 @@ func manifestsOpenshiftConformanceValidatedYaml() (*asset, error) {
 var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
   restartPolicy: Never
   serviceAccountName: sonobuoy-serviceaccount
+  volumes:
+    - name: shared
+      emptyDir: {}
   containers:
     - name: report-progress
       image: quay.io/ocp-cert/openshift-tests-provider-cert:stable
@@ -140,6 +150,8 @@ var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
       volumeMounts:
       - mountPath: /tmp/sonobuoy/results
         name: results
+      - mountPath: /tmp/shared
+        name: shared
       env:
         - name: CERT_LEVEL
           value: "0"
@@ -170,6 +182,8 @@ spec:
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
     name: results
+  - mountPath: /tmp/shared
+    name: shared
   env:
     - name: CERT_LEVEL
       value: "0"

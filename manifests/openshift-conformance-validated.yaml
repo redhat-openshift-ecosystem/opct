@@ -1,6 +1,9 @@
 podSpec:
   restartPolicy: Never
   serviceAccountName: sonobuoy-serviceaccount
+  volumes:
+    - name: shared
+      emptyDir: {}
   containers:
     - name: report-progress
       image: quay.io/ocp-cert/openshift-tests-provider-cert:stable
@@ -10,6 +13,8 @@ podSpec:
       volumeMounts:
       - mountPath: /tmp/sonobuoy/results
         name: results
+      - mountPath: /tmp/shared
+        name: shared
       env:
         - name: CERT_LEVEL
           value: "1"
@@ -40,6 +45,8 @@ spec:
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
     name: results
+  - mountPath: /tmp/shared
+    name: shared
   env:
     - name: CERT_LEVEL
       value: "1"
