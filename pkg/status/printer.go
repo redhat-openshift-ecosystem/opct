@@ -25,8 +25,8 @@ type PrintablePluginStatus struct {
 }
 
 var runningStatusTemplate = `{{.CurrentTime}}> Global Status: {{.GlobalStatus}}
-{{printf "%-30s | %-10s | %-10s | %-25s | %-50s" "JOB_NAME" "STATUS" "RESULTS" "PROGRESS" "MESSAGE"}}{{range $index, $pl := .PluginStatuses}}
-{{printf "%-30s | %-10s | %-10s | %-25s | %-50s" $pl.Name $pl.Status $pl.Result $pl.Progress $pl.Message}}{{end}}
+{{printf "%-32s | %-10s | %-10s | %-25s | %-50s" "JOB_NAME" "STATUS" "RESULTS" "PROGRESS" "MESSAGE"}}{{range $index, $pl := .PluginStatuses}}
+{{printf "%-32s | %-10s | %-10s | %-25s | %-50s" $pl.Name $pl.Status $pl.Result $pl.Progress $pl.Message}}{{end}}
 `
 
 func PrintRunningStatus(s *aggregation.Status) error {
