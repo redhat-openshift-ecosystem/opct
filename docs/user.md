@@ -82,7 +82,7 @@ Here is a `MachineSet` YAML snippet on how to configure the label and taint as w
 
 ### Privilege Requirements
 
-A user with [cluster administrator privilege](https://docs.openshift.com/container-platform/latest/authentication/using-rbac.html#creating-cluster-admin_using-rbac) must be used with the provider certification tool. You also use the default kubeadmin user if you wish. 
+A user with [cluster administrator privilege](https://docs.openshift.com/container-platform/latest/authentication/using-rbac.html#creating-cluster-admin_using-rbac) must be used to run the provider certification tool. You also use the default kubeadmin user if you wish. 
 
 
 ## Install
