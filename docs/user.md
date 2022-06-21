@@ -43,7 +43,7 @@ The dedicated node environment cluster size can be adjusted to match the table b
 | ------------- | ----- | --- | -------- | ------------ |
 | Bootstrap     | 1     | 4   | 16       | 100          |
 | Control Plane | 3     | 4   | 16       | 100          |
-| Compute       | 3     | 4   | 16       | 100          |
+| Compute       | 3     | 4   | 8        | 100          |
 | Dedicated Test| 1     | 4   | 8        | 100          |
 
 #### Environment Setup
