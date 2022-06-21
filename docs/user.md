@@ -26,7 +26,7 @@ A standard machine layout can be used for certification. If you run into issues 
 | ------------- | ----- | --- | -------- | ------------ |
 | Bootstrap     | 1     | 4   | 16       | 100          |
 | Control Plane | 3     | 4   | 16       | 100          |
-| Compute       | 3     | 4   | 64       | 100          |
+| Compute       | 3     | 4   | 16       | 100          |
 
 
 *Note: These requirements are higher than the [minimum requirements](https://docs.openshift.com/container-platform/latest/installing/installing_bare_metal/installing-bare-metal.html#installation-minimum-resource-requirements_installing-bare-metal) in OpenShift product documentation due to the resource demand of the certification tests.*
