@@ -1,6 +1,8 @@
 # OpenShift Provider Certification Tool
 
-*TODO - summary*
+Welcome to the user documentation for the OpenShift Provider Certification Tool!  
+
+The OpenShift Provider Certification Tool is used to evaluate an OpenShift installation on an infrastructure or hardware provider is in conformance.
 
 ## Process
 
@@ -100,8 +102,7 @@ The provider certification tool can be used from any system with network access 
 
 ### Build from Source
 
-See the development guide for more information.
-*TODO - link*
+See the [build guide](../README.md#building) for more information.
 
 
 ## Usage
