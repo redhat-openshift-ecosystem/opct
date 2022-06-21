@@ -157,7 +157,9 @@ You will need to destroy the OpenShift cluster under test separately.
 
 ### Certification Failures
 
-If you already know the reason for a certification failure then resolve the problem and re-run the provider certification tool again so a new certification archive is created. 
+Under any type of certification test failure, it is recommended to recreate the cluster under test. The certification tests check cluster metrics and logs which are persisted and this could impact subsequent certification tests.
+
+If you already know the reason for a certification failure then resolve the problem and re-run the provider certification tool again so a new certification archive is created.
 
 If you are not sure why you have failed certification or if some of the tests fail intermittently, proceed with the troubleshooting steps below. 
 
