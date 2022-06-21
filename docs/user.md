@@ -92,7 +92,7 @@ A user with [cluster administrator privilege](https://docs.openshift.com/contain
 
 The provider certification tool is shipped as a single executable binary which can be downloaded from:
 
-[https://github.com/redhat-openshift-ecosystem/provider-certification-tool](https://github.com/redhat-openshift-ecosystem/provider-certification-tool)
+[https://github.com/redhat-openshift-ecosystem/provider-certification-tool](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/releases
 
 The provider certification tool can be used from any system with network access to the OpenShift cluster under test. 
 
