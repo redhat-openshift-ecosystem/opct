@@ -54,7 +54,7 @@ The dedicated node environment cluster size can be adjusted to match the table b
 
 *NOTE: certification pods will automatically have node-selectors and taint tolerations if you use the `--dedicated` flag.*
 
-There are two options to accomplish this type of setup...
+There are two options to accomplish this type of setup:
 
 ##### Option A: Command Line 
 
