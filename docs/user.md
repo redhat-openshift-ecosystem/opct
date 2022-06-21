@@ -87,6 +87,7 @@ A user with [cluster administrator privilege](https://docs.openshift.com/contain
 
 ## Install
 
+There are two options to install the provider certification tool: prebuilt binary and build from source.
 
 ### Prebuilt Binary
 
