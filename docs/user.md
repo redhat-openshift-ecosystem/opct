@@ -109,9 +109,14 @@ See the development guide for more information.
 
 ### Run provider certification tests
 
+- Run the certification environment in the background:
 ```sh
 openshift-provider-cert run 
-openshift-provider-cert run -w # Keep watch open until completion
+```
+
+- Run the certification environment in the background and keep watching the progress:
+```sh
+openshift-provider-cert run -w
 ```
 
 
