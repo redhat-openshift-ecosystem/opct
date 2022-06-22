@@ -97,7 +97,6 @@ Here is a `MachineSet` YAML snippet on how to configure the label and taint as w
 ```yaml
       metadata:
         labels:
-          openshift-tests: "true"
           node-role.kubernetes.io/tests: ""
       taints:
         - key: node-role.kubernetes.io/tests
