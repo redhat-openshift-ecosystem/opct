@@ -4,7 +4,30 @@ Welcome to the user documentation for the OpenShift Provider Certification Tool!
 
 The OpenShift Provider Certification Tool is used to evaluate an OpenShift installation on an infrastructure or hardware provider is in conformance.
 
-## Process
+Table Of Contents:
+
+- [Process](#process)
+- [Prerequisites](#prerequisites)
+  - [Standard Environment](#standard-env)
+  - [Dedicated test Environment](#dedicated-env)
+    - [Environment Setup](#dedicated-env-setup)
+  - [Privilege Requirements](#priv-requirements)
+- [Install](#install)
+  - [Prebuilt Binary](#install-bin)
+  - [Build from Source](#install-source)
+- [Usage](#usage)
+  - [Run provider certification tests](#usage-run)
+  - [Check status](#usage-check)
+  - [Retrieve the results](#usage-retrieve)
+  - [Environment Cleanup](#usage-destroy)
+- [Certification Failures](#review)
+  - [Troubleshooting](#review-troubleshooting)
+    - [Review Results Archive](#review-archive)
+    - [Do I Need a Dedicated Test Environment](#review-needed-dedicated)
+    - [Cluster Failures](#review-cluster-failures)
+- [Feedback](#feedback)
+
+## Process <a name="process"></a>
 
 More detail on each step can be found in sections further below. 
 
@@ -16,11 +39,11 @@ More detail on each step can be found in sections further below.
 6. Share results with Red Hat
 
 
-## Prerequisites
+## Prerequisites <a name="prerequisites"></a>
 
 A Red Hat OpenShift 4 cluster must be [installed](https://docs.openshift.com/container-platform/latest/installing/index.html) before certification can begin. The OpenShift cluster must be installed on your infrastructure as if it were a production environment. Ensure that each feature of your infrastructure you plan to support with OpenShift is configured in the cluster (e.g. Load Balancers, Storage, special hardware).
 
-### Standard Environment
+### Standard Environment <a name="standard-env"></a>
 
 A standard machine layout can be used for certification. If you run into issues with pod disruption (eviction, OOM, frequent crashes, etc) then you may want to consider the Dedicated Test Environment configuration further below. Below is a table of the minimum resource requirements for the OpenShift cluster under test:
 
@@ -33,7 +56,7 @@ A standard machine layout can be used for certification. If you run into issues 
 
 *Note: These requirements are higher than the [minimum requirements](https://docs.openshift.com/container-platform/latest/installing/installing_bare_metal/installing-bare-metal.html#installation-minimum-resource-requirements_installing-bare-metal) in OpenShift product documentation due to the resource demand of the certification tests.*
 
-### Dedicated Node for Test Environment
+### Dedicated Node for Test Environment <a name="dedicated-env"></a>
 
 If your compute nodes are at or below minimum requirements, it is recommended to run the certification environment on one dedicated node to avoid disruption of the test scheduler. Otherwise the concurrency between resources scheduled on the cluster, e2e-test manager (aka openshift-tests-plugin), and other stacks like monitoring can disrupt the test environment, leading to unexpected results, like eviction of plugins or certification server (sonobuoy pod).
 
@@ -48,7 +71,7 @@ The dedicated node environment cluster size can be adjusted to match the table b
 | Compute       | 3     | 4   | 8        | 100          |
 | Dedicated Test| 1     | 4   | 8        | 100          |
 
-#### Environment Setup
+#### Environment Setup <a name="dedicated-env-setup"></a>
 
 1. Choose one node with at least 8GiB of RAM and 4 vCPU
 2. Label node with `node-role.kubernetes.io/tests=""` (certification related pods will schedule to dedicated node)
@@ -82,16 +105,16 @@ Here is a `MachineSet` YAML snippet on how to configure the label and taint as w
 ```
 
 
-### Privilege Requirements
+### Privilege Requirements <a name="priv-requirements"></a>
 
 A user with [cluster administrator privilege](https://docs.openshift.com/container-platform/latest/authentication/using-rbac.html#creating-cluster-admin_using-rbac) must be used to run the provider certification tool. You also use the default kubeadmin user if you wish. 
 
 
-## Install
+## Install <a name="install"></a>
 
 There are two options to install the provider certification tool: prebuilt binary and build from source.
 
-### Prebuilt Binary
+### Prebuilt Binary <a name="install-bin"></a>
 
 The provider certification tool is shipped as a single executable binary which can be downloaded from:
 
@@ -100,15 +123,15 @@ The provider certification tool is shipped as a single executable binary which c
 The provider certification tool can be used from any system with network access to the OpenShift cluster under test. 
 
 
-### Build from Source
+### Build from Source <a name="install-source"></a>
 
 See the [build guide](../README.md#building) for more information.
 
 
-## Usage
+## Usage <a name="usage"></a>
 
 
-### Run provider certification tests
+### Run provider certification tests <a name="usage-run"></a>
 
 - Run the certification environment in the background:
 ```sh
@@ -121,7 +144,7 @@ openshift-provider-cert run -w
 ```
 
 
-### Check status
+### Check status <a name="usage-check"></a>
 
 ```sh
 openshift-provider-cert status 
@@ -129,7 +152,7 @@ openshift-provider-cert status -w # Keep watch open until completion
 ```
 
 
-### Retrieve the results
+### Retrieve the results <a name="usage-retrieve"></a>
 
 The certification results must be retrieved from the OpenShift cluster under test using:
 
@@ -145,7 +168,7 @@ openshift-provider-cert results retrieved-archive.tar.gz
 ```
 
 
-### Environment Cleanup
+### Environment Cleanup <a name="usage-destroy"></a>
 
 Once the certification process is complete and you are comfortable with destroying the test environment:
 
@@ -156,7 +179,7 @@ openshift-provider-cert destroy
 You will need to destroy the OpenShift cluster under test separately. 
 
 
-### Certification Failures
+## Certification Failures <a name="review"></a>
 
 Under any type of certification test failure, it is recommended to recreate the cluster under test. The certification tests check cluster metrics and logs which are persisted and this could impact subsequent certification tests.
 
@@ -165,9 +188,9 @@ If you already know the reason for a certification failure then resolve the prob
 If you are not sure why you have failed certification or if some of the tests fail intermittently, proceed with the troubleshooting steps below. 
 
 
-### Troubleshooting
+### Troubleshooting <a name="review-troubleshooting"></a>
 
-#### Review Results Archive
+#### Review Results Archive <a name="review-archive"></a>
 
 The results archive file can be used to identify certification test failures so you can address them in your cluster installation process you are attempting to certify. 
 
@@ -217,11 +240,11 @@ yq -r '.items[].items[].items[] | select (.status=="failed") | .name ' results/p
 yq -r '.items[].items[].items[] | select (.name=="[sig-arch] Monitor cluster while tests execute").details.failure ' results/plugins/openshift-kube-conformance/sonobuoy_results.yaml
 ```
 
-#### Do I Need a Dedicated Test Environment
+#### Do I Need a Dedicated Test Environment <a name="review-needed-dedicated"></a>
 
 When issues like this arise, you can see error events in the `openshift-provider-certification` namespace (`oc get events -n openshift-provider-certification`) or even missing plugin pods. Also, sometimes sonobuoy does not detect the issues ([SPLAT-524](https://issues.redhat.com/browse/SPLAT-524)) and the certification environment will run until the timeout, with unexpected failures.
 
-#### Cluster Failures
+#### Cluster Failures <a name="review-cluster-failures"></a>
 
 If you run into issues where the certification pods are crashing or the command line tool is not working for some reason then troubleshooting the OpenShift cluster under test may be required. 
 
