@@ -256,3 +256,9 @@ oc adm inspect openshift-provider-certification
 ```
 
 Use the two archives created by the commands above to begin troubleshooting. The must gather archive provides a snapshot view into the whole cluster. The inspection archive will contain information about the openshift provider certification namespace only.
+
+## Feedback <a name="feedback"></a>
+
+If you have any feedback, bugs, or other issues with this OpenShift Certification Tool, please reach out to your Red Hat partner assisting you with the conformance process. 
+
+You may also open a [new GitHub issue](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/issues/new) for bugs but you are still encouraged to notify your Red Hat partner. 
