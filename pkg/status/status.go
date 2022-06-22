@@ -146,7 +146,6 @@ func (s *StatusOptions) WaitForStatusReport(ctx context.Context, sclient sonobuo
 
 		err = s.Update(sclient)
 		if err != nil {
-			// TODO Should the warning be shown to user by default? It can be misleading during startup
 			log.WithError(err).Warn("error retrieving current aggregator status")
 		} else if s.Latest.Status != "" {
 			return true, nil

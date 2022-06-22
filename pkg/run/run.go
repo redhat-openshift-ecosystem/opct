@@ -3,6 +3,7 @@ package run
 import (
 	"context"
 	"fmt"
+	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -87,6 +88,9 @@ func NewCmdRun() *cobra.Command {
 				log.WithError(err).Error("error waiting for sonobuoy pods to become ready")
 				return
 			}
+
+			// Sleep to give status time to appear
+			time.Sleep(status.StatusInterval)
 
 			s := status.NewStatusOptions(o.watch)
 			err = s.WaitForStatusReport(cmd.Context(), sclient)
