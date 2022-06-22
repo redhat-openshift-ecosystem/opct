@@ -226,7 +226,7 @@ To start exploring the problems in the certification environment, you can start 
 
 The file `results/plugins/<_plugin_name_>/sonobuoy_results.yaml` has the results for each test. If the test has been failed, you can see the reason on the field `.details.failure` and `.details.system-out`:
 
-Using the `yq` tool you filter the failed tests by running this command:
+Using the [`yq` tool](https://github.com/mikefarah/yq) you filter the failed tests by running this command:
 
 - Getting the test names that have been `failed` from plugin `openshift-kube-conformance`:
 
