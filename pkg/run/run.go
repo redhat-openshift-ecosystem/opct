@@ -76,8 +76,7 @@ func NewCmdRun() *cobra.Command {
 			// Fire off sonobuoy
 			err := o.Run(kclient, sclient)
 			if err != nil {
-				log.WithError(err).Error("Error running the tool. Please check the errors and try again.")
-				return
+				log.WithError(err).Fatal("Error running the tool. Please check the errors and try again.")
 			}
 
 			log.Info("Jobs scheduled! Waiting for resources be created...")
@@ -85,8 +84,7 @@ func NewCmdRun() *cobra.Command {
 			// Wait for Sonobuoy to create
 			wait.WaitForRequiredResources(kclient)
 			if err != nil {
-				log.WithError(err).Error("error waiting for sonobuoy pods to become ready")
-				return
+				log.WithError(err).Fatal("error waiting for sonobuoy pods to become ready")
 			}
 
 			// Sleep to give status time to appear
@@ -95,13 +93,18 @@ func NewCmdRun() *cobra.Command {
 			s := status.NewStatusOptions(o.watch)
 			err = s.WaitForStatusReport(cmd.Context(), sclient)
 			if err != nil {
-				log.WithError(err).Error("error retrieving aggregator status")
+				log.WithError(err).Fatal("error retrieving aggregator status")
 			}
 
-			// TODO Why's there a second StatusOptions instance?
-			st := status.NewStatusOptions(o.watch)
-			st.Update(sclient)
-			st.Print(cmd, sclient)
+			err = s.Update(sclient)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			err = s.Print(cmd, sclient)
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			log.Info("Sonobuoy pods are ready!")
 		},
