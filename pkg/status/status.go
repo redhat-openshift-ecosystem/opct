@@ -203,12 +203,12 @@ func (s *StatusOptions) doPrint() (complete bool, err error) {
 			s.shownPostProcessMsg = true
 		}
 	case aggregation.CompleteStatus:
-		if !s.watch || !s.shownPostProcessMsg {
-			log.Infof("The execution has completed! Use retrieve command to collect the results.")
-			return true, nil
-		}
 		err := PrintRunningStatus(s.Latest)
-		return true, err
+		if err != nil {
+			return true, err
+		}
+		log.Infof("The execution has completed! Use retrieve command to collect the results and share the archive with your Red Hat partner.")
+		return true, nil
 	default:
 		log.Infof("Unknown state %s", s.GetStatus())
 	}
