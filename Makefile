@@ -7,10 +7,13 @@ export CGO_ENABLED=0
 VERSION=$(shell git rev-parse --short HEAD)
 RELEASE_TAG ?= 0.0.0
 
-GO_BUILD_FLAGS := -ldflags '-X github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version.commit=$(VERSION) -X github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version.version=$(RELEASE_TAG)'
+GO_BUILD_FLAGS := -ldflags '-s -w -X github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version.commit=$(VERSION) -X github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version.version=$(RELEASE_TAG)'
 
 # Unset GOFLAG for CI and ensure we've got nothing accidently set
 unexport GOFLAGS
+
+.PHONY: all
+all: linux-amd64 cross-build-windows-amd64 cross-build-darwin-amd64 cross-build-darwin-arm64
 
 .PHONY: build
 build:
@@ -24,17 +27,21 @@ update:
 verify-codegen:
 	./hack/verify-codegen.sh
 
+.PHONY: linux-amd64
+linux-amd64:
+	GOOS=linux GOARCH=amd64 go build -o openshift-provider-cert-linux-amd64 $(GO_BUILD_FLAGS)
+
 .PHONY: cross-build-windows-amd64
 cross-build-windows-amd64:
-	GOOS=windows GOARCH=amd64 go build -o openshift-provider-cert.exe $(GO_BUILD_FLAGS)
+	GOOS=windows GOARCH=amd64 go build -o openshift-provider-cert-windows.exe $(GO_BUILD_FLAGS)
 
 .PHONY: cross-build-darwin-amd64
 cross-build-darwin-amd64:
-	GOOS=darwin GOARCH=amd64 go build -o openshift-provider-cert $(GO_BUILD_FLAGS)
+	GOOS=darwin GOARCH=amd64 go build -o openshift-provider-cert-darwin-amd64 $(GO_BUILD_FLAGS)
 
 .PHONY: cross-build-darwin-arm64
 cross-build-darwin-arm64:
-	GOOS=darwin GOARCH=arm64 go build -o openshift-provider-cert $(GO_BUILD_FLAGS)
+	GOOS=darwin GOARCH=arm64 go build -o openshift-provider-cert-darwin-arm64 $(GO_BUILD_FLAGS)
 
 
 .PHONY: test

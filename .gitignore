@@ -1,3 +1,5 @@
 openshift-provider-cert
 kubeconfig
 .idea/
+
+dist/
