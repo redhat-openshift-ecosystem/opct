@@ -6,6 +6,9 @@ on:
       - main
       - mvp
       - release-*
+  push:
+    tags:
+      - '*'
 
 jobs:
   static:
