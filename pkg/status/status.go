@@ -146,7 +146,6 @@ func (s *StatusOptions) WaitForStatusReport(ctx context.Context, sclient sonobuo
 
 		err = s.Update(sclient)
 		if err != nil {
-			// TODO Should the warning be shown to user by default? It can be misleading during startup
 			log.WithError(err).Warn("error retrieving current aggregator status")
 		} else if s.Latest.Status != "" {
 			return true, nil
@@ -196,16 +195,20 @@ func (s *StatusOptions) doPrint() (complete bool, err error) {
 				return false, err
 			}
 		} else if !s.shownPostProcessMsg {
+			err := PrintRunningStatus(s.Latest)
+			if err != nil {
+				return false, err
+			}
 			log.Info("Waiting for post-processor...")
 			s.shownPostProcessMsg = true
 		}
 	case aggregation.CompleteStatus:
-		if !s.watch || !s.shownPostProcessMsg {
-			log.Infof("The execution has completed! Use retrieve command to collect the results.")
-			return true, nil
-		}
 		err := PrintRunningStatus(s.Latest)
-		return true, err
+		if err != nil {
+			return true, err
+		}
+		log.Infof("The execution has completed! Use retrieve command to collect the results and share the archive with your Red Hat partner.")
+		return true, nil
 	default:
 		log.Infof("Unknown state %s", s.GetStatus())
 	}
