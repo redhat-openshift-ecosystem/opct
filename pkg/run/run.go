@@ -106,7 +106,9 @@ func NewCmdRun() *cobra.Command {
 				log.Fatal(err)
 			}
 
-			log.Info("Sonobuoy pods are ready!")
+			if !o.watch {
+				log.Info("Sonobuoy pods are ready!")
+			}
 		},
 	}
 
