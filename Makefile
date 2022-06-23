@@ -13,7 +13,7 @@ GO_BUILD_FLAGS := -ldflags '-X github.com/redhat-openshift-ecosystem/provider-ce
 unexport GOFLAGS
 
 .PHONY: build
-build: update
+build:
 	go build -o openshift-provider-cert $(GO_BUILD_FLAGS)
 
 .PHONY: generate
