@@ -195,6 +195,10 @@ func (s *StatusOptions) doPrint() (complete bool, err error) {
 				return false, err
 			}
 		} else if !s.shownPostProcessMsg {
+			err := PrintRunningStatus(s.Latest)
+			if err != nil {
+				return false, err
+			}
 			log.Info("Waiting for post-processor...")
 			s.shownPostProcessMsg = true
 		}
