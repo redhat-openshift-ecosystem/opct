@@ -62,7 +62,7 @@ func NewCmdRetrieve() *cobra.Command {
 				return
 			}
 
-			log.Info("Use the 'results' command to check the certification test summary")
+			log.Info("Use the results command to check the certification test summary or share the results archive with your Red Hat partner.")
 		},
 	}
 }
