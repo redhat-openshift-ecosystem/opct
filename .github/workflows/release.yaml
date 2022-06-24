@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # Workaround step for act
+      - name: Install sudo package
+        if: env.ACT == 'true'
+        run: apt update && apt install sudo
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.17
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install make git -y
+
+      - name: Build (all OS)
+        run: make all
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          files: |
+            openshift-provider-cert*
