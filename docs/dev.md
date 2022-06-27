@@ -14,27 +14,23 @@ The OpenShift provider certification tool extends Sonobuoy in two places:
 ### Command Line Interface
 
 Sonobuoy provides its own CLI but it has a considerable number of flags and options
-which can be overwhelming. This isn't an issue with Sonobuoy, it's just a symptom
+which can be overwhelming. This isn't an issue with Sonobuoy, it's just the result
 of being a very flexible tool. However, for simplicity sake, the OpenShift
 certification tool extends the Sonobuoy CLI with some strong opinions specific
 to the realm certifying OpenShift on new infrastructure. 
 
 #### Integration with Sonobuoy CLI
 The OpenShift provider certification tool's CLI is written in Golang so that extending 
-Sonobuoy could be done easily. Sonobuoy has two specific areas on which we build:
+Sonobuoy is easily done. Sonobuoy has two specific areas on which we build on:
 
 - Cobra commands (e.g. [sonobuoy run](https://github.com/vmware-tanzu/sonobuoy/blob/87e26ab7d2113bd32832a7bd70c2553ec31b2c2e/cmd/sonobuoy/app/run.go#L47-L62))
 - Sonobuoy Client ([source code](https://github.com/vmware-tanzu/sonobuoy/blob/87e26ab7d2113bd32832a7bd70c2553ec31b2c2e/pkg/client/interfaces.go#L246-L250))
 
-Some of this tool's commands will interact with the Sonobuoy Client directly
-(this is ideal) but in some situations, like with this tools' `run` command, 
-the similar Cobra command in Sonobuoy is used. This adds some odd interaction but
-is necessarily as some complex code is present in Sonobuoy's Run command
-implementation.
-
-This direct usage of Sonobuoy's Cobra commands should be avoided since that
-creates an odd development experience and the ability to cleanly set Sonobuoy's
-flags is muddied by code like this:
+Ideally, the OpenShift Provider Cert tool's commands will interact with the Sonobuoy Client API. There may be some
+situations where this isn't possible and you will need to call a Sonobuoy's Cobra Command directly. Keep in mind,
+executing a Cobra Command directly adds some odd interaction; this should be avoided since the ability to cleanly \
+set Sonobuoy's flags may be unsafe in code like below. The code below won't fail at compile time if there's a change
+in Sonobuoy and there's also no type checking happening:
 
 ```golang
 // Not Great
@@ -58,4 +54,5 @@ reader, ec, err := config.SonobuoyClient.RetrieveResults(&client.RetrieveConfig{
 
 ### Diagrams
 
-*TODO* (These will be completed after code review and CLI structure is more finalized)
+Here's the highest level diagram showing the filenames or packages for code:
+![](./command-diagram.png)
