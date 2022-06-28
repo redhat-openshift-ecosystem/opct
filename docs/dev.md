@@ -59,3 +59,24 @@ reader, ec, err := config.SonobuoyClient.RetrieveResults(&client.RetrieveConfig{
 ### Diagrams
 
 *TODO* (These will be completed after code review and CLI structure is more finalized)
+
+### Running Customized Certification Plugins
+
+In some situations, you may need to modify the certification plugins that are run by the certification tool. 
+Running the certification tool with customized plugin manifests cannot be used for final certification of an OpenShift cluster! 
+If you find issues or changes that are needed for certification to complete, please open a GitHub issue or reach out to your Red Hat contact assisting with certification.  
+
+1. Export default certification plugins to local filesystem:
+```
+openshift-provider-cert assets /tmp
+INFO[2022-06-16T15:35:29-06:00] Asset openshift-conformance-validated.yaml saved to /tmp/openshift-conformance-validated.yaml 
+INFO[2022-06-16T15:35:29-06:00] Asset openshift-kube-conformance.yaml saved to /tmp/openshift-kube-conformance.yaml 
+```
+2. Make your edits to the exported YAML assets:
+```
+vi /tmp/openshift-kube-conformance.yaml
+```
+3. Launch certification tool with customized plugin:
+```
+openshift-provider-cert run --plugin /tmp/openshift-kube-conformance.yaml --plugin /tmp/openshift-conformance-validated.yaml
+```
