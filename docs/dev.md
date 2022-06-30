@@ -1,4 +1,14 @@
 # Provider Certification Tool
+
+## Release
+
+Releasing a new version of the provider certification tool is done automatically through [this GitHub Action](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/release.yaml)
+which is run on new tags. Tags should be named in format: v0.1.0. 
+
+Tags should only be created from the `main` branch which only accepts pull-requests that pass through [this CI GitHub Action](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/go.yaml).
+
+Note that any version in v0.1.z will be considered part of the preview release of the certification tool.
+
 ## Development Notes
 
 This tool builds heavily on 
