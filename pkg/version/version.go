@@ -28,7 +28,7 @@ type VersionContext struct {
 }
 
 func (vc *VersionContext) String() string {
-	return fmt.Sprintf("OpenShift Provider Certification Tool: v%s+%s", vc.Version, vc.Commit)
+	return fmt.Sprintf("OpenShift Provider Certification Tool: %s+%s", vc.Version, vc.Commit)
 }
 func NewCmdVersion() *cobra.Command {
 	return &cobra.Command{
