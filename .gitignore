@@ -1,4 +1,4 @@
-openshift-provider-cert
+openshift-provider-cert-*
 kubeconfig
 .idea/
 
