@@ -4,6 +4,8 @@ Welcome to the user documentation for the OpenShift Provider Certification Tool!
 
 The OpenShift Provider Certification Tool is used to evaluate an OpenShift installation on an infrastructure or hardware provider is in conformance.
 
+> Note: This document is under `preview` release and it's constantly improvement.
+
 Table Of Contents:
 
 - [Process](#process)
@@ -18,7 +20,8 @@ Table Of Contents:
 - [Usage](#usage)
   - [Run provider certification tests](#usage-run)
   - [Check status](#usage-check)
-  - [Retrieve the results](#usage-retrieve)
+  - [Collect the results](#usage-retrieve)
+  - [Check the Results](#usage-results)
   - [Environment Cleanup](#usage-destroy)
 - [Certification Failures](#review)
   - [Troubleshooting](#review-troubleshooting)
@@ -77,7 +80,7 @@ The dedicated node environment cluster size can be adjusted to match the table b
 2. Label node with `node-role.kubernetes.io/tests=""` (certification related pods will schedule to dedicated node)
 3. Taint node with `node-role.kubernetes.io/tests="":NoSchedule` (prevent other pods from running on dedicated node)
 
-*NOTE: certification pods will automatically have node-selectors and taint tolerations if you use the `--dedicated` flag.*
+> Note: *certification pods will automatically have node-selectors and taint tolerations if you use the `--dedicated` flag.*
 
 There are two options to accomplish this type of setup:
 
@@ -108,18 +111,15 @@ Here is a `MachineSet` YAML snippet on how to configure the label and taint as w
 
 A user with [cluster administrator privilege](https://docs.openshift.com/container-platform/latest/authentication/using-rbac.html#creating-cluster-admin_using-rbac) must be used to run the provider certification tool. You also use the default kubeadmin user if you wish. 
 
-
 ## Install <a name="install"></a>
 
 There are two options to install the provider certification tool: prebuilt binary and build from source.
 
 ### Prebuilt Binary <a name="install-bin"></a>
 
-The provider certification tool is shipped as a single executable binary which can be downloaded from:
+The provider certification tool is shipped as a single executable binary which can be downloaded from [the Project Releases page](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/releases). Choose the latest version and the architecture of the node (client) you will execute the tool, then download the binary.
 
-[https://github.com/redhat-openshift-ecosystem/provider-certification-tool](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/releases
-
-The provider certification tool can be used from any system with network access to the OpenShift cluster under test. 
+The provider certification tool can be used from any system with access to API to the OpenShift cluster under test.
 
 
 ### Build from Source <a name="install-source"></a>
@@ -151,7 +151,7 @@ openshift-provider-cert status -w # Keep watch open until completion
 ```
 
 
-### Retrieve the results <a name="usage-retrieve"></a>
+### Collect the results <a name="usage-retrieve"></a>
 
 The certification results must be retrieved from the OpenShift cluster under test using:
 
@@ -159,6 +159,8 @@ The certification results must be retrieved from the OpenShift cluster under tes
 openshift-provider-cert retrieve
 openshift-provider-cert retrieve ./destination-dir/
 ```
+
+### Check the results archive <a name="usage-results"></a>
 
 You can see a summarized view of the results using:
 
@@ -178,13 +180,15 @@ openshift-provider-cert destroy
 You will need to destroy the OpenShift cluster under test separately. 
 
 
-## Certification Failures <a name="review"></a>
+## Certification Tests Failures <a name="review"></a>
 
 Under any type of certification test failure, it is recommended to recreate the cluster under test. The certification tests check cluster metrics and logs which are persisted and this could impact subsequent certification tests.
 
-If you already know the reason for a certification failure then resolve the problem and re-run the provider certification tool again so a new certification archive is created.
+If you already know the reason for a test failure then resolve the problem and re-run the provider certification tool again so a new certification archive is created.
 
-If you are not sure why you have failed certification or if some of the tests fail intermittently, proceed with the troubleshooting steps below. 
+If you are not sure why you have failed tests or if some of the tests fail intermittently, proceed with the troubleshooting steps below.
+
+> Note: When runing the `preview` release of the certification tool, it's expected to have failed tests reported on the archive, we are working to improve the accuracy. If you are sure the failed tests reported on the archive is not related to your environment, feel free to contact your Red Hat partner to share the feedback.
 
 
 ### Troubleshooting <a name="review-troubleshooting"></a>
@@ -260,4 +264,4 @@ Use the two archives created by the commands above to begin troubleshooting. The
 
 If you have any feedback, bugs, or other issues with this OpenShift Certification Tool, please reach out to your Red Hat partner assisting you with the conformance process. 
 
-You may also open a [new GitHub issue](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/issues/new) for bugs but you are still encouraged to notify your Red Hat partner. 
+You may also open a [new GitHub issue](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/issues/new) for bugs but you are still encouraged to notify your Red Hat partner.
