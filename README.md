@@ -2,27 +2,10 @@
 
 OpenShift Provider Certification Tool is used to evaluate an OpenShift installation on a provider or hardware is in conformance
 
-```shell
-Usage:
-  openshift-provider-cert [command]
+## Documentation
 
-Available Commands:
-  completion  Generate the autocompletion script for the specified shell
-  destroy     Destroy current Certification Environment
-  help        Help about any command
-  results     Summary of certification results archive
-  retrieve    Collect results from certification environment
-  run         Run the suite of tests for provider certification
-  sonobuoy    Generate reports on your Kubernetes cluster by running plugins
-  status      Show the current status of the certification tool
-
-Flags:
-  -h, --help                help for openshift-provider-cert
-      --kubeconfig string   kubeconfig for target OpenShift cluster
-  -v, --version             version for openshift-provider-cert
-
-Use "openshift-provider-cert [command] --help" for more information about a command.
-```
+- [User Guide](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/docs/user.md)
+- [Development Guide](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/docs/dev.md)
 
 ## Building
 
