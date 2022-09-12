@@ -12,7 +12,7 @@ for conformance tests suites and [certification programs](https://www.cncf.io/ce
 
 * It is created to run e2e OpenShift conformance tests on providers installation
 
-**Q: What is OPCT not created?**
+**Q: What was OPCT not created for?**
 
 It's not created to:
 * replace OpenShift CI tests/clusters
