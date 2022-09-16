@@ -39,7 +39,7 @@ More detail on each step can be found in sections further below.
 3. Run provider certification tool
 4. Monitor tests 
 5. Gather results
-6. Share results with Red Hat
+6. Share certification results and [must gather](https://docs.openshift.com/container-platform/latest/support/gathering-cluster-data.html) with Red Hat
 
 
 ## Prerequisites <a name="prerequisites"></a>
