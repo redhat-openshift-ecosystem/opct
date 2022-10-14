@@ -124,6 +124,11 @@ spec:
         configMapKeyRef:
           name: plugins-config
           key: run-mode
+    - name: UPGRADE_RELEASES
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: upgrade-target-images
 `)
 
 func manifestsOpenshiftArtifactsCollectorYamlBytes() ([]byte, error) {
