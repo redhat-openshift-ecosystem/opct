@@ -187,19 +187,6 @@ How to submit OpenShift Certification Test results:
 - Go to [`Support > My support tickets`](https://connect.redhat.com/support/technology-partner/#/case/list) to find the case and review status and/or to add comments to the case.
 - Attach the `retrieved-archive.tar.gz` result file to the case.
 
-<!-- 
-> Option 2 (workaround) - Send by email: Temporary steps while the Red Hat Connect Portal is finished.
-
-To submit the results to the Red Hat to review the archive, you should patch by running the following script:
-
-```sh
-mkdir retrieved-archive-patched
-tar xfz retrieved-archive.tar.gz -C retrieved-archive-patched/
-find retrieved-archive-patched/ -iname packages.operators.coreos.com_v1_packagemanifests.json |xargs rm -rvf
-tar cfz retrieved-archive-patched.tar.gz retrieved-archive-patched/
-```
-
-Then, submit the `retrieved-archive-patched.tar.gz` to your Red Hat partner contact. -->
 
 ### Environment Cleanup <a name="usage-destroy"></a>
 
