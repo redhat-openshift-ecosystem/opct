@@ -22,6 +22,7 @@ Table Of Contents:
   - [Check status](#usage-check)
   - [Collect the results](#usage-retrieve)
   - [Check the Results](#usage-results)
+  - [Submit the Results](#submit-results)
   - [Environment Cleanup](#usage-destroy)
 - [Certification Failures](#review)
   - [Troubleshooting](#review-troubleshooting)
@@ -167,6 +168,25 @@ You can see a summarized view of the results using:
 ```sh
 openshift-provider-cert results retrieved-archive.tar.gz
 ```
+
+### Submit the results archive <a name="submit-results"></a>
+
+<!-- > Option 1 - Send the results using Red Hat Connect Portal -->
+
+How to submit OpenShift Certification Test results:
+
+- Log in to the [Red Hat Connect Portal](https://connect.redhat.com/login).
+- Go to [`Support > My support tickets > Create Case`](https://connect.redhat.com/support/technology-partner/#/case/new).
+- In the `Request Category` step, select `Product Certification`.
+- In the `Product Selection` step, for Product field, select `OpenShift Container Platform` and select the Version you are using.
+- Click `Next` to continue.
+- In the `Request Details` step, in the `Request Summary` field, specify `[VCSP] OpenShift Provider Certification Tool Test Results` and provide any additional details in the `Please add description` field.
+- Click `Next` to continue.
+- Click `Submit` when you have complete all the required information.
+- A Product Certification case will be created, and please follow the instructions provided to add the test results and any other related material for us to review.
+- Go to [`Support > My support tickets`](https://connect.redhat.com/support/technology-partner/#/case/list) to find the case and review status and/or to add comments to the case.
+- Attach the `retrieved-archive.tar.gz` result file to the case.
+- Attach the `must-gather.tar.gz` file to the case.
 
 
 ### Environment Cleanup <a name="usage-destroy"></a>
