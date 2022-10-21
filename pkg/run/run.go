@@ -315,7 +315,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			"cli-commit":       version.Version.Commit,
 			"sonobuoy-version": buildinfo.Version,
 			"sonobuoy-commit":  buildinfo.GitSHA,
-			"worker-image":     r.sonobuoyImage,
+			"sonobuoy-image":     r.sonobuoyImage,
 		},
 	}
 	_, err = kclient.CoreV1().ConfigMaps(pkg.CertificationNamespace).Create(context.TODO(), configMap, metav1.CreateOptions{})
