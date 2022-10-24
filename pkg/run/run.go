@@ -314,7 +314,6 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			"cli-version":      version.Version.Version,
 			"cli-commit":       version.Version.Commit,
 			"sonobuoy-version": buildinfo.Version,
-			"sonobuoy-commit":  buildinfo.GitSHA,
 			"sonobuoy-image":   r.sonobuoyImage,
 		},
 	}
