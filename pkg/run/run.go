@@ -10,6 +10,7 @@ import (
 	coclient "github.com/openshift/client-go/config/clientset/versioned"
 	irclient "github.com/openshift/client-go/imageregistry/clientset/versioned"
 	"github.com/pkg/errors"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/sonobuoy/pkg/buildinfo"
@@ -253,6 +254,7 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 
 func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.Interface) error {
 	var manifests []*manifest.Manifest
+	var namespace *v1.Namespace
 
 	if r.dedicated {
 		// Skip preflight checks and create namespace manually with Tolerations
@@ -266,7 +268,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			return err
 		}
 
-		dedicatedNamespace := &v1.Namespace{
+		namespace = &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: pkg.CertificationNamespace,
 				Annotations: map[string]string{
@@ -275,24 +277,49 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 				},
 			},
 		}
-
-		_, err = kclient.CoreV1().Namespaces().Create(context.TODO(), dedicatedNamespace, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		}
 	} else {
-		// Let Sonobuoy do some preflight checks before we run
-		errs := sclient.PreflightChecks(&sonobuoyclient.PreflightConfig{
-			Namespace:    pkg.CertificationNamespace,
-			DNSNamespace: "openshift-dns",
-			DNSPodLabels: []string{"dns.operator.openshift.io/daemonset-dns=default"},
-		})
-		if len(errs) > 0 {
-			for _, err := range errs {
-				log.Error(err)
-			}
-			return errors.New("preflight checks failed")
+		namespace = &v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: pkg.CertificationNamespace,
+			},
 		}
+	}
+
+	_, err := kclient.CoreV1().Namespaces().Create(context.TODO(), namespace, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Let Sonobuoy do some preflight checks before we run
+	errs := sclient.PreflightChecks(&sonobuoyclient.PreflightConfig{
+		Namespace:           pkg.CertificationNamespace,
+		DNSNamespace:        "openshift-dns",
+		DNSPodLabels:        []string{"dns.operator.openshift.io/daemonset-dns=default"},
+		PreflightChecksSkip: []string{"existingnamespace"}, // Skip namespace check since we create it manually
+	})
+	if len(errs) > 0 {
+		for _, err := range errs {
+			log.Error(err)
+		}
+		return errors.New("preflight checks failed")
+	}
+
+	// Create version information ConfigMap
+	configMap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pkg.VersionInfoConfigMapName,
+			Namespace: pkg.CertificationNamespace,
+		},
+		Data: map[string]string{
+			"cli-version":      version.Version.Version,
+			"cli-commit":       version.Version.Commit,
+			"sonobuoy-version": buildinfo.Version,
+			"sonobuoy-image":   r.sonobuoyImage,
+		},
+	}
+	_, err = kclient.CoreV1().ConfigMaps(pkg.CertificationNamespace).Create(context.TODO(), configMap, metav1.CreateOptions{})
+	if err != nil {
+		return err
 	}
 
 	if r.plugins == nil || len(*r.plugins) == 0 {
@@ -345,7 +372,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 		},
 	}
 
-	err := sclient.Run(runConfig)
+	err = sclient.Run(runConfig)
 	return err
 }
 
