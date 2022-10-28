@@ -1,0 +1,16 @@
+site_name: OpenShift Provider Certification Guide
+docs_dir: ./docs
+
+theme:
+  name: readthedocs
+  highlightjs: true
+  hljs_languages:
+    - yaml
+nav:
+  - 'readme.md'
+  - "User Guide":
+      - "User Guide": "user.md"
+  - "Support Guide":
+      - "Support Guide": TODO.md
+  - "Developer Guide":
+      - "Development Guide": dev.md
