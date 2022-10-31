@@ -1,0 +1,56 @@
+name: "Push CI Results Image"
+on:
+  workflow_dispatch:
+    inputs:
+      results_url:
+        description: URL to certification results in Prow CI artifact storage
+        required: true
+      cluster_version:
+        description: OpenShift cluster version
+        required: true
+      platformType:
+        description: Name of the platform where certification results were run  (e.g. AWS, vSphere)
+        required: true
+      descriptor:
+        description: Descriptor to append to container image name (e.g. disconnected)
+        required: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Build and push image
+      env:
+        QUAY_USER: ${{ secrets.QUAY_USER }}
+        QUAY_PASS: ${{ secrets.QUAY_PASS }}
+        RESULTS_URL: ${{ github.event.inputs.results_url }}
+        CLUSTER_VERSION: ${{ github.event.inputs.cluster_version }}
+        DESCRIPTOR: ${{ github.event.inputs.descriptor }}
+        PLATFORM_TYPE: ${{ github.event.inputs.platformType }}
+      run: |
+        DATE=$(date +%Y%m%d)
+        
+        # Login
+        podman login -u="${QUAY_USER}" -p="${QUAY_PASS}" quay.io
+        
+        # Create new empty container image and 
+        CONTAINER=$(buildah from scratch)
+
+        # Fetch certification archive and store in image
+        # rename to .tar.gz (.gz extension is stripped by Prow) 
+        wget -O results.tar.gz "${RESULTS_URL}"
+        buildah copy $CONTAINER *.tar.gz results.tar.gz
+        
+        IMAGE_NAME="quay.io/ocp-cert/baseline-results:${CLUSTER_VERSION}-${DATE}"
+        
+        # Insert descriptor if available
+        if [ ! -z "$DESCRIPTOR" ]; then
+          IMAGE_NAME="quay.io/ocp-cert/baseline-results:${CLUSTER_VERSION}-${DESCRIPTOR}-${DATE}"
+        fi
+        
+        # Add platformType label
+        buildah config --label ocpcert.platform="${PLATFORM_TYPE}" --created-by=redhat-openshift-ecosystem/provider-certification-tool/actions/workflows/push-image.yaml $CONTAINER 
+        
+        # Commit and push
+        buildah commit $CONTAINER "$IMAGE_NAME"
+        podman push "$IMAGE_NAME"
