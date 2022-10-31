@@ -1,0 +1,20 @@
+name: "Push CI Results Image"
+on:
+  workflow_dispatch:
+    inputs:
+      results_url:
+        description: URL to certification results in Prow CI artifact storage
+        required: true
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Build and push image
+      env:
+        QUAY_USER: ${{ secrets.QUAY_USER }}
+        QUAY_PASS: ${{ secrets.QUAY_PASS }}
+        RESULTS_URL: ${{ github.event.inputs.results_url }}
+      run: |
+        which buildah
+        echo $RESULTS_URL
