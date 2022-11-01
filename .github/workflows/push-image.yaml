@@ -40,6 +40,6 @@ jobs:
         
         # Commit and push
         buildah commit $container "quay.io/ocp-cert/baseline-results:${CLUSTER_VERSION}-${DATE}"
-        buildah 
+        podman push "quay.io/ocp-cert/baseline-results:${CLUSTER_VERSION}-${DATE}"
 
         echo $RESULTS_URL
