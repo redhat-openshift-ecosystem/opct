@@ -6,6 +6,12 @@ on:
       results_url:
         description: URL to certification results in Prow CI artifact storage
         required: true
+      cluster_version:
+        description: OpenShift cluster version
+        required: true
+      descriptor:
+        description: Descriptor to append to container image name (e.g. disconnected)
+        required: false
 
 jobs:
   push:
@@ -16,6 +22,24 @@ jobs:
         QUAY_USER: ${{ secrets.QUAY_USER }}
         QUAY_PASS: ${{ secrets.QUAY_PASS }}
         RESULTS_URL: ${{ github.event.inputs.results_url }}
+        CLUSTER_VERSION: ${{ github.event.inputs.cluster_version }}
+        DESCRIPTOR: ${{ github.event.inputs.descriptor }}
       run: |
-        which buildah
+        DATE=$(date +%Y%m%d)
+        
+        # Login
+        podman login -u="${QUAY_USER}" -p="${QUAY_PASS}" quay.io
+        
+        # Create new empty container image and 
+        container=$(buildah from scratch)
+
+        # Fetch certification archive and store in image
+        # rename to .tar.gz (.gz extension is stripped by Prow) 
+        wget -O results.tar.gz https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/origin-ci-test/logs/periodic-ci-redhat-openshift-ecosystem-provider-certification-tool-main-provider-certification-tool-vsphere-ipi/1587233247031463936/artifacts/provider-certification-tool-vsphere-ipi/provider-certification-tool-run/artifacts/certification-results/202211010047_sonobuoy_0dca48c7-fd83-4e4a-8f01-e866244410fc.tar
+        buildah copy $container *.tar.gz results.tar.gz
+        
+        # Commit and push
+        buildah commit $container "quay.io/ocp-cert/baseline-results:${CLUSTER_VERSION}-${DATE}"
+        buildah 
+
         echo $RESULTS_URL
