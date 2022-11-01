@@ -1,5 +1,6 @@
 name: "Push CI Results Image"
 on:
+  pull_request:
   workflow_dispatch:
     inputs:
       results_url:
