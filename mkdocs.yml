@@ -1,4 +1,6 @@
 site_name: OpenShift Provider Certification Guide
+repo_url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool
+edit_uri: edit/main/docs/
 docs_dir: ./docs
 
 theme:
@@ -7,7 +9,7 @@ theme:
   hljs_languages:
     - yaml
 nav:
-  - 'readme.md'
+  - 'Home': user.md
   - "User Guide":
       - "User Guide": "user.md"
   - "Support Guide":
