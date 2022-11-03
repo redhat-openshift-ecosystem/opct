@@ -9,7 +9,6 @@ theme:
   hljs_languages:
     - yaml
 nav:
-  - 'Home': user.md
   - "User Guide":
       - "User Guide": "user.md"
   - "Support Guide":

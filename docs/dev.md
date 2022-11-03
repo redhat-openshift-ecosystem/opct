@@ -87,3 +87,21 @@ vi /tmp/openshift-kube-conformance.yaml
 ```
 openshift-provider-cert run --plugin /tmp/openshift-kube-conformance.yaml --plugin /tmp/openshift-conformance-validated.yaml
 ```
+
+### Project Documentation
+
+The documentation is available in the directory `docs/`. You can render it as HTML using `mkdocs` locally - it's not yet published the HTML version.
+
+To run locally you should be using `python >= 3.8`, and install the `mkdocs` running:
+
+```
+pip install hack/docs-requirements.txt
+```
+
+Then, under the root of the project, run:
+
+```
+mkdocs serve
+```
+
+Then you will be able to access the docs locally on the address: http://127.0.0.1:8000/
