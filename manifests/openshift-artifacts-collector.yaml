@@ -17,7 +17,7 @@ podSpec:
         name: shared
       env:
         - name: PLUGIN_ID
-          value: "10"
+          value: "99"
         - name: ENV_NODE_NAME
           valueFrom:
             fieldRef:
@@ -32,10 +32,10 @@ podSpec:
               fieldPath: metadata.namespace
 sonobuoy-config:
   driver: Job
-  plugin-name: 10-openshift-kube-conformance
-  result-format: junit
-  description: The end-to-end tests maintained by Kubernetes to certify the platform.
-  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-kube-conformance.yaml
+  plugin-name: 99-openshift-artifacts-collector
+  result-format: raw
+  description: The OpenShift Provider Certification Tool artifacts collector executed on the post-certification.
+  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-artifacts-collector.yaml
   skipCleanup: true
 spec:
   name: plugin
@@ -49,7 +49,7 @@ spec:
     name: shared
   env:
     - name: PLUGIN_ID
-      value: "10"
+      value: "99"
     - name: ENV_NODE_NAME
       valueFrom:
         fieldRef:

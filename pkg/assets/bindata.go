@@ -1,5 +1,6 @@
 // Code generated for package assets by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// manifests/openshift-artifacts-collector.yaml
 // manifests/openshift-conformance-validated.yaml
 // manifests/openshift-kube-conformance.yaml
 package assets
@@ -54,6 +55,87 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
+var _manifestsOpenshiftArtifactsCollectorYaml = []byte(`podSpec:
+  restartPolicy: Never
+  serviceAccountName: sonobuoy-serviceaccount
+  volumes:
+    - name: shared
+      emptyDir: {}
+  containers:
+    - name: report-progress
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.2.0
+      imagePullPolicy: Always
+      priorityClassName: system-node-critical
+      command: ["./report-progress.sh"]
+      volumeMounts:
+      - mountPath: /tmp/sonobuoy/results
+        name: results
+      - mountPath: /tmp/shared
+        name: shared
+      env:
+        - name: PLUGIN_ID
+          value: "99"
+        - name: ENV_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: ENV_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ENV_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+sonobuoy-config:
+  driver: Job
+  plugin-name: 99-openshift-artifacts-collector
+  result-format: raw
+  description: The OpenShift Provider Certification Tool artifacts collector executed on the post-certification.
+  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-artifacts-collector.yaml
+  skipCleanup: true
+spec:
+  name: plugin
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.2.0
+  imagePullPolicy: Always
+  priorityClassName: system-node-critical
+  volumeMounts:
+  - mountPath: /tmp/sonobuoy/results
+    name: results
+  - mountPath: /tmp/shared
+    name: shared
+  env:
+    - name: PLUGIN_ID
+      value: "99"
+    - name: ENV_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: ENV_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: ENV_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+`)
+
+func manifestsOpenshiftArtifactsCollectorYamlBytes() ([]byte, error) {
+	return _manifestsOpenshiftArtifactsCollectorYaml, nil
+}
+
+func manifestsOpenshiftArtifactsCollectorYaml() (*asset, error) {
+	bytes, err := manifestsOpenshiftArtifactsCollectorYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "manifests/openshift-artifacts-collector.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
   restartPolicy: Never
   serviceAccountName: sonobuoy-serviceaccount
@@ -62,7 +144,7 @@ var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:stable
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.2.0
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -95,7 +177,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:stable
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.2.0
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
@@ -143,7 +225,7 @@ var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:stable
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.2.0
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -176,7 +258,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:stable
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.2.0
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
@@ -268,6 +350,7 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"manifests/openshift-artifacts-collector.yaml":   manifestsOpenshiftArtifactsCollectorYaml,
 	"manifests/openshift-conformance-validated.yaml": manifestsOpenshiftConformanceValidatedYaml,
 	"manifests/openshift-kube-conformance.yaml":      manifestsOpenshiftKubeConformanceYaml,
 }
@@ -314,6 +397,7 @@ type bintree struct {
 
 var _bintree = &bintree{nil, map[string]*bintree{
 	"manifests": &bintree{nil, map[string]*bintree{
+		"openshift-artifacts-collector.yaml":   &bintree{manifestsOpenshiftArtifactsCollectorYaml, map[string]*bintree{}},
 		"openshift-conformance-validated.yaml": &bintree{manifestsOpenshiftConformanceValidatedYaml, map[string]*bintree{}},
 		"openshift-kube-conformance.yaml":      &bintree{manifestsOpenshiftKubeConformanceYaml, map[string]*bintree{}},
 	}},
