@@ -72,8 +72,8 @@ var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
       - mountPath: /tmp/shared
         name: shared
       env:
-        - name: CERT_LEVEL
-          value: "1"
+        - name: PLUGIN_ID
+          value: "20"
         - name: ENV_NODE_NAME
           valueFrom:
             fieldRef:
@@ -88,7 +88,7 @@ var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
               fieldPath: metadata.namespace
 sonobuoy-config:
   driver: Job
-  plugin-name: openshift-conformance-validated
+  plugin-name: 20-openshift-conformance-validated
   result-format: junit
   description: The end-to-end tests maintained by OpenShift to certify the Provider running the OpenShift Container Platform.
   source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-conformance-validated.yaml
@@ -104,8 +104,8 @@ spec:
   - mountPath: /tmp/shared
     name: shared
   env:
-    - name: CERT_LEVEL
-      value: "1"
+    - name: PLUGIN_ID
+      value: "20"
     - name: ENV_NODE_NAME
       valueFrom:
         fieldRef:
@@ -153,8 +153,8 @@ var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
       - mountPath: /tmp/shared
         name: shared
       env:
-        - name: CERT_LEVEL
-          value: "0"
+        - name: PLUGIN_ID
+          value: "10"
         - name: ENV_NODE_NAME
           valueFrom:
             fieldRef:
@@ -169,7 +169,7 @@ var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
               fieldPath: metadata.namespace
 sonobuoy-config:
   driver: Job
-  plugin-name: openshift-kube-conformance
+  plugin-name: 10-openshift-kube-conformance
   result-format: junit
   description: The end-to-end tests maintained by Kubernetes to certify the platform.
   source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-kube-conformance.yaml
@@ -185,8 +185,8 @@ spec:
   - mountPath: /tmp/shared
     name: shared
   env:
-    - name: CERT_LEVEL
-      value: "0"
+    - name: PLUGIN_ID
+      value: "10"
     - name: ENV_NODE_NAME
       valueFrom:
         fieldRef:
