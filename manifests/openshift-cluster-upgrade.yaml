@@ -1,0 +1,76 @@
+podSpec:
+  restartPolicy: Never
+  serviceAccountName: sonobuoy-serviceaccount
+  volumes:
+    - name: shared
+      emptyDir: {}
+  containers:
+    - name: report-progress
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:devel
+      imagePullPolicy: Always
+      priorityClassName: system-node-critical
+      command: ["./report-progress.sh"]
+      volumeMounts:
+      - mountPath: /tmp/sonobuoy/results
+        name: results
+      - mountPath: /tmp/shared
+        name: shared
+      env:
+        - name: PLUGIN_ID
+          value: "05"
+        - name: ENV_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: ENV_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ENV_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+sonobuoy-config:
+  driver: Job
+  plugin-name: 01-openshift-cluster-upgrade
+  result-format: junit
+  description: The end-to-end tests maintained by OpenShift to certify the Provider running the OpenShift Container Platform.
+  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-conformance-validated.yaml
+  skipCleanup: true
+spec:
+  name: plugin
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:devel
+  imagePullPolicy: Always
+  priorityClassName: system-node-critical
+  volumeMounts:
+  - mountPath: /tmp/sonobuoy/results
+    name: results
+  - mountPath: /tmp/shared
+    name: shared
+  env:
+    - name: PLUGIN_ID
+      value: "05"
+    - name: ENV_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: ENV_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: ENV_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: RUN_MODE
+      value: upgrade
+    - name: UPGRADE_RELEASES
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: upgrade-target-image
+    - name: RUN_MODE
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: run-mode

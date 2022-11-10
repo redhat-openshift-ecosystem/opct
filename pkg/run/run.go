@@ -40,6 +40,8 @@ type RunOptions struct {
 	timeout       int
 	watch         bool
 	devCount      string
+	mode          string
+	upgradeImage  string
 }
 
 const runTimeoutSeconds = 21600
@@ -121,6 +123,8 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().IntVar(&o.timeout, "timeout", runTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", false, "Keep watch status after running")
 	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
+	cmd.Flags().StringVar(&o.mode, "mode", "regular", "Run mode: Availble: regular, upgrade. Default: regular")
+	cmd.Flags().StringVar(&o.upgradeImage, "upgrade-to-image", "", "Digest of the OpenShift Image of Desired Version to upgrade: oc adm release info 4.y.z -o jsonpath='{.Digest}'")
 
 	// Hide dedicated flag since this is for development only
 	cmd.Flags().MarkHidden("dedicated")
@@ -323,6 +327,7 @@ func (r *RunOptions) createConfigMap(kclient kubernetes.Interface, sclient sonob
 	return nil
 }
 
+// Run setup and provision the certification environment.
 func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.Interface) error {
 	var manifests []*manifest.Manifest
 
@@ -362,7 +367,9 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			Namespace: pkg.CertificationNamespace,
 		},
 		Data: map[string]string{
-			"dev-count": r.devCount,
+			"dev-count":             r.devCount,
+			"run-mode":              r.mode,
+			"upgrade-target-images": r.upgradeImage,
 		},
 	}); err != nil {
 		return err
