@@ -171,7 +171,7 @@ var _manifestsOpenshiftClusterUpgradeYaml = []byte(`podSpec:
               fieldPath: metadata.namespace
 sonobuoy-config:
   driver: Job
-  plugin-name: 01-openshift-cluster-upgrade
+  plugin-name: 05-openshift-cluster-upgrade
   result-format: junit
   description: The end-to-end tests maintained by OpenShift to certify the Provider running the OpenShift Container Platform.
   source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-conformance-validated.yaml
@@ -207,7 +207,7 @@ spec:
       valueFrom:
         configMapKeyRef:
           name: plugins-config
-          key: upgrade-target-image
+          key: upgrade-target-images
     - name: RUN_MODE
       valueFrom:
         configMapKeyRef:

@@ -136,7 +136,7 @@ func NewCmdRun() *cobra.Command {
 // PreRunCheck performs some checks before kicking off Sonobuoy
 func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	coreClient := kclient.CoreV1()
-	rbacClient := kclient.RbacV1()
+	// rbacClient := kclient.RbacV1()
 
 	// Get ConfigV1 client for Cluster Operators
 	restConfig, err := client.CreateRestConfig()
