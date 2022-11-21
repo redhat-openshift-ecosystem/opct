@@ -127,6 +127,7 @@ func NewCmdRun() *cobra.Command {
 
 // PreRunCheck performs some checks before kicking off Sonobuoy
 func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
+	var namespace *v1.Namespace
 	coreClient := kclient.CoreV1()
 	rbacClient := kclient.RbacV1()
 
@@ -175,13 +176,14 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 
 	// sonobuoy namespace exists so return error
 	if p.Name != "" {
-		return errors.New("sonobuoy namespace already exists")
+		return errors.New(fmt.Sprintf("%s namespace already exists", pkg.CertificationNamespace))
 	}
 
 	if r.dedicated {
+
 		log.Info("Ensuring proper node label for dedicated mode")
 		nodes, err := coreClient.Nodes().List(context.TODO(), metav1.ListOptions{
-			LabelSelector: "node-role.kubernetes.io/tests=",
+			LabelSelector: pkg.DedicatedNodeRoleLabelSelector,
 		})
 		if err != nil {
 			return err
@@ -189,24 +191,66 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 		if nodes.Items != nil && len(nodes.Items) == 0 {
 			return errors.New("No nodes with role required for dedicated mode (node-role.kubernetes.io/tests)")
 		}
+
+		// Skip preflight checks and create namespace manually with Tolerations
+		tolerations, err := json.Marshal([]v1.Toleration{{
+			Key:      pkg.DedicatedNodeRoleLabel,
+			Operator: v1.TolerationOpExists,
+			Value:    "",
+			Effect:   v1.TaintEffectNoSchedule,
+		}})
+		if err != nil {
+			return err
+		}
+
+		namespace = &v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: pkg.CertificationNamespace,
+				Annotations: map[string]string{
+					"scheduler.alpha.kubernetes.io/defaultTolerations": string(tolerations),
+					"openshift.io/node-selector":                       pkg.DedicatedNodeRoleLabelSelector,
+				},
+			},
+		}
+	} else {
+		namespace = &v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: pkg.CertificationNamespace,
+			},
+		}
 	}
 
+	_, err = kclient.CoreV1().Namespaces().Create(context.TODO(), namespace, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Create Sonobuoy ServiceAccount
+	serviceAccount := &v1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pkg.SonobuoyServiceAccountName,
+			Namespace: pkg.CertificationNamespace,
+			Labels: map[string]string{
+				"component": pkg.SonobuoyComponentLabelValue,
+			},
+		},
+	}
+	_, err = kclient.CoreV1().ServiceAccounts(pkg.CertificationNamespace).Create(context.TODO(), serviceAccount, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
 	log.Info("Ensuring the tool will run in the privileged environment...")
+
 	// Configure SCC
 	anyuid := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: pkg.AnyUIDClusterRoleBinding,
+			Name: "system:openshift:scc:anyuid",
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind:     rbacv1.GroupKind,
+				Kind:     rbacv1.ServiceAccountKind,
 				APIGroup: rbacv1.GroupName,
-				Name:     "system:authenticated",
-			},
-			{
-				Kind:     rbacv1.GroupKind,
-				APIGroup: rbacv1.GroupName,
-				Name:     "system:serviceaccounts",
+				Name:     pkg.SonobuoyServiceAccountName,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -218,18 +262,13 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 
 	privileged := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: pkg.PrivilegedClusterRoleBinding,
+			Name: "system:openshift:scc:privileged",
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind:     rbacv1.GroupKind,
+				Kind:     rbacv1.ServiceAccountKind,
 				APIGroup: rbacv1.GroupName,
-				Name:     "system:authenticated",
-			},
-			{
-				Kind:     rbacv1.GroupKind,
-				APIGroup: rbacv1.GroupName,
-				Name:     "system:serviceaccounts",
+				Name:     pkg.SonobuoyServiceAccountName,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -257,41 +296,6 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 
 func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.Interface) error {
 	var manifests []*manifest.Manifest
-	var namespace *v1.Namespace
-
-	if r.dedicated {
-		// Skip preflight checks and create namespace manually with Tolerations
-		tolerations, err := json.Marshal([]v1.Toleration{{
-			Key:      "node-role.kubernetes.io/tests",
-			Operator: v1.TolerationOpExists,
-			Value:    "",
-			Effect:   v1.TaintEffectNoSchedule,
-		}})
-		if err != nil {
-			return err
-		}
-
-		namespace = &v1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: pkg.CertificationNamespace,
-				Annotations: map[string]string{
-					"scheduler.alpha.kubernetes.io/defaultTolerations": string(tolerations),
-					"openshift.io/node-selector":                       "node-role.kubernetes.io/tests=",
-				},
-			},
-		}
-	} else {
-		namespace = &v1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: pkg.CertificationNamespace,
-			},
-		}
-	}
-
-	_, err := kclient.CoreV1().Namespaces().Create(context.TODO(), namespace, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
 
 	// Let Sonobuoy do some preflight checks before we run
 	errs := sclient.PreflightChecks(&sonobuoyclient.PreflightConfig{
@@ -320,7 +324,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			"sonobuoy-image":   r.sonobuoyImage,
 		},
 	}
-	_, err = kclient.CoreV1().ConfigMaps(pkg.CertificationNamespace).Create(context.TODO(), configMap, metav1.CreateOptions{})
+	_, err := kclient.CoreV1().ConfigMaps(pkg.CertificationNamespace).Create(context.TODO(), configMap, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -363,6 +367,9 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 
 	// Set aggregator deployment namespace
 	aggConfig.Namespace = pkg.CertificationNamespace
+
+	// Ignore Existing SA created on preflight
+	aggConfig.ExistingServiceAccount = true
 
 	// Fill out the Run configuration
 	runConfig := &sonobuoyclient.RunConfig{
