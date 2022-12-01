@@ -44,7 +44,11 @@ type RunOptions struct {
 	upgradeImage  string
 }
 
-const runTimeoutSeconds = 21600
+const (
+	runTimeoutSeconds      = 21600
+	dedicatedLabelKey      = "node-role.kubernetes.io/tests"
+	dedicatedLabelKeyValue = "node-role.kubernetes.io/tests="
+)
 
 func newRunOptions() *RunOptions {
 	return &RunOptions{
@@ -136,7 +140,7 @@ func NewCmdRun() *cobra.Command {
 // PreRunCheck performs some checks before kicking off Sonobuoy
 func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	coreClient := kclient.CoreV1()
-	// rbacClient := kclient.RbacV1()
+	rbacClient := kclient.RbacV1()
 
 	// Get ConfigV1 client for Cluster Operators
 	restConfig, err := client.CreateRestConfig()
@@ -426,7 +430,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			EnableRBAC:         false, // RBAC is created in preflight
 			ImagePullPolicy:    config.DefaultSonobuoyPullPolicy,
 			StaticPlugins:      manifests,
-			PluginEnvOverrides: nil, // TODO We'll use this later
+			PluginEnvOverrides: nil,
 		},
 	}
 
