@@ -119,6 +119,9 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().IntVar(&o.timeout, "timeout", runTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", false, "Keep watch status after running")
 
+	// Hide dedicated flag since this is for development only
+	cmd.Flags().MarkHidden("dedicated")
+
 	return cmd
 }
 
