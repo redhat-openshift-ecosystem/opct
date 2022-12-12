@@ -1,6 +1,6 @@
 # User Guide
 
-Welcome to the user documentation for the OpenShift Provider Certification Tool!  
+Welcome to the user documentation for the OpenShift Provider Certification Tool (OPCT)!
 
 The OpenShift Provider Certification Tool is used to evaluate an OpenShift installation on an infrastructure or hardware provider is in conformance.
 
@@ -32,15 +32,24 @@ Table Of Contents:
 
 ## Process Overview <a name="process"></a>
 
-More detail on each step can be found in the sections further below.
+This section describes the steps of the process when submiting the results to Red Hat Partner,
+if the goal is not sharing the results to Red Hat, you can go to the next section.
 
-1. Prepare the OpenShift cluster to be certified
-2. Download and install the provider certification tool
-3. Run provider certification tool
+Overview of the process to apply the results to the Red Hat Partner support case:
+
+0. Install an OpenShift cluster on **the version desired** to be validated
+1. Prepare the OpenShift cluster to run the validated environment
+2. Download and install the OPCT
+3. Run the OPCT
 4. Monitor tests 
 5. Gather results
-6. Share certification results and [must gather](https://docs.openshift.com/container-platform/latest/support/gathering-cluster-data.html) with Red Hat
+6. Share the results archive with Red Hat Partner support case
 
+You may be asked by Support Engineers to repeat the process a few times depending on the results.
+
+Finally, you will be asked to manually upgrade the cluster to the next Y-release.
+
+More detail on each step can be found in the sections further below.
 
 ## Prerequisites <a name="prerequisites"></a>
 
@@ -217,8 +226,6 @@ openshift-provider-cert results retrieved-archive.tar.gz
 
 ### Submit the results archive <a name="submit-results"></a>
 
-<!-- > Option 1 - Send the results using Red Hat Connect Portal -->
-
 How to submit OpenShift Certification Test results:
 
 - Log in to the [Red Hat Connect Portal](https://connect.redhat.com/login).
@@ -234,10 +241,9 @@ How to submit OpenShift Certification Test results:
 
 Required files to attach to a NEW support case:
 
-- Attach the Installation Document used describing how your installing the Cluster
-- Download, review and attach the [`user-installation-checklist.md`](./user-installation-checklist.md)
-- Attach the `retrieved-archive.tar.gz` result file to the case.
-- Attach the `must-gather.tar.gz` file to the case.
+- Attach the detailed Deployment Document describing how the cluster is installed in your Cloud Provider.
+- Download, review and attach the [`user-installation-checklist.md`](./user-installation-checklist.md) to the case.
+- Attach the `"retrieved-archive".tar.gz` result file to the case.
 
 
 ### Environment Cleanup <a name="usage-destroy"></a>
