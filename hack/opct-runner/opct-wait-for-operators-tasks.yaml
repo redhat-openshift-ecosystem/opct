@@ -1,0 +1,50 @@
+--- # tasks used by opct-wait-for-operators.yaml
+
+- name: Waiting for Operators become Available
+  ansible.builtin.debug:
+    msg:
+      - "Starting loop [{{ item }}/{{ loop_count }}] with {{ loop_interval_sec }}sec interval"
+      - "Datetime: {{ ansible_date_time.iso8601 }}"
+
+- name: Waiting for Operators become Available
+  ansible.builtin.shell: |
+    {{ oc_bin }} \
+      --kubeconfig {{ kubeconfig }} \
+      wait --for=condition={{ condition_key }}={{ condition_value }} --all \
+      clusteroperators.config.openshift.io --timeout="10m" ;
+    sleep {{ loop_interval_sec }}
+  vars:
+    condition_key: Available
+    condition_value: 'True'
+  register: result_co_av
+  ignore_errors: False
+
+- name: Waiting for Operators stop Progressing
+  ansible.builtin.shell: |
+    {{ oc_bin }} \
+      --kubeconfig {{ kubeconfig }} \
+      wait --for=condition={{ condition_key }}={{ condition_value }} --all \
+      clusteroperators.config.openshift.io --timeout=10m ;
+    sleep {{ loop_interval_sec }}
+  vars:
+    condition_key: Progressing
+    condition_value: 'False'
+  register: result_co_pg
+  ignore_errors: False
+
+- name: Waiting for Operators not Degraded
+  ansible.builtin.shell: |
+    {{ oc_bin }} \
+      --kubeconfig {{ kubeconfig }} \
+      wait --for=condition={{ condition_key }}={{ condition_value }} --all \
+      clusteroperators.config.openshift.io --timeout=10m ;
+    sleep {{ loop_interval_sec }}
+  vars:
+    condition_key: Degraded
+    condition_value: 'False'
+  register: result_co_dg
+  ignore_errors: False
+
+- name: Waiting...
+  ansible.builtin.pause:
+    seconds: "{{ loop_interval_sec }}"

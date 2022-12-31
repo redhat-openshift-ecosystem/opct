@@ -1,0 +1,17 @@
+---
+- name: Setup OPCT Cluster Tests - Enable Local Image Registry
+  hosts: localhost
+  tasks:
+  - name: Create Manage Image Registry emptyDir
+    environment:
+      KUBECONFIG: "{{ kubeconfig }}"
+    kubernetes.core.k8s:
+      state: present
+      api_version: imageregistry.operator.openshift.io/v1
+      kind: Config
+      name: cluster
+      definition:
+        spec:
+          managementState: Managed
+          storage:
+            emptyDir: {}

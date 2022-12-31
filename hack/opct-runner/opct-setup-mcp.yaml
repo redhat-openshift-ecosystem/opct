@@ -1,0 +1,21 @@
+---
+- name: Setup OPCT Cluster Tests - Create Paused MCP
+  hosts: localhost
+  tasks:
+  - name: Create Paused MCP
+    kubernetes.core.k8s:
+      state: present
+      api_version: machineconfiguration.openshift.io/v1
+      kind: MachineConfigPool
+      name:  openshift-provider-certification
+      definition:
+        spec:
+          machineConfigSelector:
+            matchExpressions:
+            - key: machineconfiguration.openshift.io/role,
+              operator: In,
+              values: [worker,openshift-provider-certification]
+          nodeSelector:
+            matchLabels:
+              "node-role.kubernetes.io/tests": ''
+          paused: true

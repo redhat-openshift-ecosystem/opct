@@ -1,0 +1,53 @@
+---
+- name: OPCT Init Vars
+  ansible.builtin.import_playbook: opct-init-vars.yaml
+
+- name: Setup OPCT Cluster Tests - Setup test label 
+  hosts: localhost
+  gather_facts: yes
+
+  tasks:
+  - name: OPCT Setup | Node label | Getting all nodes
+    environment:
+      KUBECONFIG: "{{ kubeconfig }}"
+    register: all_nodes
+    until: "all_nodes is not failed"
+    retries: 5
+    delay: 5
+    kubernetes.core.k8s_info:
+      api_version: v1
+      kind: Node
+      label_selectors:
+        - "node-role.kubernetes.io/worker"
+
+  - name: OPCT Setup | Node label | Show all nodes
+    debug:
+      var: all_nodes
+    when: debug | d(false)
+
+  - name: OPCT Setup | Node label | Getting the first worker node
+    set_fact:
+      node_name: "{{ all_nodes.resources[0].metadata.name }}"
+    when: all_nodes.resources | length > 0
+
+  - name: OPCT Setup | Node label | Apply label
+    environment:
+      KUBECONFIG: "{{ kubeconfig }}"
+    when: all_nodes.resources | length > 0
+    register: set_node
+    until: "set_node is not failed"
+    retries: 5
+    delay: 5
+    kubernetes.core.k8s:
+      state: patched
+      api_version: v1
+      kind: Node
+      name: "{{ node_name }}"
+      definition:
+        metadata:
+          labels:
+            "node-role.kubernetes.io/tests": ''
+        spec:
+          taints:
+            - effect: NoSchedule
+              key: "node-role.kubernetes.io/tests"

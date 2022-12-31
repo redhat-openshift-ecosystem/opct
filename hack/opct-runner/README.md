@@ -1,0 +1,174 @@
+# Dev Guide - cluster provisioner (opct-runner)
+
+> **NOTE**: This tool is used by Developers for development and OPCT QE/CI, it's not a recommendation to be used by the OpenShift Provider Certification workflow.
+
+opct-runner is a collection of Ansible Playbooks used to provision the cluster*, run OPCT, and destroy the cluster.
+
+> *the cluster provisioner is done by [okd-installer Ansible Collection](https://galaxy.ansible.com/mtulio/okd_installer), the playbooks and vars declared in this repo will set the required parameters to create all the stacks (Network, DNS, IAM, Compute, etc) and install OCP using agnostic installation (a.k.a `platform=None`).
+
+The goal of those scripts are:
+
+- decrease the total time to run the certification environment with non-goals, like managing infrastructure;
+- decrease the manual steps like setting node labels required to the dedicated environment, setting up local-registry, waiting for COs, collecting artifacts (...)
+- saving cloud infrastructure costs by destroying the cluster right after the OPCT has been finished
+- saving cloud infrastructure costs by running different topologies (cheaper like single-AZ) in development environments
+- allow developers to run locally instead of OCP-CI/cluster-bot (quickly provision OCP cluster to run OPCT)
+
+The steps are:
+
+- Build OPCT on the version desired to run
+- Build the container image for opct-runner
+- Set the Cloud providers and basic env vars for the OCP installer
+- Run the OPCT runner targeting the desired OCP version
+
+## Build
+
+Clone the OPCT repo:
+
+```bash
+git clone https://github.com/redhat-openshift-ecosystem/provider-certification-tool.git
+```
+
+Build OPCT:
+
+```bash
+make linux-amd64
+```
+
+Build opct-runner container:
+
+> check if needed to use a more recent version of okd-installer
+
+```bash
+podman build -t opct-runner:latest -f hack/opct-runner/Containerfile hack/opct-runner/
+```
+
+## Setup
+
+Export and Create the environment var file:
+
+```bash
+export CLUSTER=opct22123102
+cat <<EOF> ./.opct.env
+CONFIG_PULL_SECRET_FILE=/pull-secret.json
+AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+EOF
+```
+
+Create the workdir (`./.opct`):
+
+```bash
+mkdir ./.opct
+```
+
+## Run
+
+Run the opct-runner:
+
+```bash
+podman run \
+    --env-file ${PWD}/.opct.env \
+    -v ${PWD}/.opct:/root/.ansible/okd-installer:Z \
+    -v ${HOME}/.ssh:/root/.ssh:Z \
+    -v ${HOME}/.openshift/pull-secret-latest.json:/pull-secret.json \
+    -v ${PWD}/openshift-provider-cert-linux-amd64:/openshift-provider-cert:Z \
+    --rm opct-runner:latest \
+        ansible-playbook opct-runner-all-aws.yaml \
+        -e cluster_name=$CLUSTER \
+        -e cluster_version=4.11.18 ;
+```
+
+The execution may take a while to run everything (expected 2-3 hours):
+
+- ~20-30 minutes to provision the cluster
+- ~2:30h to run the OPCT
+- ~10 minutes to destroy the cluster
+
+You can follow the cluster and execution in a new terminal:
+
+- Checking the OPCT stdout/err on the log file:
+
+```bash
+tail -f ./.opct/clusters/$CLUSTER/opct/opct-runner.log
+```
+
+- Checking the pod logs:
+
+```bash
+oc --kubeconfig=./.opct/clusters/$CLUSTER/auth/kubeconfig get pods -n openshift-provider-certification
+```
+
+When the tasks have been finished, the results should be saved on the directory `./.opct/clusters/$CLUSTER/opct/`.
+
+Check the results:
+
+```bash
+./openshift-provider-cert-linux-amd64 results .opct/clusters/${CLUSTER}/opct/*.tar.gz
+```
+
+Make sure the cluster has been destroyed.
+
+## Run more
+
+If you would like to run in parallel tests into different versions OPCT and/or OCP, you need to change only the args send to the playbook:
+
+- `-e cluster_name`
+- `-e cluster_version`
+
+Example running the same OPCT version into two OCP clusters/versions (4.11.18 and 4.10.45):
+
+```bash
+# Cluster running in 4.11.18
+podman run \
+    --env-file ${PWD}/.opct.env \
+    -v ${PWD}/.opct:/root/.ansible/okd-installer:Z \
+    -v ${HOME}/.ssh:/root/.ssh:Z \
+    -v ${HOME}/.openshift/pull-secret-latest.json:/pull-secret.json \
+    -v ${PWD}/openshift-provider-cert-linux-amd64:/openshift-provider-cert:Z \
+    --rm opct-runner:latest \
+        ansible-playbook opct-runner-all-aws.yaml \
+        -e cluster_name=opct-ocp41118 \
+        -e cluster_version=4.11.18
+
+# Cluster running in 4.10.45
+podman run \
+    --env-file ${PWD}/.opct.env \
+    -v ${PWD}/.opct:/root/.ansible/okd-installer:Z \
+    -v ${HOME}/.ssh:/root/.ssh:Z \
+    -v ${HOME}/.openshift/pull-secret-latest.json:/pull-secret.json \
+    -v ${PWD}/openshift-provider-cert-linux-amd64:/openshift-provider-cert:Z \
+    --rm opct-runner:latest \
+        ansible-playbook opct-runner-all-aws.yaml \
+        -e cluster_name=opct-ocp41045 \
+        -e cluster_version=4.10.45
+```
+
+Example running two OPCT versions (v0.1.0 and v0.2.1) into the same OCP version:
+
+```bash
+# Cluster running in OCP 4.11.18 and OPCT v0.2.1
+podman run \
+    --env-file ${PWD}/.opct.env \
+    -v ${PWD}/.opct:/root/.ansible/okd-installer:Z \
+    -v ${HOME}/.ssh:/root/.ssh:Z \
+    -v ${HOME}/.openshift/pull-secret-latest.json:/pull-secret.json \
+    -v ${PWD}/openshift-provider-cert-linux-amd64-v0.2.1:/openshift-provider-cert:Z \
+    --rm opct-runner:latest \
+        ansible-playbook opct-runner-all-aws.yaml \
+        -e cluster_name=opct-v010 \
+        -e cluster_version=4.11.18
+
+# Cluster running in OCP 4.11.18 and OPCT v0.1.0
+podman run \
+    --env-file ${PWD}/.opct.env \
+    -v ${PWD}/.opct:/root/.ansible/okd-installer:Z \
+    -v ${HOME}/.ssh:/root/.ssh:Z \
+    -v ${HOME}/.openshift/pull-secret-latest.json:/pull-secret.json \
+    -v ${PWD}/openshift-provider-cert-linux-amd64-v0.1.0:/openshift-provider-cert:Z \
+    --rm opct-runner:latest \
+        ansible-playbook opct-runner-all-aws.yaml \
+        -e cluster_name=opct-v021 \
+        -e cluster_version=4.11.18
+```

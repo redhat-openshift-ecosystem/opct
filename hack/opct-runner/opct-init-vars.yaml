@@ -1,0 +1,17 @@
+---
+- name: OPCT Init Vars
+  hosts: localhost
+  gather_facts: yes
+
+  vars:
+    installer_path: "{{ ansible_env.HOME + '/.ansible/okd-installer' }}"
+
+  tasks:
+  - name: Set file FQDN for dependencies
+    ansible.builtin.set_fact:
+      cluster_path: "{{ installer_path }}/clusters/{{ cluster_name }}"
+
+  - name: Set file FQDN for dependencies
+    ansible.builtin.set_fact:
+      oc_bin: "{{ installer_path }}/bin/oc"
+      kubeconfig: "{{ cluster_path }}/auth/kubeconfig"

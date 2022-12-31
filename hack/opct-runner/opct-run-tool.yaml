@@ -1,0 +1,122 @@
+---
+- name: OPCT Init Vars
+  ansible.builtin.import_playbook: opct-init-vars.yaml
+
+- name: OPCT Runner Preflight | setup node labeling
+  ansible.builtin.import_playbook: opct-setup-node.yaml
+  when: not(skip_prefligth | d(false))
+
+- name: OPCT Runner Preflight | setup image-registry
+  ansible.builtin.import_playbook: opct-setup-imageregistry-dev.yaml
+  when: not(skip_prefligth | d(false))
+
+- name: OPCT Runner Preflight | waiting operators to be ready
+  ansible.builtin.import_playbook: opct-wait-for-operators.yaml
+  when: not(skip_prefligth | d(false))
+
+- name: OPCT Runner
+  hosts: localhost
+  gather_facts: yes
+  vars:
+    opct_bin: /openshift-provider-cert
+    # OPCT runs in average of 2.5h, the timeout is set to 4h
+    # pooling the status of the task every 60 seconds.
+    opct_task_timeout_sec: 14400
+    opct_task_check_delay_sec: 60
+    opct_task_check_retries: 241
+
+  tasks:
+  - name: Set results path
+    ansible.builtin.set_fact:
+      results_path: "{{ cluster_path }}/opct"
+    when: results_path is not defined
+
+  - name: Set log_pipe
+    ansible.builtin.set_fact:
+      log_pipe: "{{ results_path }}/opct-runner.log"
+    when: log_pipe is not defined
+
+  - name: Set play_start_time
+    ansible.builtin.set_fact:
+      play_start: "{{ ansible_date_time.date }} {{ ansible_date_time.time }}"
+
+  - name: Assert results path exists
+    ansible.builtin.file:
+      state: directory
+      path: "{{ results_path }}"
+
+  # Schedule async task to run OPCT
+  # The OPCT will run in watcher mode (-w), once it finished,
+  # the artifacts will be collected.
+  - name: Run Async OPCT task
+    async: "{{ opct_task_timeout_sec }}"
+    poll: 0
+    args:
+      chdir: "{{ results_path }}"
+    environment:
+      KUBECONFIG: "{{ kubeconfig }}"
+    # Python env should be explicit set, otherwise the VENV will
+    # raise the error described in this issue: 
+    # https://github.com/ansible/ansible/issues/43286#issuecomment-489981184
+    vars:
+      ansible_python_interpreter: /usr/bin/env python3
+    ansible.builtin.shell: |
+      echo "> INIT OPCT task runner [{{ ansible_date_time.iso8601 }}]" | tee -a {{ log_pipe }};
+      echo ">> Dumping vars  " | tee -a {{ log_pipe }};
+      echo "opct_bin={{ opct_bin }}" | tee -a {{ log_pipe }};
+
+      echo "> STARTING OPCT task: " | tee -a {{ log_pipe }};
+      {{ opct_bin }} run -w 2>&1 | tee -a {{ log_pipe }};
+      echo "> Retrieve OPCT results: "
+      {{ opct_bin }} retrieve  2>&1 | tee -a {{ log_pipe }};
+      #/openshift-provider-cert results  2>&1 | tee -a {{ log_pipe }};
+    register: opct_run
+
+  - name: Summary
+    ansible.builtin.debug:
+      msg:
+        - "Result path is set to directory {{ results_path }}"
+        - "Async Task scheduled with ID {{ opct_run.ansible_job_id }}"
+        - "Task timeout is {{ opct_task_timeout_sec  }} seconds."
+        - "Task status will check every {{ opct_task_check_delay_sec  }} seconds for {{ opct_task_check_retries }} times."
+        - "Task status will return 'FAILED - RETRYING' while OPCT is running"
+        - "Task stdout/err is available on the log file {{ log_pipe }}"
+        - "Check the execution: 'tail -f {{ log_pipe }}'"
+        - "Check the environment: 'oc --kubeconfig {{ kubeconfig }} get pods -n openshift-provider-certification'"
+
+  - name: OPCT check async task every 60 sec
+    ansible.builtin.async_status:
+      jid: "{{ opct_run.ansible_job_id }}"
+    register: job_result
+    until: job_result.finished
+    retries: 240 # 4h
+    delay: 60
+    vars:
+      ansible_python_interpreter: /usr/bin/env python3
+
+  - ansible.builtin.debug:
+      var: opct_run
+
+  - ansible.builtin.debug:
+      var: job_result.stdout_lines
+    #when: job_result.stderr_lines | length == 0
+
+  - name: Get timestamp from the system
+    shell: "date +'%Y-%m-%d %H:%M:%S'"
+    register: tstamp
+    changed_when: false
+
+  - name: Set play_end_time
+    ansible.builtin.set_fact:
+      play_end: "{{ tstamp.stdout }}"
+
+  - name: Show final message
+    ansible.builtin.debug:
+      msg:
+        - "Job attempts={{ job_result.stderr_lines }}"
+        - "Job time delta={{ job_result.delta }} start={{ job_result.start }} end={{ job_result.start }}"
+        - "Job attempts={{ job_result.attempts }}"
+        - "Execution time: {{ ((play_end|to_datetime) - (play_start|to_datetime)) }}"
+
+  # TODO
+  # - save artifacts somewhere

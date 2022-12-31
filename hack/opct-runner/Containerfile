@@ -1,0 +1,12 @@
+# Build opct-runner
+
+# https://github.com/mtulio/ansible-collection-okd-installer/actions/runs/3809864467
+FROM quay.io/mrbraga/okd-installer:0.0.0-ci.173-3810824359
+
+COPY --from=quay.io/ocp-cert/tools:latest /usr/bin/oc /usr/bin/
+
+WORKDIR /opct-runner
+
+ADD ./ansible.cfg ./
+ADD ./inventories/* ./inventories/
+ADD ./opct-*.yaml .

@@ -1,0 +1,27 @@
+---
+- name: OPCT - Waiting for Cluster Operators
+  hosts: localhost
+  gather_facts: yes
+
+  vars:
+    loop_count: 5
+    loop_interval_sec: 5
+
+  tasks:
+  # - name: Set file FQDN for dependencies
+  #   ansible.builtin.set_fact:
+  #     installer_path: "{{ installer_path | d(ansible_env.HOME + '/.ansible/okd-installer') }}"
+
+  # - name: Set file FQDN for dependencies
+  #   ansible.builtin.set_fact:
+  #     cluster_path: "{{ installer_path }}/clusters/{{ cluster_name }}"
+
+  # - name: Set file FQDN for dependencies
+  #   ansible.builtin.set_fact:
+  #     oc_bin: "{{ installer_path }}/bin/oc"
+  #     kubeconfig: "{{ cluster_path }}//auth/kubeconfig"
+
+  - name: Waiting for Operators ready
+    ansible.builtin.include_tasks: opct-wait-for-operators-tasks.yaml
+    with_sequence: start=1 end="{{ loop_count }}"
+
