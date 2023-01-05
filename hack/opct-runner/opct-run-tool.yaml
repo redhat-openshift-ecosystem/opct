@@ -67,6 +67,7 @@
 
       echo "> STARTING OPCT task: " | tee -a {{ log_pipe }};
       {{ opct_bin }} run -w 2>&1 | tee -a {{ log_pipe }};
+
       echo "> Retrieve OPCT results: "
       {{ opct_bin }} retrieve  2>&1 | tee -a {{ log_pipe }};
       #/openshift-provider-cert results  2>&1 | tee -a {{ log_pipe }};

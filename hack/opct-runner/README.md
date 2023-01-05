@@ -172,3 +172,63 @@ podman run \
         -e cluster_name=opct-v021 \
         -e cluster_version=4.11.18
 ```
+
+## Alternative Playbooks
+
+- Cluster destroy: Commonly used when the flag `keep_cluster` is set on `opct-runner-all-aws.yaml`
+
+```bash
+export CLUSTER=opct-v41046
+podman run \
+    --env-file ${PWD}/.opct.env \
+    -v ${PWD}/.opct:/root/.ansible/okd-installer:Z \
+    --rm opct-runner:latest \
+        ansible-playbook opct-cluster-delete-aws.yaml \
+        -e cluster_name=$CLUSTER
+```
+
+- When the execution has been finished but some errors to collect the artifacts, just run:
+
+```bash
+$ cd .opct/clusters/$CLUSTER/opct/
+$ KUBECONFIG=${PWD}/../auth/kubeconfig ../../../../openshift-provider-cert-linux-amd64 retrieve
+$ ../../../../openshift-provider-cert-linux-amd64 results *.tar.gz
+
+# remember to destroy the cluster (opct-cluster-delete-aws.yaml)
+```
+
+
+## Run directly from host
+
+If you would like to skip the container environment and run the playbooks directly from the host (hard way), you should install all the dependencies required by okd-installer on your environment.
+
+Let's create the python virtual environment to isolate the packages and avoid breaking anything in your host:
+
+~~~
+python3 -m venv .venv
+source ~/.venv/bin/activate
+~~~
+
+Install the requirements of okd-installer
+
+~~~
+pip install -r https://raw.githubusercontent.com/mtulio/ansible-collection-okd-installer/main/requirements.txt
+ansible-galaxy collection install -r https://raw.githubusercontent.com/mtulio/ansible-collection-okd-installer/main/requirements.yml
+~~~
+
+Install the Collection
+
+~~~
+ansible-galaxy collection install mtulio.okd_installer
+~~~
+
+Run the playbook:
+
+~~~
+source ${PWD}/.opct.env
+ansible-playbook opct-runner-all-aws.yaml \
+        -e cluster_name=opct-41118 \
+        -e cluster_version=4.11.18
+~~~
+
+The results should be saved at `${HOME}/.ansible/okd-installer/clusters/${CLUSTER}/opct`.
