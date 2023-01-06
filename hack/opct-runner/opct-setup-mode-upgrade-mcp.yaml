@@ -3,18 +3,20 @@
   hosts: localhost
   tasks:
   - name: Create Paused MCP
+    environment:
+      KUBECONFIG: "{{ kubeconfig }}"
     kubernetes.core.k8s:
       state: present
       api_version: machineconfiguration.openshift.io/v1
       kind: MachineConfigPool
-      name:  openshift-provider-certification
+      name: opct
       definition:
         spec:
           machineConfigSelector:
             matchExpressions:
             - key: machineconfiguration.openshift.io/role,
               operator: In,
-              values: [worker,openshift-provider-certification]
+              values: [worker,opct]
           nodeSelector:
             matchLabels:
               "node-role.kubernetes.io/tests": ''

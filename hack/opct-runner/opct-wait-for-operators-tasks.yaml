@@ -1,12 +1,12 @@
 --- # tasks used by opct-wait-for-operators.yaml
 
-- name: Waiting for Operators become Available
+- name: OPCT | CO Check | Waiting for Operators checker
   ansible.builtin.debug:
     msg:
       - "Starting loop [{{ item }}/{{ loop_count }}] with {{ loop_interval_sec }}sec interval"
       - "Datetime: {{ ansible_date_time.iso8601 }}"
 
-- name: Waiting for Operators become Available
+- name: OPCT | CO Check | Waiting for Operators Available=True
   ansible.builtin.shell: |
     {{ oc_bin }} \
       --kubeconfig {{ kubeconfig }} \
@@ -19,7 +19,7 @@
   register: result_co_av
   ignore_errors: False
 
-- name: Waiting for Operators stop Progressing
+- name: OPCT | CO Check | Waiting for Operators Progressing=False
   ansible.builtin.shell: |
     {{ oc_bin }} \
       --kubeconfig {{ kubeconfig }} \
@@ -32,7 +32,7 @@
   register: result_co_pg
   ignore_errors: False
 
-- name: Waiting for Operators not Degraded
+- name: OPCT | CO Check | Waiting for Operators Degraded=False
   ansible.builtin.shell: |
     {{ oc_bin }} \
       --kubeconfig {{ kubeconfig }} \
@@ -45,6 +45,6 @@
   register: result_co_dg
   ignore_errors: False
 
-- name: Waiting...
+- name: OPCT | CO Check | Pausing for seconds {{ loop_interval_sec}}
   ansible.builtin.pause:
     seconds: "{{ loop_interval_sec }}"

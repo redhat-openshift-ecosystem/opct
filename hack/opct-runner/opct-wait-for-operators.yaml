@@ -21,7 +21,7 @@
   #     oc_bin: "{{ installer_path }}/bin/oc"
   #     kubeconfig: "{{ cluster_path }}//auth/kubeconfig"
 
-  - name: Waiting for Operators ready
+  - name: OPCT | CO Check | Starting the wait loop
     ansible.builtin.include_tasks: opct-wait-for-operators-tasks.yaml
     with_sequence: start=1 end="{{ loop_count }}"
 

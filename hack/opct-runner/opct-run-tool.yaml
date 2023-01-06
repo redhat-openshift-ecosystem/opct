@@ -10,6 +10,12 @@
   ansible.builtin.import_playbook: opct-setup-imageregistry-dev.yaml
   when: not(skip_prefligth | d(false))
 
+- name: OPCT Runner Preflight | setup image-registry
+  ansible.builtin.import_playbook: opct-setup-mode-upgrade-mcp.yaml
+  when:
+    - not(skip_prefligth | d(false))
+    - run_mode|d('') == 'upgrade'
+
 - name: OPCT Runner Preflight | waiting operators to be ready
   ansible.builtin.import_playbook: opct-wait-for-operators.yaml
   when: not(skip_prefligth | d(false))
@@ -66,14 +72,14 @@
       echo "opct_bin={{ opct_bin }}" | tee -a {{ log_pipe }};
 
       echo "> STARTING OPCT task: " | tee -a {{ log_pipe }};
-      {{ opct_bin }} run -w 2>&1 | tee -a {{ log_pipe }};
+      {{ opct_bin }} run -w {{ opct_run_mode | d('') }} {{ opct_run_args | d('') }} 2>&1 | tee -a {{ log_pipe }};
 
       echo "> Retrieve OPCT results: "
       {{ opct_bin }} retrieve  2>&1 | tee -a {{ log_pipe }};
       #/openshift-provider-cert results  2>&1 | tee -a {{ log_pipe }};
     register: opct_run
 
-  - name: Summary
+  - name: Task Summary
     ansible.builtin.debug:
       msg:
         - "Result path is set to directory {{ results_path }}"
@@ -84,6 +90,8 @@
         - "Task stdout/err is available on the log file {{ log_pipe }}"
         - "Check the execution: 'tail -f {{ log_pipe }}'"
         - "Check the environment: 'oc --kubeconfig {{ kubeconfig }} get pods -n openshift-provider-certification'"
+        - "OPCT run cmd: {{ opct_bin }} run -w {{ opct_run_mode | d('') }} {{ opct_run_args | d('') }} 2>&1 | tee -a {{ log_pipe }};"
+        - "OPCT retrieve cmd: {{ opct_bin }} retrieve  2>&1 | tee -a {{ log_pipe }}"
 
   - name: OPCT check async task every 60 sec
     ansible.builtin.async_status:
