@@ -5,6 +5,10 @@
   - name: Create Manage Image Registry emptyDir
     environment:
       KUBECONFIG: "{{ kubeconfig }}"
+    register: create_registry
+    until: "create_registry is not failed"
+    retries: 5
+    delay: 5
     kubernetes.core.k8s:
       state: present
       api_version: imageregistry.operator.openshift.io/v1

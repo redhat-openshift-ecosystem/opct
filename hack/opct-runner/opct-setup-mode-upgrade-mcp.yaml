@@ -5,6 +5,10 @@
   - name: Create Paused MCP
     environment:
       KUBECONFIG: "{{ kubeconfig }}"
+    register: create_mcp
+    until: "create_mcp is not failed"
+    retries: 5
+    delay: 5
     kubernetes.core.k8s:
       state: present
       api_version: machineconfiguration.openshift.io/v1
