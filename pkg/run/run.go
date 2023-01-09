@@ -188,12 +188,12 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 
 	if r.dedicated {
 
-		log.Info("Ensuring proper node label for dedicated mode")
+		log.Info("Ensuring proper node label for dedicated mode exists")
 		nodes, err := coreClient.Nodes().List(context.TODO(), metav1.ListOptions{
 			LabelSelector: pkg.DedicatedNodeRoleLabelSelector,
 		})
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error getting the Node list")
 		}
 		if nodes.Items != nil && len(nodes.Items) == 0 {
 			return errors.New("No nodes with role required for dedicated mode (node-role.kubernetes.io/tests)")
@@ -206,7 +206,7 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 			Effect:   v1.TaintEffectNoSchedule,
 		}})
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error creating namespace Tolerations")
 		}
 
 		namespace.Annotations = map[string]string{
@@ -229,7 +229,11 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 			Labels:    pkg.SonobuoyDefaultLabels,
 		},
 	}
-	sa.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"})
+	sa.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "ServiceAccount",
+	})
 
 	_, err = kclient.CoreV1().ServiceAccounts(pkg.CertificationNamespace).Create(context.TODO(), sa, metav1.CreateOptions{})
 	if err != nil {
