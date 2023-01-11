@@ -112,11 +112,11 @@ func (d *DestroyOptions) DeleteTestNamespaces(kclient kubernetes.Interface) erro
 func (d *DestroyOptions) RestoreSCC(kclient kubernetes.Interface) error {
 	client := kclient.RbacV1()
 
-	err := client.ClusterRoleBindings().Delete(context.TODO(), pkg.AnyUIDClusterRoleBinding, metav1.DeleteOptions{})
+	err := client.ClusterRoles().Delete(context.TODO(), pkg.PrivilegedClusterRole, metav1.DeleteOptions{})
 	if err != nil {
 		return err
 	}
-	log.Infof("Deleted %s ClusterRoleBinding", pkg.AnyUIDClusterRoleBinding)
+	log.Infof("Deleted %s ClusterRole", pkg.PrivilegedClusterRole)
 
 	err = client.ClusterRoleBindings().Delete(context.TODO(), pkg.PrivilegedClusterRoleBinding, metav1.DeleteOptions{})
 	if err != nil {

@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -22,7 +23,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
@@ -175,77 +176,132 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 
 	// sonobuoy namespace exists so return error
 	if p.Name != "" {
-		return errors.New("sonobuoy namespace already exists")
+		return errors.New(fmt.Sprintf("%s namespace already exists", pkg.CertificationNamespace))
+	}
+
+	namespace := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   pkg.CertificationNamespace,
+			Labels: pkg.SonobuoyDefaultLabels,
+		},
 	}
 
 	if r.dedicated {
-		log.Info("Ensuring proper node label for dedicated mode")
+
+		log.Info("Ensuring proper node label for dedicated mode exists")
 		nodes, err := coreClient.Nodes().List(context.TODO(), metav1.ListOptions{
-			LabelSelector: "node-role.kubernetes.io/tests=",
+			LabelSelector: pkg.DedicatedNodeRoleLabelSelector,
 		})
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error getting the Node list")
 		}
 		if nodes.Items != nil && len(nodes.Items) == 0 {
 			return errors.New("No nodes with role required for dedicated mode (node-role.kubernetes.io/tests)")
 		}
+
+		tolerations, err := json.Marshal([]v1.Toleration{{
+			Key:      pkg.DedicatedNodeRoleLabel,
+			Operator: v1.TolerationOpExists,
+			Value:    "",
+			Effect:   v1.TaintEffectNoSchedule,
+		}})
+		if err != nil {
+			return errors.Wrap(err, "error creating namespace Tolerations")
+		}
+
+		namespace.Annotations = map[string]string{
+			"scheduler.alpha.kubernetes.io/defaultTolerations": string(tolerations),
+			"openshift.io/node-selector":                       pkg.DedicatedNodeRoleLabelSelector,
+		}
+	}
+
+	_, err = kclient.CoreV1().Namespaces().Create(context.TODO(), namespace, metav1.CreateOptions{})
+	if err != nil {
+		return errors.Wrap(err, "error creating Namespace")
+	}
+
+	// Create Sonobuoy ServiceAccount
+	// https://github.com/vmware-tanzu/sonobuoy/blob/main/pkg/client/gen.go#L611-L616
+	sa := &v1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pkg.SonobuoyServiceAccountName,
+			Namespace: pkg.CertificationNamespace,
+			Labels:    pkg.SonobuoyDefaultLabels,
+		},
+	}
+	sa.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "ServiceAccount",
+	})
+
+	_, err = kclient.CoreV1().ServiceAccounts(pkg.CertificationNamespace).Create(context.TODO(), sa, metav1.CreateOptions{})
+	if err != nil {
+		return errors.Wrap(err, "error creating ServiceAccount")
 	}
 
 	log.Info("Ensuring the tool will run in the privileged environment...")
-	// Configure SCC
-	anyuid := &rbacv1.ClusterRoleBinding{
+
+	// Configure custom RBAC
+
+	// Replacing Sonobuoy's default Admin RBAC not working correctly on upgrades.
+	// https://github.com/vmware-tanzu/sonobuoy/blob/5b97033257d0276c7b0d1b20412667a69d79261e/pkg/client/gen.go#L445-L481
+	cr := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: pkg.AnyUIDClusterRoleBinding,
+			Name:      pkg.PrivilegedClusterRole,
+			Namespace: pkg.CertificationNamespace,
+			Labels:    pkg.SonobuoyDefaultLabels,
 		},
-		Subjects: []rbacv1.Subject{
+		Rules: []rbacv1.PolicyRule{
 			{
-				Kind:     rbacv1.GroupKind,
-				APIGroup: rbacv1.GroupName,
-				Name:     "system:authenticated",
+				APIGroups: []string{"*"},
+				Resources: []string{"*"},
+				Verbs:     []string{"*"},
 			},
 			{
-				Kind:     rbacv1.GroupKind,
-				APIGroup: rbacv1.GroupName,
-				Name:     "system:serviceaccounts",
+				NonResourceURLs: []string{"/metrics", "/logs", "/logs/*"},
+				Verbs:           []string{"get"},
 			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.GroupName,
-			Kind:     "ClusterRole",
-			Name:     "system:openshift:scc:anyuid",
 		},
 	}
+	cr.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   rbacv1.GroupName,
+		Version: "v1",
+		Kind:    "ClusterRole",
+	})
 
-	privileged := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: pkg.PrivilegedClusterRoleBinding,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:     rbacv1.GroupKind,
-				APIGroup: rbacv1.GroupName,
-				Name:     "system:authenticated",
-			},
-			{
-				Kind:     rbacv1.GroupKind,
-				APIGroup: rbacv1.GroupName,
-				Name:     "system:serviceaccounts",
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.GroupName,
-			Kind:     "ClusterRole",
-			Name:     "system:openshift:scc:privileged",
-		},
-	}
-
-	_, err = rbacClient.ClusterRoleBindings().Update(context.TODO(), anyuid, metav1.UpdateOptions{})
+	_, err = rbacClient.ClusterRoles().Update(context.TODO(), cr, metav1.UpdateOptions{})
 	if err != nil {
-		return errors.Wrap(err, "error creating anyuid ClusterRoleBinding")
+		return errors.Wrap(err, "error creating privileged ClusterRole")
 	}
-	log.Infof("Created %s ClusterRoleBinding", pkg.AnyUIDClusterRoleBinding)
+	log.Infof("Created %s ClusterRole", pkg.PrivilegedClusterRole)
 
-	_, err = rbacClient.ClusterRoleBindings().Update(context.TODO(), privileged, metav1.UpdateOptions{})
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pkg.PrivilegedClusterRoleBinding,
+			Namespace: pkg.CertificationNamespace,
+			Labels:    pkg.SonobuoyDefaultLabels,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      pkg.SonobuoyServiceAccountName,
+				Namespace: pkg.CertificationNamespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.GroupName,
+			Kind:     "ClusterRole",
+			Name:     pkg.PrivilegedClusterRole,
+		},
+	}
+	crb.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   rbacv1.GroupName,
+		Version: "v1",
+		Kind:    "ClusterRoleBinding",
+	})
+
+	_, err = rbacClient.ClusterRoleBindings().Update(context.TODO(), crb, metav1.UpdateOptions{})
 	if err != nil {
 		return errors.Wrap(err, "error creating privileged ClusterRoleBinding")
 	}
@@ -257,41 +313,6 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 
 func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.Interface) error {
 	var manifests []*manifest.Manifest
-	var namespace *v1.Namespace
-
-	if r.dedicated {
-		// Skip preflight checks and create namespace manually with Tolerations
-		tolerations, err := json.Marshal([]v1.Toleration{{
-			Key:      "node-role.kubernetes.io/tests",
-			Operator: v1.TolerationOpExists,
-			Value:    "",
-			Effect:   v1.TaintEffectNoSchedule,
-		}})
-		if err != nil {
-			return err
-		}
-
-		namespace = &v1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: pkg.CertificationNamespace,
-				Annotations: map[string]string{
-					"scheduler.alpha.kubernetes.io/defaultTolerations": string(tolerations),
-					"openshift.io/node-selector":                       "node-role.kubernetes.io/tests=",
-				},
-			},
-		}
-	} else {
-		namespace = &v1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: pkg.CertificationNamespace,
-			},
-		}
-	}
-
-	_, err := kclient.CoreV1().Namespaces().Create(context.TODO(), namespace, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
 
 	// Let Sonobuoy do some preflight checks before we run
 	errs := sclient.PreflightChecks(&sonobuoyclient.PreflightConfig{
@@ -320,7 +341,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			"sonobuoy-image":   r.sonobuoyImage,
 		},
 	}
-	_, err = kclient.CoreV1().ConfigMaps(pkg.CertificationNamespace).Create(context.TODO(), configMap, metav1.CreateOptions{})
+	_, err := kclient.CoreV1().ConfigMaps(pkg.CertificationNamespace).Create(context.TODO(), configMap, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -364,11 +385,15 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 	// Set aggregator deployment namespace
 	aggConfig.Namespace = pkg.CertificationNamespace
 
+	// Ignore Existing SA created on preflight
+	aggConfig.ExistingServiceAccount = true
+	aggConfig.ServiceAccountName = pkg.SonobuoyServiceAccountName
+
 	// Fill out the Run configuration
 	runConfig := &sonobuoyclient.RunConfig{
 		GenConfig: sonobuoyclient.GenConfig{
 			Config:             aggConfig,
-			EnableRBAC:         true, // True because OpenShift uses RBAC
+			EnableRBAC:         false, // RBAC is created in preflight
 			ImagePullPolicy:    config.DefaultSonobuoyPullPolicy,
 			StaticPlugins:      manifests,
 			PluginEnvOverrides: nil, // TODO We'll use this later
