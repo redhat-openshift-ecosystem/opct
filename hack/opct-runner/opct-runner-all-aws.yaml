@@ -1,10 +1,37 @@
 ---
-- name: OPCT Cluster setup AWS
+- name: OPCT Runner ALL AWS | Start
+  hosts: localhost
+  gather_facts: yes
+
+  tasks:
+  - name: OPCT | Runner All AWS | Set start timer
+    ansible.builtin.set_fact:
+      opct_rall_t_start: "{{ ansible_date_time.date }} {{ ansible_date_time.time }}"
+
+- name: OPCT | Runner All AWS | Cluster create
   ansible.builtin.import_playbook: opct-cluster-create-aws.yaml
 
-- name: OPCT Runner
+- name: OPCT | Runner All AWS | Run tool
   ansible.builtin.import_playbook: opct-run-tool.yaml
 
-- name: OPCT Cluster delete AWS
+- name: OPCT | Runner All AWS | Cluster delete
   ansible.builtin.import_playbook: opct-cluster-delete-aws.yaml 
   when: not(keep_cluster | d(false))
+
+- name: OPCT Runner ALL AWS | Start
+  hosts: localhost
+  gather_facts: yes
+  tasks:
+  - name: OPCT | Runner All AWS | Get timestamp from the system
+    shell: "date +'%Y-%m-%d %H:%M:%S'"
+    register: tstamp
+    changed_when: false
+
+  - name: OPCT | Runner All AWS | Set end timer
+    ansible.builtin.set_fact:
+      opct_rall_t_end: "{{ tstamp.stdout }}"
+
+  - name: OPCT | Runner All AWS | Ending Summary
+    ansible.builtin.debug:
+      msg:
+        - "Execution time: {{ ((opct_rall_t_end | to_datetime) - (opct_rall_t_start | to_datetime)) }}"

@@ -3,23 +3,23 @@
 #  -e cluster_name=demo \
 #  -e cluster_version=4.12.0-rc.4
 
-- name: OPCT Cluster Create AWS - Check Required Args
+- name: OPCT | Cluster Create | AWS | Check Required Args
   hosts: opct_aws
   tasks:
-  - name: Check required variables - cluster_name
+  - name: OPCT | Cluster Create | AWS | Check variables | cluster_name
     ansible.builtin.assert:
       that:
         - cluster_name is defined
       fail_msg: "'cluster_name' is not defined. Set the '-e cluster_name=value' "
 
-  - name: Check required variables - cluster_version
+  - name: OPCT | Cluster Create | AWS | Check variables | cluster_version
     ansible.builtin.assert:
       that:
         - cluster_version is defined
       fail_msg: "'cluster_version' is not defined. Set the '-e cluster_version=4.11.18' "
 
 
-- name: OPCT Cluster Create AWS
+- name: OPCT | Cluster Create | AWS
   hosts: '{{ target|default("localhost") }}'
   connection: local
   gather_facts: true
@@ -37,22 +37,23 @@
       CONFIG_SSH_KEY: "{{ lookup('file', ansible_env.HOME + '/' + config_ssh_key_home) }}"
 
   pre_tasks:
-  - set_fact:
+  - name: OPCT | Cluster Create | AWS | Set Installer Env vars
+    set_fact:
       okd_installer_env: "{{ okd_installer_env }}"
 
-- name: Make sure the clients are installed on the target version
+- name: OPCT | Cluster Create | AWS | Check clients are installed
   ansible.builtin.import_playbook: mtulio.okd_installer.install_clients
   vars:
     version: "{{ okd_installer_env.CLUSTER_VERSION }}"
 
-- name: Generate the install-config
+- name: OPCT | Cluster Create | AWS | Generate the install-config
   ansible.builtin.import_playbook: mtulio.okd_installer.config
   vars:
     mode: "create"
     cluster_name: "{{ okd_installer_env.CONFIG_CLUSTER_NAME }}"
   environment: "{{ okd_installer_env }}"
 
-- name: Create the cluster - all stacks
+- name: OPCT | Cluster Create | AWS | Create all stacks
   ansible.builtin.import_playbook: mtulio.okd_installer.create_all
   vars:
     #provider: "{{ okd_installer_env.CONFIG_PROVIDER }}"
@@ -64,17 +65,17 @@
     target: opct_aws
   environment: "{{ okd_installer_env }}"
 
-- name: OPCT - Select a node to dedicated environment
+- name: OPCT | Cluster Create | AWS | Setup dedicated environment
   ansible.builtin.import_playbook: opct-setup-node.yaml
   environment: "{{ okd_installer_env }}"
 
-- name: OKD Stack Compute - Finish
+- name: OPCT | Cluster Create | AWS | Finish
   hosts: '{{ target|default("localhost") }}'
   connection: local
   gather_facts: true
 
   tasks:
-    - name: Show final message
+    - name: OPCT | Cluster Create | AWS | Summary
       ansible.builtin.debug:
         msg:
           - "export KUBECONFIG={{ ansible_env.HOME }}/.ansible/okd-installer/clusters/{{ cluster_name }}/auth/kubeconfig"
