@@ -12,6 +12,7 @@
     - [Extracting the failures to the local directory](#review-process-extracting)
     - [Explaning the extracted files](#review-process-explain)
     - [Review Guidelines](#review-process-guidelines)
+- [Review guide: y-stream upgrade](#upgrade-review-process)
 
 
 ## Support Case Check List <a name="check-list"></a>
@@ -270,3 +271,52 @@ Additional items to review:
 - explore the must-gather objects according to findings on the failures files
 - run insights rules on the must-gather to check if there's a new know issue: `insights run -p ccx_rules_ocp ${MUST_GATHER_PATH}`
 > TODO: provide steps to install and run insight OCP rules (opct could provide one container with it installed to avoid overhead and environment issues)
+
+## Review Guide: Manual Y-Stream Upgrade <a name="upgrade-review-process"></a>
+
+Certification requires a successful y-stream upgrade (e.g. upgrade 4.11.17 to 4.12.0). 
+Upgrade review should only proceed if there is reasonably high confidence in passing and not if there are still significant issues in passing the review process above. 
+
+> TODO: Rework this documentation after the automated upgrade procedure is merged in https://github.com/redhat-openshift-ecosystem/provider-certification-tool/pull/33
+
+Once prepared to review an upgrade, this is the recommended procedure:
+
+1. Cloud provider to install _new_ cluster as the version previously reviewed in the process above
+2. Initiate upgrade to next Y-stream version per OpenShift documentation 
+3. Cloud provider to make note of the following during upgrade:
+   - Any manual intervention required during upgrade
+   - Time taken to complete upgrade 
+   - Any components left in failed state or not upgraded (e.g. web console offline, inaccessible API)
+4. Must gather after successful or failed upgrade
+
+If there was manual intervention required during the upgrade this will require judgement of the OpenShift engineer reviewing the upgrade. 
+Some questions to ask are:
+
+Is the manual intervention...
+- Working around a known bug in OpenShift?
+- Working around a potential new bug in OpenShift?
+- Working around a known issue in OpenShift but not considered a bug and has documentation?
+- Working around an issue specific to the cloud provider?
+
+If the answer to any of the questions above is "Yes" then take the necessary steps to remediate the situation (if needed) through 
+documentation, bug reports, and escalations to meet the certification timeline. 
+
+After a successful upgrade where any manual interventions aren't a blocker, review the Must Gather that was captured. 
+First, check the `ClusterVersion` resource to verify the upgrade was successful:
+
+Using the `omg` tool...
+
+```
+omg get clusterversion
+```
+
+Next, check each Cluster Operator and Node was upgraded and in a working/ready state:
+
+```
+omg get clusteroperators
+omg get nodes
+```
+
+Review the Must Gather using the Insights tool as mentioned (here)[#review-process-guidelines].
+
+If there are any issues found in the steps above, the upgrade should be performed again (on a _new_ cluster) and upgrade review process restarted.
