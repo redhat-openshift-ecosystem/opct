@@ -64,10 +64,14 @@ var _manifestsOpenshiftArtifactsCollectorYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230109124258
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230117175707
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
+      # securityContext:
+      #   privileged: true
+      #   allowPrivilegeEscalation: true
+      #   readOnlyRootFilesystem: false
       volumeMounts:
       - mountPath: /tmp/sonobuoy/results
         name: results
@@ -97,9 +101,13 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230109124258
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230117175707
   imagePullPolicy: Always
-  priorityClassName: system-node-critical
+  #priorityClassName: system-node-critical
+  # securityContext:
+  #   privileged: true
+  #   allowPrivilegeEscalation: true
+  #   readOnlyRootFilesystem: false
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
     name: results
@@ -145,10 +153,14 @@ var _manifestsOpenshiftClusterUpgradeYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230109124258
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230117175707
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
+      # securityContext:
+      #   privileged: true
+      #   allowPrivilegeEscalation: true
+      #   readOnlyRootFilesystem: false
       volumeMounts:
       - mountPath: /tmp/sonobuoy/results
         name: results
@@ -178,9 +190,13 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230109124258
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230117175707
   imagePullPolicy: Always
   priorityClassName: system-node-critical
+  # securityContext:
+  #   privileged: true
+  #   allowPrivilegeEscalation: true
+  #   readOnlyRootFilesystem: false
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
     name: results
@@ -201,8 +217,6 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
-    - name: RUN_MODE
-      value: upgrade
     - name: UPGRADE_RELEASES
       valueFrom:
         configMapKeyRef:
@@ -238,10 +252,14 @@ var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230109124258
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230117175707
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
+      # securityContext:
+      #   privileged: true
+      #   allowPrivilegeEscalation: true
+      #   readOnlyRootFilesystem: false
       volumeMounts:
       - mountPath: /tmp/sonobuoy/results
         name: results
@@ -271,9 +289,13 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230109124258
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230117175707
   imagePullPolicy: Always
   priorityClassName: system-node-critical
+  # securityContext:
+  #   privileged: true
+  #   allowPrivilegeEscalation: true
+  #   readOnlyRootFilesystem: false
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
     name: results
@@ -324,10 +346,14 @@ var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230109124258
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230117175707
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
+      # securityContext:
+      #   privileged: true
+      #   allowPrivilegeEscalation: true
+      #   readOnlyRootFilesystem: false
       volumeMounts:
       - mountPath: /tmp/sonobuoy/results
         name: results
@@ -357,9 +383,13 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230109124258
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230117175707
   imagePullPolicy: Always
   priorityClassName: system-node-critical
+  # securityContext:
+  #   privileged: true
+  #   allowPrivilegeEscalation: true
+  #   readOnlyRootFilesystem: false
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
     name: results

@@ -2,6 +2,8 @@ module github.com/redhat-openshift-ecosystem/provider-certification-tool
 
 go 1.17
 
+// replace github.com/vmware-tanzu/sonobuoy => /home/mtulio/go/src/github.com/mtulio/sonobuoy
+
 require (
 	github.com/openshift/api v0.0.0-20210910062324-a41d3573a3ba
 	github.com/openshift/client-go v0.0.0-20210521082421-73d9475a9142
