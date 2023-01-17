@@ -272,7 +272,7 @@ Additional items to review:
 - run insights rules on the must-gather to check if there's a new know issue: `insights run -p ccx_rules_ocp ${MUST_GATHER_PATH}`
 > TODO: provide steps to install and run insight OCP rules (opct could provide one container with it installed to avoid overhead and environment issues)
 
-## Review Guide: Y-Stream Upgrade <a name="upgrade-review-process"></a>
+## Review Guide: Manual Y-Stream Upgrade <a name="upgrade-review-process"></a>
 
 Certification requires a successful y-stream upgrade (e.g. upgrade 4.11.17 to 4.12.0). 
 Upgrade review should only proceed if there is reasonably high confidence in passing and not if there are still significant issues in passing the review process above. 
