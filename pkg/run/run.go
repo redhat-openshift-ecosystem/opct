@@ -45,9 +45,11 @@ type RunOptions struct {
 }
 
 const (
-	runTimeoutSeconds      = 21600
-	dedicatedLabelKey      = "node-role.kubernetes.io/tests"
-	dedicatedLabelKeyValue = "node-role.kubernetes.io/tests="
+	defaultRunTimeoutSeconds = 21600
+	defaultRunMode           = "regular"
+	defaultUpgradeImage      = ""
+	defaultDedicatedFlag     = true
+	defaultRunWatchFlag      = false
 )
 
 func newRunOptions() *RunOptions {
@@ -121,14 +123,14 @@ func NewCmdRun() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&o.dedicated, "dedicated", true, "Setup plugins to run in dedicated test environment.")
+	cmd.Flags().BoolVar(&o.dedicated, "dedicated", defaultDedicatedFlag, "Setup plugins to run in dedicated test environment.")
+	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
+	cmd.Flags().StringVar(&o.mode, "mode", defaultRunMode, "Run mode: Availble: regular, upgrade")
+	cmd.Flags().StringVar(&o.upgradeImage, "upgrade-to-image", defaultUpgradeImage, "Target OpenShift Release Image. Example: oc adm release info 4.11.18 -o jsonpath={.image}")
 	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times. (default plugins can be reviewed with assets subcommand)")
 	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", fmt.Sprintf("quay.io/ocp-cert/sonobuoy:%s", buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
-	cmd.Flags().IntVar(&o.timeout, "timeout", runTimeoutSeconds, "Execution timeout in seconds")
-	cmd.Flags().BoolVarP(&o.watch, "watch", "w", false, "Keep watch status after running")
-	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
-	cmd.Flags().StringVar(&o.mode, "mode", "regular", "Run mode: Availble: regular, upgrade. Default: regular")
-	cmd.Flags().StringVar(&o.upgradeImage, "upgrade-to-image", "", "Digest of the OpenShift Image of Desired Version to upgrade: oc adm release info 4.y.z -o jsonpath='{.Digest}'")
+	cmd.Flags().IntVar(&o.timeout, "timeout", defaultRunTimeoutSeconds, "Execution timeout in seconds")
+	cmd.Flags().BoolVarP(&o.watch, "watch", "w", defaultRunWatchFlag, "Keep watch status after running")
 
 	// Hide dedicated flag since this is for development only
 	cmd.Flags().MarkHidden("dedicated")
@@ -429,7 +431,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			EnableRBAC:         false, // RBAC is created in preflight
 			ImagePullPolicy:    config.DefaultSonobuoyPullPolicy,
 			StaticPlugins:      manifests,
-			PluginEnvOverrides: nil,
+			PluginEnvOverrides: nil, // TODO We'll use this later
 		},
 	}
 
