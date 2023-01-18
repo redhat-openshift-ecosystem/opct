@@ -388,6 +388,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 	// Ignore Existing SA created on preflight
 	aggConfig.ExistingServiceAccount = true
 	aggConfig.ServiceAccountName = pkg.SonobuoyServiceAccountName
+	aggConfig.SecurityContextMode = "none"
 
 	// Fill out the Run configuration
 	runConfig := &sonobuoyclient.RunConfig{
