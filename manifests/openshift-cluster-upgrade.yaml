@@ -10,10 +10,6 @@ podSpec:
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
-      # securityContext:
-      #   privileged: true
-      #   allowPrivilegeEscalation: true
-      #   readOnlyRootFilesystem: false
       volumeMounts:
       - mountPath: /tmp/sonobuoy/results
         name: results
@@ -46,10 +42,6 @@ spec:
   image: quay.io/ocp-cert/openshift-tests-provider-cert:dev20230117180458
   imagePullPolicy: Always
   priorityClassName: system-node-critical
-  # securityContext:
-  #   privileged: true
-  #   allowPrivilegeEscalation: true
-  #   readOnlyRootFilesystem: false
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
     name: results

@@ -132,7 +132,6 @@ func NewCmdRun() *cobra.Command {
 
 	// Hide dedicated flag since this is for development only
 	cmd.Flags().MarkHidden("dedicated")
-	cmd.Flags().MarkHidden("dev-count")
 
 	return cmd
 }
