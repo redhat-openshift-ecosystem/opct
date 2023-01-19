@@ -200,6 +200,11 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
+    - name: DEV_MODE_COUNT
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: dev-count
 `)
 
 func manifestsOpenshiftConformanceValidatedYamlBytes() ([]byte, error) {
@@ -281,6 +286,11 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
+    - name: DEV_MODE_COUNT
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: dev-count
 `)
 
 func manifestsOpenshiftKubeConformanceYamlBytes() ([]byte, error) {

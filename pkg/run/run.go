@@ -39,6 +39,7 @@ type RunOptions struct {
 	sonobuoyImage string
 	timeout       int
 	watch         bool
+	devCount      string
 }
 
 const runTimeoutSeconds = 21600
@@ -119,9 +120,11 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", fmt.Sprintf("quay.io/ocp-cert/sonobuoy:%s", buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
 	cmd.Flags().IntVar(&o.timeout, "timeout", runTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", false, "Keep watch status after running")
+	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
 
 	// Hide dedicated flag since this is for development only
 	cmd.Flags().MarkHidden("dedicated")
+	cmd.Flags().MarkHidden("dev-count")
 
 	return cmd
 }
@@ -311,6 +314,15 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	return nil
 }
 
+// createConfigMap generic way to create the configMap on the certification namespace.
+func (r *RunOptions) createConfigMap(kclient kubernetes.Interface, sclient sonobuoyclient.Interface, cm *v1.ConfigMap) error {
+	_, err := kclient.CoreV1().ConfigMaps(pkg.CertificationNamespace).Create(context.TODO(), cm, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.Interface) error {
 	var manifests []*manifest.Manifest
 
@@ -329,7 +341,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 	}
 
 	// Create version information ConfigMap
-	configMap := &v1.ConfigMap{
+	if err := r.createConfigMap(kclient, sclient, &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pkg.VersionInfoConfigMapName,
 			Namespace: pkg.CertificationNamespace,
@@ -340,9 +352,19 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			"sonobuoy-version": buildinfo.Version,
 			"sonobuoy-image":   r.sonobuoyImage,
 		},
+	}); err != nil {
+		return err
 	}
-	_, err := kclient.CoreV1().ConfigMaps(pkg.CertificationNamespace).Create(context.TODO(), configMap, metav1.CreateOptions{})
-	if err != nil {
+
+	if err := r.createConfigMap(kclient, sclient, &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pkg.PluginsVarsConfigMapName,
+			Namespace: pkg.CertificationNamespace,
+		},
+		Data: map[string]string{
+			"dev-count": r.devCount,
+		},
+	}); err != nil {
 		return err
 	}
 
@@ -401,7 +423,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 		},
 	}
 
-	err = sclient.Run(runConfig)
+	err := sclient.Run(runConfig)
 	return err
 }
 
