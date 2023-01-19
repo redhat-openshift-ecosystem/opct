@@ -17,5 +17,11 @@ var (
 	SonobuoyDefaultLabels = map[string]string{
 		SonobuoyLabelComponentName: SonobuoyLabelComponentValue,
 		SonobuoyLabelNamespaceName: CertificationNamespace,
+		// Enforcing privileged mode for PSA on Conformance/Sonobuoy environment.
+		// https://issues.redhat.com/browse/OPCT-11
+		// https://issues.redhat.com/browse/OPCT-31
+		"pod-security.kubernetes.io/enforce": "privileged",
+		"pod-security.kubernetes.io/audit":   "privileged",
+		"pod-security.kubernetes.io/warn":    "privileged",
 	}
 )
