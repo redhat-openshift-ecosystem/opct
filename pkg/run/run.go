@@ -42,7 +42,6 @@ type RunOptions struct {
 	devCount      string
 	mode          string
 	upgradeImage  string
-	devCount      string
 }
 
 const (
@@ -132,7 +131,6 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", fmt.Sprintf("quay.io/ocp-cert/sonobuoy:%s", buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
 	cmd.Flags().IntVar(&o.timeout, "timeout", defaultRunTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", defaultRunWatchFlag, "Keep watch status after running")
-	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
 
 	// Hide dedicated flag since this is for development only
 	cmd.Flags().MarkHidden("dedicated")
@@ -180,10 +178,9 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 		return errors.New("OpenShift Image Registry must deployed before certification can run")
 	}
 
-	// // Check if MachineConfigPool exists and create
-	// if err := checkCreateMCP(irClient); err != nil {
-	// 	return errors.Wrap(err, "error creating MachineConfigPool")
-	// }
+	// TODO: checkOrCreate MachineConfigPool with:
+	// - node selectors: node-role.kubernetes.io/tests=''
+	// - paused: true
 
 	// Check if sonobuoy namespace already exists
 	p, err := coreClient.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
@@ -383,7 +380,6 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			"dev-count":             r.devCount,
 			"run-mode":              r.mode,
 			"upgrade-target-images": r.upgradeImage,
-			"dev-count":             r.devCount,
 		},
 	}); err != nil {
 		return err
@@ -492,17 +488,3 @@ func checkRegistry(irClient irclient.Interface) (bool, error) {
 
 	return true, nil
 }
-
-// // Check or create MachineConfigPool
-// func checkCreateMCP(mcpClient mcpclient.Interface) (bool, error) {
-// 	irConfig, err := mcpclient.ImageregistryV1().Configs().Get(context.TODO(), "cluster", metav1.GetOptions{})
-// 	if err != nil {
-// 		return false, err
-// 	}
-
-// 	if irConfig.Spec.ManagementState != operatorv1.Managed {
-// 		return false, nil
-// 	}
-
-// 	return true, nil
-// }
