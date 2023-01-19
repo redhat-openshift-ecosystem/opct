@@ -3,16 +3,16 @@
 #  -e cluster_name=demo \
 #  -e cluster_version=4.12.0-rc.4
 
-- name: OPCT | Cluster Create | AWS | Check Required Args
+- name: OPCT | Cluster Create | AWS | Check Args
   hosts: opct_aws
   tasks:
-  - name: OPCT | Cluster Create | AWS | Check variables | cluster_name
+  - name: OPCT | Cluster Create | AWS | Check  cluster_name
     ansible.builtin.assert:
       that:
         - cluster_name is defined
       fail_msg: "'cluster_name' is not defined. Set the '-e cluster_name=value' "
 
-  - name: OPCT | Cluster Create | AWS | Check variables | cluster_version
+  - name: OPCT | Cluster Create | AWS | Check cluster_version
     ansible.builtin.assert:
       that:
         - cluster_version is defined
@@ -75,7 +75,7 @@
   gather_facts: true
 
   tasks:
-    - name: OPCT | Cluster Create | AWS | Summary
+    - name: OPCT | Cluster Create | AWS | Overview
       ansible.builtin.debug:
         msg:
           - "export KUBECONFIG={{ ansible_env.HOME }}/.ansible/okd-installer/clusters/{{ cluster_name }}/auth/kubeconfig"

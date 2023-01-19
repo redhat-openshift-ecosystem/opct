@@ -173,6 +173,102 @@ podman run \
         -e cluster_version=4.11.18
 ```
 
+
+Example running OPCT running the upgrade feature:
+
+```bash
+CLI_PATH=${HOME}/go/src/github.com/mtulio/provider-certification-tool-cli
+CLI_BIN_NAME=openshift-provider-cert-linux-amd64
+CLI_VERSION=PR33dev5
+CLI_BIN_PATH=${CLI_PATH}/${CLI_BIN_NAME}-${CLI_VERSION}
+
+CID=410t411
+INSTALL_VERSION=4.10.45
+UPGRADE_VERSION=4.11.19
+
+CLUSTER=opct-${CID}
+WORKPATH=${PWD}/.opct-${CID}
+mkdir -p ${WORKPATH}
+
+UPGRADE_IMG="$(oc adm release info ${UPGRADE_VERSION} -o jsonpath={.image})"
+
+podman run \
+    --env-file ${PWD}/.opct.env \
+    -v ${WORKPATH}/:/root/.ansible/okd-installer:Z \
+    -v ${HOME}/.ssh:/root/.ssh:Z \
+    -v ${HOME}/.openshift/pull-secret-latest.json:/pull-secret.json \
+    -v ${CLI_BIN_PATH}:/openshift-provider-cert:Z \
+    --rm opct-runner:latest \
+        ansible-playbook opct-runner-all-aws.yaml \
+        -e cluster_name=$CLUSTER \
+        -e cluster_version=${INSTALL_VERSION} \
+        -e run_mode=upgrade \
+        -e opct_run_mode="--mode=upgrade" \
+        -e opct_run_args="--upgrade-to-image=\"${UPGRADE_IMG}\"" \
+        -e skip_delete=true -e skip_run=true ;
+```
+
+Example running OPCT for a specific PR([#34](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/pull/34)):
+
+- Build the binary
+```bash
+CLI_PATH=${HOME}/go/src/github.com/mtulio/provider-certification-tool-cli
+CLI_BIN_NAME=openshift-provider-cert-linux-amd64
+CLI_VERSION=v0.3.0-dev1
+CLI_BIN_PATH=${CLI_PATH}/${CLI_BIN_NAME}-${CLI_VERSION}
+
+#cd ${CLI_PATH}
+#git fetch origin pull/34/head:pr34
+#git checkout pr34
+make update
+make linux-amd64
+cp ${CLI_BIN_NAME} ${CLI_BIN_PATH}
+```
+
+- Run the cluster
+
+```bash
+CID=4120
+INSTALL_VERSION=4.12.0
+CLUSTER=opct-${CID}
+WORKPATH=${PWD}/.opct-${CID}
+mkdir -p ${WORKPATH}
+
+podman run \
+    --env-file ${PWD}/.opct.env \
+    -e ENABLE_TURBO_MODE=1 \
+    -v ${WORKPATH}:/root/.ansible/okd-installer:Z \
+    -v ${HOME}/.ssh:/root/.ssh:Z \
+    -v ${HOME}/.openshift/pull-secret-latest.json:/pull-secret.json \
+    -v ${CLI_BIN_PATH}:/openshift-provider-cert:Z \
+    --rm opct-runner:latest \
+        ansible-playbook opct-runner-all-aws.yaml \
+        -e cluster_name=$CLUSTER \
+        -e cluster_version=${INSTALL_VERSION} \
+        -e skip_delete=true;
+```
+
+Example for Create Cluster (only):
+
+- Create the cluster
+```bash
+CID=4120
+INSTALL_VERSION=4.12.0
+CLUSTER=opct-${CID}
+WORKPATH=${PWD}/.opct-${CID}
+mkdir -p ${WORKPATH}
+
+podman run \
+    --env-file ${PWD}/.opct.env \
+    -v ${WORKPATH}:/root/.ansible/okd-installer:Z \
+    -v ${HOME}/.ssh:/root/.ssh:Z \
+    -v ${HOME}/.openshift/pull-secret-latest.json:/pull-secret.json \
+    --rm opct-runner:latest \
+        ansible-playbook opct-cluster-create-aws.yaml \
+        -e cluster_name=$CLUSTER \
+        -e cluster_version=${INSTALL_VERSION};
+```
+
 ## Alternative Playbooks
 
 - Cluster destroy: Commonly used when the flag `keep_cluster` is set on `opct-runner-all-aws.yaml`
@@ -198,7 +294,7 @@ $ ../../../../openshift-provider-cert-linux-amd64 results *.tar.gz
 ```
 
 
-## Run directly from host
+## Run directly from your (py)env
 
 If you would like to skip the container environment and run the playbooks directly from the host (hard way), you should install all the dependencies required by okd-installer on your environment.
 

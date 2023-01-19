@@ -6,6 +6,18 @@
   vars:
     installer_path: "{{ ansible_env.HOME + '/.ansible/okd-installer' }}"
 
+  pre_tasks:
+  - name: OPCT | Init Vars | Assert
+    ansible.builtin.assert:
+      that: "{{ assertion.that }}"
+      fail_msg: "{{ assertion.fail_msg | d(omit) }}"
+    loop:
+      - that:
+        - cluster_name is defined
+        fail_msg: "cluster_name is not defined"
+    loop_control:
+      loop_var: assertion
+
   tasks:
   - name: OPCT | Init Vars | cluster_path
     ansible.builtin.set_fact:

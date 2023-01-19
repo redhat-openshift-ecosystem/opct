@@ -1,8 +1,8 @@
 ---
-- name: Setup OPCT Cluster Tests - Create Paused MCP
+- name: OPCT | Setup | MachineConfigPool
   hosts: localhost
   tasks:
-  - name: Create Paused MCP
+  - name: OPCT | Setup | Creating Paused MCP
     environment:
       KUBECONFIG: "{{ kubeconfig }}"
     register: create_mcp

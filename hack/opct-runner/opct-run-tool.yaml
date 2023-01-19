@@ -1,12 +1,12 @@
 ---
-- name: OPCT | Run Tool | OPCT Init Vars
+- name: OPCT | Run | Init Vars
   ansible.builtin.import_playbook: opct-init-vars.yaml
 
-- name: OPCT | Run Tool | Preflight
+- name: OPCT | Run | Preflight
   ansible.builtin.import_playbook: opct-run-tool-preflight.yaml
   when: not(skip_prefligth | d(false))
 
-- name: OPCT | Run Tool | Start task runner
+- name: OPCT | Run | Task runner
   hosts: localhost
   gather_facts: yes
   vars:
@@ -16,23 +16,24 @@
     opct_task_timeout_sec: 14400
     opct_task_check_delay_sec: 60
     opct_task_check_retries: 241
+    opct_plugins_result: []
 
   tasks:
-  - name: OPCT | Run Tool | Set results path
+  - name: OPCT | Run | Set results path
     ansible.builtin.set_fact:
       results_path: "{{ cluster_path }}/opct"
     when: results_path is not defined
 
-  - name: OPCT | Run Tool | Set log_pipe
+  - name: OPCT | Run | Set log_pipe
     ansible.builtin.set_fact:
       log_pipe: "{{ results_path }}/opct-runner.log"
     when: log_pipe is not defined
 
-  - name: OPCT | Run Tool | Set play_start_time
+  - name: OPCT | Run | Set play_start_time
     ansible.builtin.set_fact:
       play_start: "{{ ansible_date_time.date }} {{ ansible_date_time.time }}"
 
-  - name: OPCT | Run Tool | Assert results path exists
+  - name: OPCT | Run | Assert results path exists
     ansible.builtin.file:
       state: directory
       path: "{{ results_path }}"
@@ -40,7 +41,7 @@
   # Schedule async task to run OPCT
   # The OPCT will run in watcher mode (-w), once it finished,
   # the artifacts will be collected.
-  - name: OPCT | Run Tool | Run Async OPCT task
+  - name: OPCT | Run | Run Async task
     async: "{{ opct_task_timeout_sec }}"
     poll: 0
     args:
@@ -54,18 +55,18 @@
       ansible_python_interpreter: /usr/bin/env python3
     ansible.builtin.shell: |
       echo "> INIT OPCT task runner [{{ ansible_date_time.iso8601 }}]" | tee -a {{ log_pipe }};
-      echo ">> Dumping vars  " | tee -a {{ log_pipe }};
-      echo "opct_bin={{ opct_bin }}" | tee -a {{ log_pipe }};
+      echo ">> Dump vars" | tee -a {{ log_pipe }};
+      echo "opct path=[{{ opct_bin }}] version:" | tee -a {{ log_pipe }};
+      {{ opct_bin }} version
 
-      echo "> STARTING OPCT task: " | tee -a {{ log_pipe }};
+      echo "> Starting task:" | tee -a {{ log_pipe }};
       {{ opct_bin }} run -w {{ opct_run_mode | d('') }} {{ opct_run_args | d('') }} 2>&1 | tee -a {{ log_pipe }};
 
-      echo "> Retrieve OPCT results: "
-      {{ opct_bin }} retrieve  2>&1 | tee -a {{ log_pipe }};
-      #/openshift-provider-cert results  2>&1 | tee -a {{ log_pipe }};
+      echo "> Retrieve results:"
+      {{ opct_bin }} retrieve 2>&1 | tee -a {{ log_pipe }};
     register: opct_run
 
-  - name: OPCT | Run Tool | Task Summary
+  - name: OPCT | Run | Task Summary
     ansible.builtin.debug:
       msg:
         - "Result path is set to directory {{ results_path }}"
@@ -79,7 +80,7 @@
         - "OPCT run cmd: {{ opct_bin }} run -w {{ opct_run_mode | d('') }} {{ opct_run_args | d('') }} 2>&1 | tee -a {{ log_pipe }};"
         - "OPCT retrieve cmd: {{ opct_bin }} retrieve  2>&1 | tee -a {{ log_pipe }}"
 
-  - name: OPCT | Run Tool | Check async task every 60 sec
+  - name: OPCT | Run | Check async task every 60 sec
     ansible.builtin.async_status:
       jid: "{{ opct_run.ansible_job_id }}"
     register: job_result
@@ -89,36 +90,60 @@
     vars:
       ansible_python_interpreter: /usr/bin/env python3
 
-  - name: OPCT | Run Tool | Debug opct_run
+  - name: OPCT | Run | Debug opct_run
     ansible.builtin.debug:
       var: opct_run
 
-  - name: OPCT | Run Tool | Show stdout
+  - name: OPCT | Run | Show stdout
     ansible.builtin.debug:
       var: job_result.stdout_lines
     when: job_result.stderr_lines | length == 0
 
-  - name: OPCT | Run Tool | Show stderr
+  - name: OPCT | Run | Show stderr
     ansible.builtin.debug:
       var: job_result.stderr_lines
     when: job_result.stderr_lines | length > 0
 
-  - name: OPCT | Run Tool | Get timestamp from the system
+  # TODO: this parser should be replaced with a built-in report on OPCT
+  # https://issues.redhat.com/browse/OPCT-9
+  - name: OPCT | Run | Collecting Plugin results
+    args:
+      chdir: "{{ results_path }}"
+    ansible.builtin.shell: |
+      {{ opct_bin }} results -p {{ item.plugin_name }} ./*.tar.gz 2>&1 \
+        | grep ^Plugin -A 5 \
+        | sed -e 's/: /=/g' \
+        | sed ':a;N;$!ba;s/\n/ /g' \
+        | tee -a {{ log_pipe }};
+    when: job_result.stderr_lines | length == 0
+    with_items:
+    - plugin_name: 05-openshift-cluster-upgrade
+    - plugin_name: 10-openshift-kube-conformance
+    - plugin_name: 20-openshift-conformance-validated
+    register: res_plugins
+
+  - name: OPCT | Run | Aggregate the results
+    ansible.builtin.set_fact:
+      opct_plugins_result: "{{ opct_plugins_result + [item.stdout] }}"
+    with_items: "{{ res_plugins.results }}"
+
+  - name: OPCT | Run | Get timestamp from the system
     shell: "date +'%Y-%m-%d %H:%M:%S'"
     register: tstamp
     changed_when: false
 
-  - name: OPCT | Run Tool | Set play_end_time
+  - name: OPCT | Run | Set play_end_time
     ansible.builtin.set_fact:
       play_end: "{{ tstamp.stdout }}"
 
-  - name: OPCT | Run Tool | Execution summary
+  - name: OPCT | Run | Overview
     ansible.builtin.debug:
       msg:
         - "Job attempts={{ job_result.stderr_lines }}"
         - "Job time delta={{ job_result.delta }} start={{ job_result.start }} end={{ job_result.start }}"
         - "Job attempts={{ job_result.attempts }}"
         - "Execution time: {{ ((play_end | to_datetime) - (play_start | to_datetime)) }}"
+        - "Plugins Results: {{ opct_plugins_result }}"
 
   # TODO
   # - save artifacts somewhere

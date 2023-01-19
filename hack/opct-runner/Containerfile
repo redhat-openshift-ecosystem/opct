@@ -6,6 +6,8 @@ FROM quay.io/mrbraga/okd-installer:0.0.0-dev.183-3880640295
 
 COPY --from=quay.io/ocp-cert/tools:latest /usr/bin/oc /usr/bin/
 
+ENV ANSIBLE_LOG_PATH=/root/.ansible/okd-installer/opct-runner.log
+
 WORKDIR /opct-runner
 
 ADD ./ansible.cfg ./

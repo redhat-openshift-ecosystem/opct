@@ -1,8 +1,8 @@
 ---
-- name: Setup OPCT Cluster Tests - Enable Local Image Registry
+- name: OPCT | Setup | Local Image Registry
   hosts: localhost
   tasks:
-  - name: Create Manage Image Registry emptyDir
+  - name: OPCT | Setup | Create Manage Image Registry with emptyDir storage
     environment:
       KUBECONFIG: "{{ kubeconfig }}"
     register: create_registry

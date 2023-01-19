@@ -1,5 +1,5 @@
 ---
-- name: OPCT | Cluster Delete | AWS | Check Required Args
+- name: OPCT | Cluster Delete | AWS | Check Args
   hosts: opct_aws
   tasks:
   - name: Check required variables - cluster_name

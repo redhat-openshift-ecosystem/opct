@@ -1,21 +1,21 @@
 ---
-- name: OPCT | Run Tool | OPCT Init Vars
+- name: OPCT | Run | Init Vars
   ansible.builtin.import_playbook: opct-init-vars.yaml
 
-- name: OPCT | Run Tool | Preflight | Setup node labeling
+- name: OPCT | Run | Preflight | Setup node labels
   ansible.builtin.import_playbook: opct-setup-node.yaml
   when: not(skip_prefligth | d(false))
 
-- name: OPCT | Run Tool | Preflight | Setup image-registry
+- name: OPCT | Run | Preflight | Setup image-registry
   ansible.builtin.import_playbook: opct-setup-imageregistry-dev.yaml
   when: not(skip_prefligth | d(false))
 
-- name: OPCT | Run Tool | Preflight | Setup MachineConfigPool
+- name: OPCT | Run | Preflight | Setup MachineConfigPool
   ansible.builtin.import_playbook: opct-setup-mode-upgrade-mcp.yaml
   when:
     - not(skip_prefligth | d(false))
     - run_mode|d('') == 'upgrade'
 
-- name: OPCT | Run Tool | Preflight | Waiting operators to be ready
+- name: OPCT | Run | Preflight | Waiting operators
   ansible.builtin.import_playbook: opct-wait-for-operators.yaml
   when: not(skip_prefligth | d(false))
