@@ -291,6 +291,11 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
+    - name: RUN_MODE
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: run-mode
     - name: DEV_MODE_COUNT
       valueFrom:
         configMapKeyRef:
@@ -377,6 +382,11 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
+    - name: RUN_MODE
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: run-mode
     - name: DEV_MODE_COUNT
       valueFrom:
         configMapKeyRef:
