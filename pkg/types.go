@@ -5,6 +5,7 @@ const (
 	PrivilegedClusterRoleBinding   = "opct-scc-privileged"
 	CertificationNamespace         = "openshift-provider-certification"
 	VersionInfoConfigMapName       = "openshift-provider-certification-version"
+	PluginsVarsConfigMapName       = "plugins-config"
 	DedicatedNodeRoleLabel         = "node-role.kubernetes.io/tests"
 	DedicatedNodeRoleLabelSelector = "node-role.kubernetes.io/tests="
 	SonobuoyServiceAccountName     = "sonobuoy-serviceaccount"
