@@ -110,7 +110,7 @@ cat << EOF | oc create -f -
 apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfigPool
 metadata:
-  name: openshift-provider-certification
+  name: opct
 spec:
   machineConfigSelector:
     matchExpressions:
