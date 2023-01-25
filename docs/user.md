@@ -8,16 +8,20 @@ The OpenShift Provider Certification Tool is used to evaluate an OpenShift insta
 
 Table Of Contents:
 
-- [Process](#process)
+- [Process Overview](#process)
 - [Prerequisites](#prerequisites)
     - [Standard Environment](#standard-env)
-        - [Environment Setup](#standard-env-setup)
+        - [Setup Dedicated Node](#standard-env-setup-node)
+        - [Setup MachineConfigPool (upgrade mode)](#standard-env-setup-mcp)
     - [Privilege Requirements](#priv-requirements)
 - [Install](#install)
     - [Prebuilt Binary](#install-bin)
     - [Build from Source](#install-source)
 - [Usage](#usage)
-    - [Run provider certification tests](#usage-run)
+    - [Run tool](#usage-run)
+        - [Default Run mode](#usage-run-regular)
+        - [Run 'upgrade' mode](#usage-run-upgrade)
+        - [Optional parameters](#usage-run-optional)
     - [Check status](#usage-check)
     - [Collect the results](#usage-retrieve)
     - [Check the Results](#usage-results)
@@ -26,7 +30,7 @@ Table Of Contents:
 - [Troubleshooting](#troubleshooting)
 - [Feedback](#feedback)
 
-## Process <a name="process"></a>
+## Process Overview <a name="process"></a>
 
 More detail on each step can be found in the sections further below.
 
@@ -57,7 +61,11 @@ The dedicated node environment cluster size can be adjusted to match the table b
 
 *Note: These requirements are higher than the [minimum requirements](https://docs.openshift.com/container-platform/latest/installing/installing_bare_metal/installing-bare-metal.html#installation-minimum-resource-requirements_installing-bare-metal) for a regular cluster (non-certification) in OpenShift product documentation due to the resource demand of the certification environment.*
 
-#### Environment Setup <a name="standard-env-setup"></a>
+#### Environment Setup: Dedicated Node <a name="standard-env-setup-node"></a>
+
+The `Dedicated Node` is a normal worker with additional label and taints to run the OPCT environment.
+
+The following requirements must be satisfied:
 
 1. Choose one node with at least 8GiB of RAM and 4 vCPU
 2. Label node with `node-role.kubernetes.io/tests=""` (certification-related pods will schedule to dedicated node)
@@ -89,6 +97,39 @@ Here is a `MachineSet` YAML snippet on how to configure the label and taint as w
           effect: NoSchedule
 ```
 
+#### Setup MachineConfigPool for upgrade tests <a name="standard-env-setup-mcp"></a>
+
+**Note**: The `MachineConfigPool` should be created only when the execution mode (`--mode`) is `upgrade`. If you are not running upgrade tests, please skip this section.
+
+One `MachineConfigPool`(MCP) with the name `opct` must be created, selecting the dedicated node labels. The MCP must be paused, thus the node running the validation environment will not be restarted while the cluster is upgrading, avoiding disruptions to the Conformance results.
+
+You can create the `MachineConfigPool` by running the following command:
+
+```bash
+cat << EOF | oc create -f -
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfigPool
+metadata:
+  name: openshift-provider-certification
+spec:
+  machineConfigSelector:
+    matchExpressions:
+    - key: machineconfiguration.openshift.io/role,
+      operator: In,
+      values: [worker,opct]
+  nodeSelector:
+    matchLabels:
+      node-role.kubernetes.io/tests: ""
+  paused: true
+EOF
+```
+
+Make sure the `MachineConfigPool` has been created correctly:
+
+```bash
+oc get machineconfigpool opct
+```
+
 ### Privilege Requirements <a name="priv-requirements"></a>
 
 A user with [cluster administrator privilege](https://docs.openshift.com/container-platform/latest/authentication/using-rbac.html#creating-cluster-admin_using-rbac) must be used to run the provider certification tool. You also use the default `kubeadmin` user if you wish.
@@ -114,16 +155,40 @@ See the [build guide](../README.md#building) for more information.
 
 ### Run provider certification tests <a name="usage-run"></a>
 
-- Run the certification environment in the background:
+Requirements:
+- You have set the dedicated node
+- You have installed OPCT
+
+#### Run the default execution mode (regular) <a name="usage-run-regular"></a>
+
+- Create and run the certification environment (detaching the terminal):
+
 ```sh
 openshift-provider-cert run 
 ```
 
-- Run the certification environment in the background and keep watching the progress:
+#### Run the 'upgrade' mode <a name="usage-run-upgrade"></a>
+
+The mode `upgrade` runs the OpenShift cluster updates to the 4.y+1 version, then the regular Conformance tests will be executed (Kubernetes and OpenShift). This mode was created to Validate the entire update process, and to make sure the target OCP release is validated on the Conformance tests.
+
+> Note: If you will submit the results to Red Hat Partner Support, you must have Validated the installation on the initial release using the regular execution. For example, to submit the upgrade tests for 4.11->4.12, you must have submitted the regular tests for 4.11. If you have any questions, ask your Red Hat Partner Manager.
+
+Requirements for running 'upgrade' mode:
+
+- You have created the `MachineConfigPool opct`
+- You have the OpenShift client locally (`oc`) - or have noted the Digest of the Target Release
+- You must choose the next Release of Y-stream (`4.Y+1`) supported by your current release. (See [update graph](https://access.redhat.com/labs/ocpupgradegraph/update_path))
+
+```sh
+openshift-provider-cert run --mode=upgrade --upgrade-to-image=$(oc adm release info 4.Y+1.Z -o jsonpath={.image})
+```
+
+#### Optional parameters for run <a name="usage-run-optional"></a>
+
+- Create and run the certification environment and keep watching the progress:
 ```sh
 openshift-provider-cert run -w
 ```
-
 
 ### Check status <a name="usage-check"></a>
 
