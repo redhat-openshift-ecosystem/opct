@@ -181,6 +181,7 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	// TODO: checkOrCreate MachineConfigPool with:
 	// - node selectors: node-role.kubernetes.io/tests=''
 	// - paused: true
+	// https://issues.redhat.com/browse/OPCT-35
 
 	// Check if sonobuoy namespace already exists
 	p, err := coreClient.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
