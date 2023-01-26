@@ -17,7 +17,7 @@ podSpec:
         name: shared
       env:
         - name: PLUGIN_ID
-          value: "99"
+          value: "05"
         - name: ENV_NODE_NAME
           valueFrom:
             fieldRef:
@@ -32,15 +32,16 @@ podSpec:
               fieldPath: metadata.namespace
 sonobuoy-config:
   driver: Job
-  plugin-name: 99-openshift-artifacts-collector
-  result-format: raw
-  description: The OpenShift Provider Certification Tool artifacts collector executed on the post-certification.
-  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-artifacts-collector.yaml
+  plugin-name: 05-openshift-cluster-upgrade
+  result-format: junit
+  description: The end-to-end tests maintained by OpenShift to certify the Provider running the OpenShift Container Platform.
+  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-conformance-validated.yaml
   skipCleanup: true
 spec:
   name: plugin
   image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha0
   imagePullPolicy: Always
+  priorityClassName: system-node-critical
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
     name: results
@@ -48,7 +49,7 @@ spec:
     name: shared
   env:
     - name: PLUGIN_ID
-      value: "99"
+      value: "05"
     - name: ENV_NODE_NAME
       valueFrom:
         fieldRef:
@@ -61,6 +62,11 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
+    - name: UPGRADE_RELEASES
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: upgrade-target-images
     - name: RUN_MODE
       valueFrom:
         configMapKeyRef:

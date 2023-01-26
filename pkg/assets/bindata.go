@@ -1,6 +1,7 @@
 // Code generated for package assets by go-bindata DO NOT EDIT. (@generated)
 // sources:
 // manifests/openshift-artifacts-collector.yaml
+// manifests/openshift-cluster-upgrade.yaml
 // manifests/openshift-conformance-validated.yaml
 // manifests/openshift-kube-conformance.yaml
 package assets
@@ -63,7 +64,7 @@ var _manifestsOpenshiftArtifactsCollectorYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.2.1
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha0
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -96,9 +97,8 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.2.1
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha0
   imagePullPolicy: Always
-  priorityClassName: system-node-critical
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
     name: results
@@ -119,6 +119,11 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
+    - name: RUN_MODE
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: run-mode
 `)
 
 func manifestsOpenshiftArtifactsCollectorYamlBytes() ([]byte, error) {
@@ -136,6 +141,97 @@ func manifestsOpenshiftArtifactsCollectorYaml() (*asset, error) {
 	return a, nil
 }
 
+var _manifestsOpenshiftClusterUpgradeYaml = []byte(`podSpec:
+  restartPolicy: Never
+  serviceAccountName: sonobuoy-serviceaccount
+  volumes:
+    - name: shared
+      emptyDir: {}
+  containers:
+    - name: report-progress
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha0
+      imagePullPolicy: Always
+      priorityClassName: system-node-critical
+      command: ["./report-progress.sh"]
+      volumeMounts:
+      - mountPath: /tmp/sonobuoy/results
+        name: results
+      - mountPath: /tmp/shared
+        name: shared
+      env:
+        - name: PLUGIN_ID
+          value: "05"
+        - name: ENV_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: ENV_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ENV_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+sonobuoy-config:
+  driver: Job
+  plugin-name: 05-openshift-cluster-upgrade
+  result-format: junit
+  description: The end-to-end tests maintained by OpenShift to certify the Provider running the OpenShift Container Platform.
+  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-conformance-validated.yaml
+  skipCleanup: true
+spec:
+  name: plugin
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha0
+  imagePullPolicy: Always
+  priorityClassName: system-node-critical
+  volumeMounts:
+  - mountPath: /tmp/sonobuoy/results
+    name: results
+  - mountPath: /tmp/shared
+    name: shared
+  env:
+    - name: PLUGIN_ID
+      value: "05"
+    - name: ENV_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: ENV_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: ENV_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: UPGRADE_RELEASES
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: upgrade-target-images
+    - name: RUN_MODE
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: run-mode
+`)
+
+func manifestsOpenshiftClusterUpgradeYamlBytes() ([]byte, error) {
+	return _manifestsOpenshiftClusterUpgradeYaml, nil
+}
+
+func manifestsOpenshiftClusterUpgradeYaml() (*asset, error) {
+	bytes, err := manifestsOpenshiftClusterUpgradeYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "manifests/openshift-cluster-upgrade.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
   restartPolicy: Never
   serviceAccountName: sonobuoy-serviceaccount
@@ -144,7 +240,7 @@ var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.2.1
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha0
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -177,7 +273,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.2.1
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha0
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
@@ -200,6 +296,11 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
+    - name: RUN_MODE
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: run-mode
     - name: DEV_MODE_COUNT
       valueFrom:
         configMapKeyRef:
@@ -230,7 +331,7 @@ var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.2.1
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha0
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -263,7 +364,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.2.1
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha0
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
@@ -286,6 +387,11 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
+    - name: RUN_MODE
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: run-mode
     - name: DEV_MODE_COUNT
       valueFrom:
         configMapKeyRef:
@@ -361,6 +467,7 @@ func AssetNames() []string {
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
 	"manifests/openshift-artifacts-collector.yaml":   manifestsOpenshiftArtifactsCollectorYaml,
+	"manifests/openshift-cluster-upgrade.yaml":       manifestsOpenshiftClusterUpgradeYaml,
 	"manifests/openshift-conformance-validated.yaml": manifestsOpenshiftConformanceValidatedYaml,
 	"manifests/openshift-kube-conformance.yaml":      manifestsOpenshiftKubeConformanceYaml,
 }
@@ -408,6 +515,7 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"manifests": &bintree{nil, map[string]*bintree{
 		"openshift-artifacts-collector.yaml":   &bintree{manifestsOpenshiftArtifactsCollectorYaml, map[string]*bintree{}},
+		"openshift-cluster-upgrade.yaml":       &bintree{manifestsOpenshiftClusterUpgradeYaml, map[string]*bintree{}},
 		"openshift-conformance-validated.yaml": &bintree{manifestsOpenshiftConformanceValidatedYaml, map[string]*bintree{}},
 		"openshift-kube-conformance.yaml":      &bintree{manifestsOpenshiftKubeConformanceYaml, map[string]*bintree{}},
 	}},

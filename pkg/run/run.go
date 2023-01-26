@@ -40,9 +40,17 @@ type RunOptions struct {
 	timeout       int
 	watch         bool
 	devCount      string
+	mode          string
+	upgradeImage  string
 }
 
-const runTimeoutSeconds = 21600
+const (
+	defaultRunTimeoutSeconds = 21600
+	defaultRunMode           = "regular"
+	defaultUpgradeImage      = ""
+	defaultDedicatedFlag     = true
+	defaultRunWatchFlag      = false
+)
 
 func newRunOptions() *RunOptions {
 	return &RunOptions{
@@ -115,12 +123,14 @@ func NewCmdRun() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&o.dedicated, "dedicated", true, "Setup plugins to run in dedicated test environment.")
+	cmd.Flags().BoolVar(&o.dedicated, "dedicated", defaultDedicatedFlag, "Setup plugins to run in dedicated test environment.")
+	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
+	cmd.Flags().StringVar(&o.mode, "mode", defaultRunMode, "Run mode: Availble: regular, upgrade")
+	cmd.Flags().StringVar(&o.upgradeImage, "upgrade-to-image", defaultUpgradeImage, "Target OpenShift Release Image. Example: oc adm release info 4.11.18 -o jsonpath={.image}")
 	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times. (default plugins can be reviewed with assets subcommand)")
 	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", fmt.Sprintf("quay.io/ocp-cert/sonobuoy:%s", buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
-	cmd.Flags().IntVar(&o.timeout, "timeout", runTimeoutSeconds, "Execution timeout in seconds")
-	cmd.Flags().BoolVarP(&o.watch, "watch", "w", false, "Keep watch status after running")
-	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
+	cmd.Flags().IntVar(&o.timeout, "timeout", defaultRunTimeoutSeconds, "Execution timeout in seconds")
+	cmd.Flags().BoolVarP(&o.watch, "watch", "w", defaultRunWatchFlag, "Keep watch status after running")
 
 	// Hide dedicated flag since this is for development only
 	cmd.Flags().MarkHidden("dedicated")
@@ -167,6 +177,11 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	if !managed {
 		return errors.New("OpenShift Image Registry must deployed before certification can run")
 	}
+
+	// TODO: checkOrCreate MachineConfigPool with:
+	// - node selectors: node-role.kubernetes.io/tests=''
+	// - paused: true
+	// https://issues.redhat.com/browse/OPCT-35
 
 	// Check if sonobuoy namespace already exists
 	p, err := coreClient.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
@@ -323,6 +338,7 @@ func (r *RunOptions) createConfigMap(kclient kubernetes.Interface, sclient sonob
 	return nil
 }
 
+// Run setup and provision the certification environment.
 func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.Interface) error {
 	var manifests []*manifest.Manifest
 
@@ -362,7 +378,9 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			Namespace: pkg.CertificationNamespace,
 		},
 		Data: map[string]string{
-			"dev-count": r.devCount,
+			"dev-count":             r.devCount,
+			"run-mode":              r.mode,
+			"upgrade-target-images": r.upgradeImage,
 		},
 	}); err != nil {
 		return err
