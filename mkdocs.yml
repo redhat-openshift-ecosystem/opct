@@ -1,6 +1,7 @@
 site_name: OpenShift Provider Certification Tool
 site_description: >-
   OpenShift Provider Certification Tool | Guide
+site_url: https://redhat-openshift-ecosystem.github.io/provider-certification-tool
 repo_url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool
 edit_uri: edit/main/docs/
 docs_dir: ./docs
