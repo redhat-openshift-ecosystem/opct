@@ -179,12 +179,12 @@ Example running OPCT running the upgrade feature:
 ```bash
 CLI_PATH=${HOME}/go/src/github.com/mtulio/provider-certification-tool-cli
 CLI_BIN_NAME=openshift-provider-cert-linux-amd64
-CLI_VERSION=PR33dev5
+CLI_VERSION=v0.3.0-alpha0
 CLI_BIN_PATH=${CLI_PATH}/${CLI_BIN_NAME}-${CLI_VERSION}
 
-CID=410t411
-INSTALL_VERSION=4.10.45
-UPGRADE_VERSION=4.11.19
+CID=411to412
+INSTALL_VERSION=4.11.22
+UPGRADE_VERSION=4.12.0
 
 CLUSTER=opct-${CID}
 WORKPATH=${PWD}/.opct-${CID}
@@ -214,7 +214,7 @@ Example running OPCT for a specific PR([#34](https://github.com/redhat-openshift
 ```bash
 CLI_PATH=${HOME}/go/src/github.com/mtulio/provider-certification-tool-cli
 CLI_BIN_NAME=openshift-provider-cert-linux-amd64
-CLI_VERSION=v0.3.0-dev1
+CLI_VERSION=v0.3.0-dev3
 CLI_BIN_PATH=${CLI_PATH}/${CLI_BIN_NAME}-${CLI_VERSION}
 
 #cd ${CLI_PATH}
@@ -266,7 +266,7 @@ podman run \
     --rm opct-runner:latest \
         ansible-playbook opct-cluster-create-aws.yaml \
         -e cluster_name=$CLUSTER \
-        -e cluster_version=${INSTALL_VERSION};
+        -e cluster_version=${INSTALL_VERSION} ;
 ```
 
 ## Alternative Playbooks

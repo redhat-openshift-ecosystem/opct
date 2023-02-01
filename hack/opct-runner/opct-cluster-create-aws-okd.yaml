@@ -25,16 +25,21 @@
   gather_facts: true
 
   vars:
-    target: opct_aws
+    # used on installer clients
+    release_image: quay.io/openshift/okd
+    release_version: "4.12.0-0.okd-2023-01-21-055900"
+    skip_checks: yes
+    # general usage
     okd_installer_env:
       CLUSTER_NAME: "{{ cluster_name }}"
       CLUSTER_VERSION: "{{ cluster_version }}"
+      #CLUSTER_VERSION: "4.12.0-0.okd-scos-2023-01-17-234959"
       CONFIG_CLUSTER_NAME: "{{ cluster_name }}"
       CONFIG_PROVIDER: "{{ provider }}"
       CONFIG_CLUSTER_REGION: "{{ provider_region }}"
       CONFIG_PLATFORM: "{{ config_platform }}"
       CONFIG_BASE_DOMAIN: "{{ config_base_domain }}"
-      CONFIG_PULL_SECRET_FILE:  "{{ ansible_env.HOME }}/{{ config_pull_secret_home }}"
+      #CONFIG_PULL_SECRET_FILE:  "{{ ansible_env.HOME }}/{{ config_pull_secret_home }}"
       CONFIG_SSH_KEY: "{{ lookup('file', ansible_env.HOME + '/' + config_ssh_key_home) }}"
 
   pre_tasks:
@@ -45,7 +50,9 @@
 - name: OPCT | Cluster Create | AWS | Check clients are installed
   ansible.builtin.import_playbook: mtulio.okd_installer.install_clients
   vars:
-    version: "{{ okd_installer_env.CLUSTER_VERSION }}"
+    release_image: quay.io/openshift/okd
+    release_version: "4.12.0-0.okd-2023-01-21-055900"
+    skip_checks: yes
 
 - name: OPCT | Cluster Create | AWS | Generate the install-config
   ansible.builtin.import_playbook: mtulio.okd_installer.config
@@ -56,18 +63,8 @@
 
 - name: OPCT | Cluster Create | AWS | Create all stacks
   ansible.builtin.import_playbook: mtulio.okd_installer.create_all
-  #vars:
-    #provider: "{{ okd_installer_env.CONFIG_PROVIDER }}"
-    #cluster_name: "{{ okd_installer_env.CONFIG_CLUSTER_NAME }}"
-    # certs_max_retries: 20
-    # cert_wait_interval_sec: 60
-    # create_registry: yes
-    # destroy_bootstrap: yes
-    #target: opct_aws
-  environment: "{{ okd_installer_env }}"
-
-- name: OPCT | Cluster Create | AWS | Setup dedicated environment
-  ansible.builtin.import_playbook: opct-setup-node.yaml
+  vars:
+    target: opct_aws
   environment: "{{ okd_installer_env }}"
 
 - name: OPCT | Cluster Create | AWS | Finish

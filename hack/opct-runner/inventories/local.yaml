@@ -26,7 +26,7 @@ opct_aws:
       config_base_domain: devcluster.openshift.com
       config_pull_secret_home: ".openshift/pull-secret-latest.json"
       config_ssh_key_home: "/.ssh/id_rsa.pub"
-      cert_max_retries: 20
+      cert_max_retries: 25
       cert_wait_interval_sec: 60
       cert_expected_nodes: 4
       create_registry: yes
