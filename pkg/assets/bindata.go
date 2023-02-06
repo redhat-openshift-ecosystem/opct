@@ -129,6 +129,13 @@ spec:
         configMapKeyRef:
           name: plugins-config
           key: upgrade-target-images
+    - name: MIRROR_IMAGE_REPOSITORY
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: mirror-registry
+          optional: true
+
 `)
 
 func manifestsOpenshiftArtifactsCollectorYamlBytes() ([]byte, error) {
@@ -220,6 +227,13 @@ spec:
         configMapKeyRef:
           name: plugins-config
           key: run-mode
+    - name: MIRROR_IMAGE_REPOSITORY
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: mirror-registry
+          optional: true
+
 `)
 
 func manifestsOpenshiftClusterUpgradeYamlBytes() ([]byte, error) {
@@ -311,6 +325,12 @@ spec:
         configMapKeyRef:
           name: plugins-config
           key: dev-count
+    - name: MIRROR_IMAGE_REPOSITORY
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: mirror-registry
+          optional: true
 `)
 
 func manifestsOpenshiftConformanceValidatedYamlBytes() ([]byte, error) {
@@ -402,6 +422,12 @@ spec:
         configMapKeyRef:
           name: plugins-config
           key: dev-count
+    - name: MIRROR_IMAGE_REPOSITORY
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: mirror-registry
+          optional: true
 `)
 
 func manifestsOpenshiftKubeConformanceYamlBytes() ([]byte, error) {
