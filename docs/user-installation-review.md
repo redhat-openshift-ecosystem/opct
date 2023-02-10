@@ -1,4 +1,4 @@
-# OpenShift Provider Certification Tool - Installation Review
+# Installation Review
 
 > WIP - this document is working in progress
 

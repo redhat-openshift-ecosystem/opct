@@ -1,4 +1,4 @@
-# OpenShift Provider Certification Tool - User Guide
+# User Guide
 
 Welcome to the user documentation for the OpenShift Provider Certification Tool!  
 

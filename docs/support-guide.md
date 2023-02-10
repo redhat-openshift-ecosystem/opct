@@ -1,4 +1,4 @@
-# OpenShift Provider Certification Tool - Support Guide
+# OPCT - Support Guide
 
 - [Support Case Check List](#check-list)
     - [New Support Cases](#check-list-new-case)
@@ -13,7 +13,6 @@
     - [Explaning the extracted files](#review-process-explain)
     - [Review Guidelines](#review-process-guidelines)
 - [Review guide: y-stream upgrade](#upgrade-review-process)
-
 
 ## Support Case Check List <a name="check-list"></a>
 

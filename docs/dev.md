@@ -10,8 +10,7 @@ Table of Contents:
     - [Integration with Sonobuoy CLI](#dev-integration-cli)
     - [Sonobuoy Plugins](#dev-sonobuoy-plugins)
     - [Diagrams](#dev-diagrams)
-        - [CLI commands](#dev-diagram-cli)
-        - [CLI Result filters](#dev-diagram-filters)
+    - [CLI Result filters](#dev-diagram-filters)
     - [Running Customized Certification Plugins](#dev-running-custom-plugins)
     - [Project Documentation](#dev-project-docs)
 
@@ -75,16 +74,15 @@ reader, ec, err := config.SonobuoyClient.RetrieveResults(&client.RetrieveConfig{
 
 ### Sonobuoy Plugins <a name="dev-sonobuoy-plugins"></a>
 
-*TODO* (Cert tool's plugin development is still in POC phase)
+OPCT is extended by Sonobuoy Plugins.
 
-### Diagrams <a name="dev-diagrams"></a>
+The Plugins source code is available on the project [provider-certification-plugins](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins).
 
-#### CLI commands <a name="dev-diagram-cli"></a>
+### Diagrams <a name="diagrams"></a>
 
-Here's the highest level diagram showing the filenames or packages for code:
-![](./command-diagram.png)
+The diagrams are available under the page [Diagrams](./diagrams).
 
-#### CLI Result filters <a name="dev-diagram-filters"></a>
+### CLI Result filters <a name="dev-diagram-filters"></a>
 
 The CLI currently implements a few filters to help the reviewers (Partners, Support, Engineering teams) to find the root cause of the failures. The filters consumes the data sources below to improve the feedback, by plugin level, when using the command `process`:
 

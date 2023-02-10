@@ -1,0 +1,5 @@
+# Diagrams not manage as a code
+!command-diagram.png
+
+# Ignore auto generated diagrams (standard with suffix)
+*.diagram.png
