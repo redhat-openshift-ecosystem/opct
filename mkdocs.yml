@@ -5,9 +5,23 @@ site_url: https://redhat-openshift-ecosystem.github.io/provider-certification-to
 repo_url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool
 edit_uri: edit/main/docs/
 docs_dir: ./docs
+dev_addr: 127.0.0.1:8000
+
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - diagrams:
+      file_extension: ".diagram.py"
+      max_workers: 5
+  - search
 
 theme:
-  name: readthedocs
+  name: material
   highlightjs: true
   hljs_languages:
     - yaml
@@ -17,7 +31,6 @@ nav:
       - "Installation Checklist": user-installation-checklist.md
       - "Installation Review": user-installation-review.md
       - "Troubleshooting": troubleshooting-guide.md
-      - "Results Review": user-results-review.md
   - "Support Guide":
       - "Support Guide": support-guide.md
   - "Developer Guide":
