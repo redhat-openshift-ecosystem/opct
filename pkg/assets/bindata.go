@@ -64,7 +64,7 @@ var _manifestsOpenshiftArtifactsCollectorYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha1
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -97,7 +97,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha1
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
   imagePullPolicy: Always
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
@@ -149,7 +149,7 @@ var _manifestsOpenshiftClusterUpgradeYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha1
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -182,7 +182,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha1
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
@@ -240,7 +240,7 @@ var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha1
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -273,7 +273,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha1
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
@@ -331,7 +331,7 @@ var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha1
+      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -364,7 +364,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0-alpha1
+  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
