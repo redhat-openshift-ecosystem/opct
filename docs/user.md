@@ -46,6 +46,17 @@ More detail on each step can be found in the sections further below.
 
 A Red Hat OpenShift 4 cluster must be [installed](https://docs.openshift.com/container-platform/latest/installing/index.html) before certification can begin. The OpenShift cluster must be installed on your infrastructure as if it were a production environment. Ensure that each feature of your infrastructure you plan to support with OpenShift is configured in the cluster (e.g. Load Balancers, Storage, special hardware).
 
+The table below describes the OpenShift and OPCT versions supported for each release and features:
+
+| OPCT [version](releases) | OCP Supported versions | OPCT Execution mode |
+| -- | -- | -- |
+| v0.3.x | 4.9, 4.10, 4.11, 4.12 | regular, upgrade |
+| v0.2.x | 4.9, 4.10, 4.11 | regular |
+| v0.1.x | 4.9, 4.10, 4.11 | regular |
+
+
+[releases]:https://github.com/redhat-openshift-ecosystem/provider-certification-tool/releases
+
 ### Standard Environment <a name="standard-env"></a>
 
 A dedicated compute node should be used to avoid disruption of the test scheduler. Otherwise, the concurrency between resources scheduled on the cluster, e2e-test manager (aka openshift-tests-plugin), and other stacks like monitoring can disrupt the test environment, leading to unexpected results, like the eviction of plugins or aggregator server (`sonobuoy` pod).
