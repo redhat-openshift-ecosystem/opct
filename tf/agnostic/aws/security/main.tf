@@ -41,6 +41,16 @@ resource "aws_security_group_rule" "allow_https" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
+resource "aws_security_group_rule" "allow_udp_ntp" {
+  security_group_id = aws_security_group.cluster_member_sg.id
+  type              = "ingress"
+  from_port         = 123
+  to_port           = 123
+  protocol          = "udp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+
 resource "aws_security_group_rule" "allow_metrics" {
   security_group_id = aws_security_group.cluster_member_sg.id
   type              = "ingress"
@@ -140,6 +150,27 @@ resource "aws_security_group_rule" "allow_udp_ipsec-nat" {
   protocol          = "udp"
   self              = true
 }
+
+
+
+resource "aws_security_group_rule" "allow_k8s_api" {
+  security_group_id = aws_security_group.cluster_member_sg.id
+  type              = "ingress"
+  from_port         = 6443
+  to_port           = 6443
+  protocol          = "tcp"
+  self              = true
+}
+
+resource "aws_security_group_rule" "allow_etcd" {
+  security_group_id = aws_security_group.cluster_member_sg.id
+  type              = "ingress"
+  from_port         = 2379
+  to_port           = 2380
+  protocol          = "tcp"
+  self              = true
+}
+
 
 resource "aws_security_group_rule" "allow_esp" {
   security_group_id = aws_security_group.cluster_member_sg.id

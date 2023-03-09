@@ -1,6 +1,6 @@
 module "workers_instances" {
   count = 2
-  source = "../ec2-instance"
+  source = "../ec2_instance"
   instance_type = var.instance_type
   subnet_id = var.subnet_id
   cluster_member_sg_id =var.cluster_member_sg_id

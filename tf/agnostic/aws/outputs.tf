@@ -37,3 +37,5 @@ output "worker_urls" {
   "worker_ssm_${idx}"
   => "https://${var.aws_region}.console.aws.amazon.com/systems-manager/session-manager/${instance_id}?region=${var.aws_region}#" }
 }
+
+
