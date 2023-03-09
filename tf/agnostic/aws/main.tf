@@ -69,8 +69,10 @@ module "cluster_lb" {
 
 module "cluster_dns" {
   source = "./cluster_dns"
-  base_domain = var.base_domain
-  api_lb_dns_name = module.cluster_lb.api_lb_dns_name
+  cluster_name        = var.cluster_name
+  base_domain         = var.base_domain
+  api_lb_dns_name     = module.cluster_lb.api_lb_dns_name
+  api_lb_dns_zone_id  = module.cluster_lb.api_lb_zone_id
 }
 
 

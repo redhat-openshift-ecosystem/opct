@@ -38,4 +38,7 @@ output "worker_urls" {
   => "https://${var.aws_region}.console.aws.amazon.com/systems-manager/session-manager/${instance_id}?region=${var.aws_region}#" }
 }
 
+output "api_nlb_dns_name" {
+  value = module.cluster_lb.api_lb_dns_name
+}
 

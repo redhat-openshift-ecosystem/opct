@@ -42,10 +42,10 @@ resource "aws_lb_target_group" "control_plane" {
   }
 }
 
-resource "aws_lb_target_group_attachment" "control_plane" {
-  count = length(var.control_plane_instances_ids)
-
-  target_group_arn = aws_lb_target_group.control_plane.arn
-  target_id        = var.control_plane_instances_ids[count.index]
-  port             = 6443
-}
+# resource "aws_lb_target_group_attachment" "control_plane" {
+#  count = length(var.control_plane_instances_ids)
+#
+#  target_group_arn = aws_lb_target_group.control_plane.arn
+#  target_id        = var.control_plane_instances_ids[count.index]
+#  port             = 6443
+#}

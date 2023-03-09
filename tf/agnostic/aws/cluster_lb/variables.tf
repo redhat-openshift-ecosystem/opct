@@ -5,5 +5,4 @@ variable "subnet_ids" {
 }
 
 variable "control_plane_instances_ids" {
-  type = list(string)
 }
