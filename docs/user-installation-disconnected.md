@@ -3,8 +3,8 @@
 ## Prerequisites/Requirements
 
 - Disconnected Mirror Image Registry created
-- Private cluster Installed: https://docs.openshift.com/container-platform/latest/installing/installing_bare_metal/installing-restricted-networks-bare-metal.html
-- You created a registry on your mirror host: https://docs.openshift.com/container-platform/latest/installing/disconnected_install/installing-mirroring-installation-images.html#installing-mirroring-installation-images
+- [Private cluster Installed](https://docs.openshift.com/container-platform/latest/installing/installing_bare_metal/installing-restricted-networks-bare-metal.html)
+- [You created a registry on your mirror host](https://docs.openshift.com/container-platform/latest/installing/disconnected_install/installing-mirroring-installation-images.html#installing-mirroring-installation-images)
 
 ## Configuring the Disconnected Mirror Registry
 1. Extract the `openshift-tests` executable associated with the version of OpenShift you are installing.
@@ -34,7 +34,7 @@ echo "quay.io/ocp-cert/sonobuoy:${SONOBUOY_TAG} ${SONOBUOY_TARGET}" >> images-to
 4. Append the OPCT tools image to the `images-to-mirror` list
 
 ~~~
-OPCT_VERSION=v0.3.0-alpha1
+OPCT_VERSION=v0.4.0-alpha1
 OPCT_TARGET=${TARGET_REPO}/openshift-tests-provider-cert:${OPCT_VERSION}
 echo "quay.io/ocp-cert/openshift-tests-provider-cert:${OPCT_VERSION} ${OPCT_TARGET}" >> images-to-mirror
 ~~~
