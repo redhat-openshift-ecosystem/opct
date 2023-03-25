@@ -13,6 +13,7 @@ Table Of Contents:
     - [Standard Environment](#standard-env)
         - [Setup Dedicated Node](#standard-env-setup-node)
         - [Setup MachineConfigPool (upgrade mode)](#standard-env-setup-mcp)
+        - [Testing in a Disconnected Environment](#disconnected-env-setup)
     - [Privilege Requirements](#priv-requirements)
 - [Install](#install)
     - [Prebuilt Binary](#install-bin)
@@ -150,6 +151,13 @@ Make sure the `MachineConfigPool` has been created correctly:
 oc get machineconfigpool opct
 ```
 
+#### Testing in a Disconnected Environment <a name="disconnected-env-setup"></a>
+
+The OpenShift Provider Certification Tool requires numerous images during the setup and execution
+of tests.  See [User Installation Guide - Disconnected Installations](./user-installation-disconnected.md) for details 
+on how to configure a mirror registry and how to run the OpenShift Provider Certification Tool to rely on the mirror 
+registry for images.
+
 ### Privilege Requirements <a name="priv-requirements"></a>
 
 A user with [cluster administrator privilege](https://docs.openshift.com/container-platform/latest/authentication/using-rbac.html#creating-cluster-admin_using-rbac) must be used to run the provider certification tool. You also use the default `kubeadmin` user if you wish.
@@ -202,6 +210,23 @@ Requirements for running 'upgrade' mode:
 ```sh
 openshift-provider-cert run --mode=upgrade --upgrade-to-image=$(oc adm release info 4.Y+1.Z -o jsonpath={.image})
 ```
+
+## Run Tests with the Disconnected Mirror registry<a name="usage-run-disconnected"></a>
+
+Tests are able to be run in a disconnected environment through the use of a mirror registry.
+
+Requirements for running tests with a disconnected mirror registry:
+
+- Disconnected Mirror Image Registry created
+- Private cluster Installed: https://docs.openshift.com/container-platform/latest/installing/installing_bare_metal/installing-restricted-networks-bare-metal.html
+- You created a registry on your mirror host: https://docs.openshift.com/container-platform/latest/installing/disconnected_install/installing-mirroring-installation-images.html#installing-mirroring-installation-images
+
+
+To run tests such that they use images hosted by the Disconnected Mirror registry:
+
+~~~
+./openshift-provider-cert-linux-amd64 run --image-repository ${TARGET_REPO}
+~~~
 
 #### Optional parameters for run <a name="usage-run-optional"></a>
 

@@ -64,7 +64,7 @@ var _manifestsOpenshiftArtifactsCollectorYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
+      image: "{{ .ToolsImage }}"
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -97,7 +97,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
+  image: "{{ .ToolsImage }}"
   imagePullPolicy: Always
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
@@ -129,6 +129,13 @@ spec:
         configMapKeyRef:
           name: plugins-config
           key: upgrade-target-images
+    - name: MIRROR_IMAGE_REPOSITORY
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: mirror-registry
+          optional: true
+
 `)
 
 func manifestsOpenshiftArtifactsCollectorYamlBytes() ([]byte, error) {
@@ -154,7 +161,7 @@ var _manifestsOpenshiftClusterUpgradeYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
+      image: "{{ .ToolsImage }}"
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -187,7 +194,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
+  image: "{{ .ToolsImage }}"
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
@@ -220,6 +227,13 @@ spec:
         configMapKeyRef:
           name: plugins-config
           key: run-mode
+    - name: MIRROR_IMAGE_REPOSITORY
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: mirror-registry
+          optional: true
+
 `)
 
 func manifestsOpenshiftClusterUpgradeYamlBytes() ([]byte, error) {
@@ -245,7 +259,7 @@ var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
+      image: "{{ .ToolsImage }}"
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -278,7 +292,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
+  image: "{{ .ToolsImage }}"
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
@@ -311,6 +325,12 @@ spec:
         configMapKeyRef:
           name: plugins-config
           key: dev-count
+    - name: MIRROR_IMAGE_REPOSITORY
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: mirror-registry
+          optional: true
 `)
 
 func manifestsOpenshiftConformanceValidatedYamlBytes() ([]byte, error) {
@@ -336,7 +356,7 @@ var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
+      image: "{{ .ToolsImage }}"
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -369,7 +389,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: quay.io/ocp-cert/openshift-tests-provider-cert:v0.3.0
+  image: "{{ .ToolsImage }}"
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
@@ -402,6 +422,12 @@ spec:
         configMapKeyRef:
           name: plugins-config
           key: dev-count
+    - name: MIRROR_IMAGE_REPOSITORY
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: mirror-registry
+          optional: true
 `)
 
 func manifestsOpenshiftKubeConformanceYamlBytes() ([]byte, error) {

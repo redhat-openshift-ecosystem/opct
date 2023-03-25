@@ -1,9 +1,11 @@
 package run
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"text/template"
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -34,14 +36,19 @@ import (
 )
 
 type RunOptions struct {
-	plugins       *[]string
-	dedicated     bool
-	sonobuoyImage string
-	timeout       int
-	watch         bool
-	devCount      string
-	mode          string
-	upgradeImage  string
+	plugins         *[]string
+	dedicated       bool
+	sonobuoyImage   string
+	imageRepository string
+	// ToolsImage
+	// defines the image containing plugins associated with the provider-certification-tool.
+	// this variable is referenced by plugin manifest templates to dynamically reference the tools image.
+	ToolsImage   string
+	timeout      int
+	watch        bool
+	devCount     string
+	mode         string
+	upgradeImage string
 }
 
 const (
@@ -128,13 +135,16 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().StringVar(&o.mode, "mode", defaultRunMode, "Run mode: Availble: regular, upgrade")
 	cmd.Flags().StringVar(&o.upgradeImage, "upgrade-to-image", defaultUpgradeImage, "Target OpenShift Release Image. Example: oc adm release info 4.11.18 -o jsonpath={.image}")
 	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times. (default plugins can be reviewed with assets subcommand)")
-	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", fmt.Sprintf("quay.io/ocp-cert/sonobuoy:%s", buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
+	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", fmt.Sprintf("%s/sonobuoy:%s", pkg.DefaultToolsRepository, buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
+	cmd.Flags().StringVar(&o.ToolsImage, "tools-image", pkg.PluginsImage, "Image containing plugins to be executed.")
+	cmd.Flags().StringVar(&o.imageRepository, "image-repository", "", "Image repository containing required images test environment. Example: openshift-provider-cert-tool --mirror-repository mirror.repository.net/ocp-cert")
 	cmd.Flags().IntVar(&o.timeout, "timeout", defaultRunTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", defaultRunWatchFlag, "Keep watch status after running")
 
 	// Hide dedicated flag since this is for development only
 	cmd.Flags().MarkHidden("dedicated")
 	cmd.Flags().MarkHidden("dev-count")
+	cmd.Flags().MarkHidden("tools-image")
 
 	return cmd
 }
@@ -338,9 +348,44 @@ func (r *RunOptions) createConfigMap(kclient kubernetes.Interface, sclient sonob
 	return nil
 }
 
+// processManifestTemplates processes go template variables in the manifest which map to variable in RunOptions
+func (r *RunOptions) processManifestTemplates(manifest *manifest.Manifest) error {
+
+	var templatedPtrs []*string
+
+	templatedPtrs = append(templatedPtrs, &manifest.Spec.Image)
+	for idx := range manifest.PodSpec.Containers {
+		templatedPtrs = append(templatedPtrs, &manifest.PodSpec.Containers[idx].Image)
+	}
+
+	for _, templatedPtr := range templatedPtrs {
+		imageTemplate, err := template.New("manifest").Parse(*templatedPtr)
+		if err != nil {
+			return errors.Wrapf(err, "unable to parse manifest %s", manifest.SonobuoyConfig.PluginName)
+		}
+		var imageBuffer bytes.Buffer
+		err = imageTemplate.Execute(&imageBuffer, r)
+		if err != nil {
+			return errors.Wrapf(err, "unable to update manifest %s", manifest.SonobuoyConfig.PluginName)
+		}
+		*templatedPtr = imageBuffer.String()
+		log.Debugf("manifest %s references image %s", manifest.SonobuoyConfig.PluginName, *templatedPtr)
+	}
+	return nil
+
+}
+
 // Run setup and provision the certification environment.
 func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.Interface) error {
 	var manifests []*manifest.Manifest
+
+	imageRepository := pkg.DefaultToolsRepository
+	if len(r.imageRepository) > 0 {
+		imageRepository = r.imageRepository
+		log.Infof("Mirror registry is configured %s ", r.imageRepository)
+	}
+	r.sonobuoyImage = fmt.Sprintf("%s/sonobuoy:%s", imageRepository, buildinfo.Version)
+	r.ToolsImage = fmt.Sprintf("%s/%s", imageRepository, r.ToolsImage)
 
 	// Let Sonobuoy do some preflight checks before we run
 	errs := sclient.PreflightChecks(&sonobuoyclient.PreflightConfig{
@@ -372,16 +417,22 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 		return err
 	}
 
+	configMapData := map[string]string{
+		"dev-count":             r.devCount,
+		"run-mode":              r.mode,
+		"upgrade-target-images": r.upgradeImage,
+	}
+
+	if len(r.imageRepository) > 0 {
+		configMapData["mirror-registry"] = r.imageRepository
+	}
+
 	if err := r.createConfigMap(kclient, sclient, &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pkg.PluginsVarsConfigMapName,
 			Namespace: pkg.CertificationNamespace,
 		},
-		Data: map[string]string{
-			"dev-count":             r.devCount,
-			"run-mode":              r.mode,
-			"upgrade-target-images": r.upgradeImage,
-		},
+		Data: configMapData,
 	}); err != nil {
 		return err
 	}
@@ -411,6 +462,13 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 
 	if len(manifests) == 0 {
 		return errors.New("No certification plugins to run")
+	}
+
+	for _, manifest := range manifests {
+		err := r.processManifestTemplates(manifest)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Fill out the aggregator and worker configs
