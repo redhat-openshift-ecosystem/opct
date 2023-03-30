@@ -33,8 +33,9 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
 
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v0.1.15
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          token: ${{ secrets.GH_TOKEN }}
           files: |
             openshift-provider-cert*
