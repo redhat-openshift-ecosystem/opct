@@ -1,0 +1,73 @@
+{
+  "categories": [
+    {
+      "title": "## 🚀 Features",
+      "labels": ["feature", "kind/feature"]
+    },
+    {
+      "title": "## 🛰 Design / API Change",
+      "labels": ["design", "kind/design", "kind/api-change"]
+    },
+    {
+      "title": "## 🐛 Fixes",
+      "labels": ["fix", "kind/bug"]
+    },
+    {
+      "title": "## 🧪 Tests",
+      "labels": ["test", "kind/flake", "kind/failing-test"]
+    },
+    {
+      "title": "## ⛏ Cleanup",
+      "labels": ["cleanup", "kind/cleanup"]
+    },
+    {
+        "title": "## 📦 Dependencies",
+        "labels": ["dependencies", "kind/dependency-change"]
+    },
+    {
+        "title": "## 📜 Documentation",
+        "labels": ["docs", "documentation", "kind/documentation"]
+    },
+    {
+      "title": "## 💬 Other",
+      "labels": ["other"]
+    }
+  ],
+  "ignore_labels": [
+    "ignore"
+  ],
+  "sort": {
+    "order": "ASC",
+    "on_property": "mergedAt"
+  },
+  "template": "${{CHANGELOG}}\n\n<details>\n<summary>Uncategorized</summary>\n\n${{UNCATEGORIZED}}\n</details>",
+  "pr_template": "- ${{TITLE}}\n   - PR: #${{NUMBER}}",
+  "empty_template": "- no changes",
+  "label_extractor": [
+    {
+      "pattern": "(.) (.+)",
+      "target": "$1",
+      "flags": "gu"
+    },
+    {
+      "pattern": "\\[Issue\\]",
+      "on_property": "title",
+      "method": "match"
+    }
+  ],
+  "duplicate_filter": {
+    "pattern": "\\[ABC-....\\]",
+    "on_property": "title",
+    "method": "match"
+  },
+  "transformers": [
+    {
+      "pattern": "[\\-\\*] (\\[(...|TEST|CI|SKIP)\\])( )?(.+?)\n(.+?[\\-\\*] )(.+)",
+      "target": "- $4\n  - $6"
+    }
+  ],
+  "trim_values": false,
+  "max_tags_to_fetch": 200,
+  "max_pull_requests": 200,
+  "max_back_track_time_days": 365
+}

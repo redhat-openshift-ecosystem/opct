@@ -32,14 +32,6 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
 
-      - name: Release
-        uses: softprops/action-gh-release@v0.1.15
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: |
-            openshift-provider-cert*
-
       - name: Build Container and Release to Quay
         env:
           VERSION: ${{ steps.get_version.outputs.VERSION }}
@@ -55,3 +47,24 @@ jobs:
 
           echo "> Publish container image:"
           podman push ${IMAGE}:${VERSION}
+
+      # https://github.com/mikepenz/release-changelog-builder-action#configuration
+      - name: Build Changelog
+        id: github_release
+        uses: mikepenz/release-changelog-builder-action@v3.7.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          configuration: ".github/workflows/changelog-configuration.json"
+
+      # https://github.com/softprops/action-gh-release
+      - name: Create Release
+        uses: softprops/action-gh-release@v0.1.15
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: |
+            openshift-provider-cert*
+          body: |
+            ## Changelog
+            ${{steps.github_release.outputs.changelog}}
