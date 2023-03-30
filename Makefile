@@ -4,6 +4,7 @@ export GO111MODULE=on
 # Disable CGO so that we always generate static binaries:
 export CGO_ENABLED=0
 
+IMG ?= quay.io/ocp-cert/opct
 VERSION=$(shell git rev-parse --short HEAD)
 RELEASE_TAG ?= 0.0.0
 
@@ -13,7 +14,7 @@ GO_BUILD_FLAGS := -ldflags '-s -w -X github.com/redhat-openshift-ecosystem/provi
 unexport GOFLAGS
 
 .PHONY: all
-all: linux-amd64 cross-build-windows-amd64 cross-build-darwin-amd64 cross-build-darwin-arm64
+all: linux-amd64 linux-amd64-container cross-build-windows-amd64 cross-build-darwin-amd64 cross-build-darwin-arm64
 
 .PHONY: build
 build:
@@ -43,6 +44,9 @@ cross-build-darwin-amd64:
 cross-build-darwin-arm64:
 	GOOS=darwin GOARCH=arm64 go build -o openshift-provider-cert-darwin-arm64 $(GO_BUILD_FLAGS)
 
+.PHONY: linux-amd64-container
+linux-amd64-container:
+	podman build -t $(IMG):latest -f hack/Containerfile --build-arg=RELEASE_TAG=$(RELEASE_TAG) .
 
 .PHONY: test
 test:

@@ -17,11 +17,13 @@ Table of Contents:
 ## Release <a name="release"></a>
 
 Releasing a new version of the provider certification tool is done automatically through [this GitHub Action](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/release.yaml)
-which is run on new tags. Tags should be named in format: v0.1.0. 
+which is run on new tags. Tags should the SemVer format. Example: v0.1.0, v0.1.0-alpha1 (...)
 
 Tags should only be created from the `main` branch which only accepts pull-requests that pass through [this CI GitHub Action](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/go.yaml).
 
-Note that any version in v0.* will be considered part of the preview release of the certification tool.
+The container image for CLI is automatically published to the container registry [`quay.io/ocp-cert/opct`](https://quay.io/repository/ocp-cert/opct?tab=tags) by Github Action job `Build Container and Release to Quay` every new release.
+
+Note that any version in v0.* will be considered part of the **preview release** of the tool.
 
 ## Development Notes <a name="dev-notes"></a>
 
