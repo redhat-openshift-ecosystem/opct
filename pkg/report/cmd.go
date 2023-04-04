@@ -105,6 +105,8 @@ func processResult(input *Input) error {
 func showAggregatedSummary(cs *summary.ConsolidatedSummary) error {
 	fmt.Printf("\n> OpenShift Provider Certification Summary <\n\n")
 
+	// vars starting with p* represents the 'partner' artifact
+	// vars starting with b* represents 'baseline' artifact
 	pOCP := cs.GetProvider().GetOpenShift()
 	pOCPCV, _ := pOCP.GetClusterVersion()
 	pOCPInfra, _ := pOCP.GetInfrastructure()
@@ -139,9 +141,17 @@ func showAggregatedSummary(cs *summary.ConsolidatedSummary) error {
 	}
 
 	fmt.Fprint(tbWriter, newLineWithTab)
+	partnerPlatformName := string(pOCPInfra.Status.PlatformStatus.Type)
+	if pOCPInfra.Status.PlatformStatus.Type == "External" {
+		partnerPlatformName = fmt.Sprintf("%s (%s)", partnerPlatformName, pOCPInfra.Spec.PlatformSpec.External.PlatformName)
+	}
 	if baselineProcessed {
+		baselinePlatformName := string(bOCPInfra.Status.PlatformStatus.Type)
+		if bOCPInfra.Status.PlatformStatus.Type == "External" {
+			baselinePlatformName = fmt.Sprintf("%s (%s)", baselinePlatformName, bOCPInfra.Spec.PlatformSpec.External.PlatformName)
+		}
 		fmt.Fprintf(tbWriter, " OCP Infrastructure:\t\t\n")
-		fmt.Fprintf(tbWriter, " - PlatformType\t: %s\t: %s\n", pOCPInfra.Status.PlatformStatus.Type, bOCPInfra.Status.PlatformStatus.Type)
+		fmt.Fprintf(tbWriter, " - PlatformType\t: %s\t: %s\n", partnerPlatformName, baselinePlatformName)
 		fmt.Fprintf(tbWriter, " - Name\t: %s\t: %s\n", pOCPInfra.Status.InfrastructureName, bOCPInfra.Status.InfrastructureName)
 		fmt.Fprintf(tbWriter, " - Topology\t: %s\t: %s\n", pOCPInfra.Status.InfrastructureTopology, bOCPInfra.Status.InfrastructureTopology)
 		fmt.Fprintf(tbWriter, " - ControlPlaneTopology\t: %s\t: %s\n", pOCPInfra.Status.ControlPlaneTopology, bOCPInfra.Status.ControlPlaneTopology)
@@ -149,7 +159,7 @@ func showAggregatedSummary(cs *summary.ConsolidatedSummary) error {
 		fmt.Fprintf(tbWriter, " - API Server URL (internal)\t: %s\t: %s\n", pOCPInfra.Status.APIServerInternalURL, bOCPInfra.Status.APIServerInternalURL)
 	} else {
 		fmt.Fprintf(tbWriter, " OCP Infrastructure:\t\n")
-		fmt.Fprintf(tbWriter, " - PlatformType\t: %s\n", pOCPInfra.Status.PlatformStatus.Type)
+		fmt.Fprintf(tbWriter, " - PlatformType\t: %s\n", partnerPlatformName)
 		fmt.Fprintf(tbWriter, " - Name\t: %s\n", pOCPInfra.Status.InfrastructureName)
 		fmt.Fprintf(tbWriter, " - Topology\t: %s\n", pOCPInfra.Status.InfrastructureTopology)
 		fmt.Fprintf(tbWriter, " - ControlPlaneTopology\t: %s\n", pOCPInfra.Status.ControlPlaneTopology)
