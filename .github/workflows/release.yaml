@@ -39,3 +39,19 @@ jobs:
         with:
           files: |
             openshift-provider-cert*
+
+      - name: Build Container and Release to Quay
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+          IMAGE: quay.io/ocp-cert/opct
+          QUAY_USER: ${{ secrets.QUAY_USER }}
+          QUAY_PASS: ${{ secrets.QUAY_PASS }}
+        run: |
+          echo "> Logging to Quay.io:"
+          podman login -u="${QUAY_USER}" -p="${QUAY_PASS}" quay.io
+
+          echo "> Build container image:"
+          podman build -t ${IMAGE}:${VERSION} -f hack/Containerfile.ci .
+
+          echo "> Publish container image:"
+          podman push ${IMAGE}:${VERSION}

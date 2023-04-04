@@ -1,0 +1,18 @@
+
+FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.19-openshift-4.13 AS builder
+ARG RELEASE_TAG
+WORKDIR /go/src/github.com/redhat-openshift-ecosystem/provider-certification-tool
+COPY . .
+RUN make linux-amd64 RELEASE_TAG=${RELEASE_TAG}
+
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.7-1085.1679482090
+LABEL io.k8s.display-name="OPCT" \
+      io.k8s.description="OpenShift/OKD Conformance Tool is designed to run conformance suites to validate custom installations." \
+      io.opct.tags="opct,conformance,openshift,tests,e2e" \
+      io.opct.os="linux" io.opct.arch="amd64"
+
+COPY --from=builder \
+      /go/src/github.com/redhat-openshift-ecosystem/provider-certification-tool/openshift-provider-cert-linux-amd64 \
+      /usr/bin/
+
+CMD ["/usr/bin/openshift-provider-cert-linux-amd64"]

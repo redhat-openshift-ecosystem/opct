@@ -1,0 +1,9 @@
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.7-1085.1679482090
+LABEL io.k8s.display-name="OPCT" \
+      io.k8s.description="OpenShift/OKD Conformance Tool is designed to run conformance suites to validate custom installations." \
+      io.opct.tags="opct,conformance,openshift,tests,e2e" \
+      io.opct.os="linux" io.opct.arch="amd64"
+
+COPY ./openshift-provider-cert-linux-amd64 /usr/bin/
+
+CMD ["/usr/bin/opct"]
