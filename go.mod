@@ -1,6 +1,6 @@
 module github.com/redhat-openshift-ecosystem/provider-certification-tool
 
-go 1.17
+go 1.19
 
 require (
 	github.com/openshift/api v0.0.0-20210910062324-a41d3573a3ba
