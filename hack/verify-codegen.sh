@@ -11,6 +11,6 @@ else
     --env IS_CONTAINER=TRUE \
     --volume "${PWD}:/go/src/github.com/redhat-openshift-ecosystem/provider-certification-tool:z" \
     --workdir /go/src/github.com/redhat-openshift-ecosystem/provider-certification-tool \
-    docker.io/golang:1.17 \
+    docker.io/golang:1.19 \
     ./hack/verify-codegen.sh "${@}"
 fi

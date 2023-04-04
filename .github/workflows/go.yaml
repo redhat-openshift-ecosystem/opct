@@ -18,7 +18,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.17
+          go-version: 1.19
+
       - name: Verify bindata was generated
         run: |
           go install github.com/go-bindata/go-bindata/go-bindata@latest
@@ -26,10 +27,13 @@ jobs:
           ./hack/update-generated-bindata.sh
           set +ex
           git diff --exit-code
+
       - name: Run unit tests
         run: make test
+
       - name: Run go vet
         run: make vet
+
       - name: Run static code analysis
         uses: dominikh/staticcheck-action@v1.2.0
         with:
