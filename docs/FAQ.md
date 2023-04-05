@@ -1,6 +1,6 @@
-# FAQ for OpenShift Provider Certification Tool
+# FAQ for OPCT
 
-**Q: What is the OpenShift Provider Certification Tool (OPCT) ?**
+**Q: What is the OpenShift Provider Compatibility Tool (OPCT) ?**
 
 OPCT was designed to validate the custom OpenShift installations in non-integrated providers (a.k.a [agnostic installation](https://docs.openshift.com/container-platform/4.11/installing/installing_platform_agnostic/installing-platform-agnostic.html) with `platform.none:{}` option for `install-config.yaml`), **running existing suite of e2e tests** from Kubernetes and OpenShift ecosystem.
 

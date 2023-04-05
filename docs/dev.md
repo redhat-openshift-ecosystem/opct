@@ -1,6 +1,6 @@
-# Provider Certification Tool - Developer Guide
+# Developer Guide
 
-This document is a guide for developers detailing the Provider Certification Tool solution, design choices and the implementation references.
+This document is a guide for developers detailing the OPCT solution, design choices and the implementation references.
 
 Table of Contents:
 
@@ -11,12 +11,12 @@ Table of Contents:
     - [Sonobuoy Plugins](#dev-sonobuoy-plugins)
     - [Diagrams](#dev-diagrams)
     - [CLI Result filters](#dev-diagram-filters)
-    - [Running Customized Certification Plugins](#dev-running-custom-plugins)
+    - [Running Customized Plugins](#dev-running-custom-plugins)
     - [Project Documentation](#dev-project-docs)
 
 ## Release <a name="release"></a>
 
-Releasing a new version of the provider certification tool is done automatically through [this GitHub Action](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/release.yaml)
+Releasing a new version of the tool is done automatically through [this GitHub Action](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/release.yaml)
 which is run on new tags. Tags should the SemVer format. Example: v0.1.0, v0.1.0-alpha1 (...)
 
 Tags should only be created from the `main` branch which only accepts pull-requests that pass through [this CI GitHub Action](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/go.yaml).
@@ -32,7 +32,7 @@ This tool builds heavily on
 some high level knowledge of Sonobuoy is needed to really understand this tool. A 
 good place to start with Sonobuoy is [its documentation](https://sonobuoy.io/docs).
 
-The OpenShift provider certification tool extends Sonobuoy in two places:
+OPCT extends Sonobuoy in two places:
 
 - Command line interface (CLI)
 - Plugins
@@ -41,18 +41,19 @@ The OpenShift provider certification tool extends Sonobuoy in two places:
 
 Sonobuoy provides its own CLI but it has a considerable number of flags and options
 which can be overwhelming. This isn't an issue with Sonobuoy, it's just the result
-of being a very flexible tool. However, for simplicity sake, the OpenShift
-certification tool extends the Sonobuoy CLI with some strong opinions specific
-to the realm certifying OpenShift on new infrastructure. 
+of being a very flexible tool. However, for simplicity sake, the OPCT extends
+Sonobuoy CLI with some strong opinions specific to the realm validating
+OpenShift on new infrastructure.
 
 #### Integration with Sonobuoy CLI <a name="dev-integration-cli"></a>
-The OpenShift provider certification tool's CLI is written in Golang so that extending 
-Sonobuoy is easily done. Sonobuoy has two specific areas on which we build on:
+
+The OPCT's CLI is written in Golang so that extending Sonobuoy is easily done.
+Sonobuoy has two specific areas on which we build on:
 
 - Cobra commands (e.g. [sonobuoy run](https://github.com/vmware-tanzu/sonobuoy/blob/87e26ab7d2113bd32832a7bd70c2553ec31b2c2e/cmd/sonobuoy/app/run.go#L47-L62))
 - Sonobuoy Client ([source code](https://github.com/vmware-tanzu/sonobuoy/blob/87e26ab7d2113bd32832a7bd70c2553ec31b2c2e/pkg/client/interfaces.go#L246-L250))
 
-Ideally, the OpenShift Provider Cert tool's commands will interact with the Sonobuoy Client API. There may be some
+Ideally, the OPCT's commands will interact with the Sonobuoy Client API. There may be some
 situations where this isn't possible and you will need to call a Sonobuoy's Cobra Command directly. Keep in mind,
 executing a Cobra Command directly adds some odd interaction; this should be avoided since the ability to cleanly \
 set Sonobuoy's flags may be unsafe in code like below. The code below won't fail at compile time if there's a change
@@ -91,7 +92,7 @@ The CLI currently implements a few filters to help the reviewers (Partners, Supp
 - A. `"Provider's Result"`: This is the original list of failures by the plugin available on the command `results`
 - B. `"Suite List"`: This is the list of e2e tests available on the respective suite. For example: plugin `openshift-kubernetes-conformance` uses the suite `kubernetes/conformance`
 - C. `"Baseline's Result"`: This is the list of e2e tests that failed in the baseline provider. That list is built from the same Certification Environment (OCP Agnostic Installation) in a known/supported platform (for example AWS and vSphere). Red Hat has many teams dedicated to reviewing and improving the thousands of e2e tests running in CI, that list is constantly reviewed for improvement to decrease the number of false negatives and help to look for the root cause.
-- D. `"Sippy"`: Sippy is the system used to extract insights from the CI jobs. It can provide individual e2e test statistics of failures across the entire CI ecosystem, providing one picture of the failures happening in the provider's environment. The filter will check for each failed e2e if has an occurrence of failures in the version used to be certified.
+- D. `"Sippy"`: Sippy is the system used to extract insights from the CI jobs. It can provide individual e2e test statistics of failures across the entire CI ecosystem, providing one picture of the failures happening in the provider's environment. The filter will check for each failed e2e if has an occurrence of failures in the version used to be validated.
 
 Currently, this is the order of filters used to show the failures on the `process` command:
 
@@ -110,13 +111,13 @@ The diagram visualizing the filters is available on draw.io, stored on the share
 - https://app.diagrams.net/#G1NOhcF3jJtE1MjWCtbVgLEeD24oKr3IGa
 
 
-### Running Customized Certification Plugins <a name="dev-running-custom-plugins"></a>
+### Running Customized Plugins <a name="dev-running-custom-plugins"></a>
 
-In some situations, you may need to modify the certification plugins that are run by the certification tool. 
-Running the certification tool with customized plugin manifests cannot be used for final certification of an OpenShift cluster! 
-If you find issues or changes that are needed for certification to complete, please open a GitHub issue or reach out to your Red Hat contact assisting with certification.  
+In some situations, you may need to modify the plugins that are run by the OPCT.
+Running the OPCT with customized plugin manifests cannot be used for final validation of an OpenShift cluster!
+If you find issues or changes that are needed to complete, please open a GitHub issue or reach out to your Red Hat contact assisting with validation process.
 
-1. Export default certification plugins to local filesystem:
+1. Export default plugins to local filesystem:
 ```
 openshift-provider-cert assets /tmp
 INFO[2022-06-16T15:35:29-06:00] Asset openshift-conformance-validated.yaml saved to /tmp/openshift-conformance-validated.yaml 
@@ -126,7 +127,7 @@ INFO[2022-06-16T15:35:29-06:00] Asset openshift-kube-conformance.yaml saved to /
 ```
 vi /tmp/openshift-kube-conformance.yaml
 ```
-3. Launch certification tool with customized plugin:
+3. Launch the tool with customized plugin:
 ```
 openshift-provider-cert run --plugin /tmp/openshift-kube-conformance.yaml --plugin /tmp/openshift-conformance-validated.yaml
 ```

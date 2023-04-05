@@ -22,20 +22,20 @@ Check-list to require when **new** support case has been opened:
 
 - Documentation: Installing Steps containing the flavors/size of the Infrastructure and the steps to install OCP
 - Documentation: Diagram of the Architecture including zonal deployment
-- Archive with Certification results
+- Archive with Conformance results
 - Archive with must-gather
 - [Installation Checklist (file `user-installation-checklist.md`)](./user-installation-checklist.md) with the partner's update to sign off post-instalation items
 
 ### New Executions <a name="check-list-new-executions"></a>
 
-The following assets, certification assets, should be updated when certain conditions happen:
+The assets below, conformance assets, should be updated when certain conditions happen:
 
-- Certification Results
+- Conformance Results
 - Must Gather
 - Install Documentation (when any item/flavor/configuration has been modified)
 
 
-The following conditions require new certification assets:
+The following conditions require new conformance assets:
 
 - The version of the OpenShift Container Platform has been updated
 - Any Infrastructure component(s) (e.g.: server size, disk category, ELB type/size/config) or cluster dependencies (e.g.: external storage backend for image registry) have been modified
@@ -45,7 +45,7 @@ The following conditions require new certification assets:
 
 ### Install Tools <a name="setup-install"></a>
 
-- Download the [openshift-provider-cert](./user.md#install): OpenShift Provider Certification tool
+- Download the [openshift-provider-cert](./user.md#install): OPCT
 - Download the [`omg`](https://github.com/kxr/o-must-gather): tool to analyse Must-gather archive
 ```bash
 pip3 install o-must-gather --user
@@ -53,9 +53,9 @@ pip3 install o-must-gather --user
 
 ### Download Baseline CI results <a name="setup-download-baseline"></a>
 
-The Openshift provider certification tool is run periodically ([source code](https://github.com/openshift/release/blob/master/ci-operator/jobs/redhat-openshift-ecosystem/provider-certification-tool/redhat-openshift-ecosystem-provider-certification-tool-main-periodics.yaml)) in OpenShift CI using the latest stable release of OpenShift. 
+The OPCT run periodically ([source code](https://github.com/openshift/release/blob/master/ci-operator/jobs/redhat-openshift-ecosystem/provider-certification-tool/redhat-openshift-ecosystem-provider-certification-tool-main-periodics.yaml)) in OpenShift CI using the latest stable release of OpenShift.
 These baseline results are stored long-term in an AWS S3 bucket (`s3://openshift-provider-certification/baseline-results`). An HTML listing can be found [here](https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html).
-These baseline results should be used as a reference when reviewing a partner's certification results.
+These baseline results should be used as a reference when reviewing a partner's conformance results.
 
 1. Identify cluster version in the partner's must gather:
 ```bash
@@ -73,7 +73,7 @@ $ file 4.11.13-20221125.tar.gz
 
 ### Download Partner Results <a name="setup-download-results"></a>
 
-- Download the Provider certification archive from the Support Case. Example file name: `retrieved-archive.tar.gz`
+- Download the conformance archive from the Support Case. Example file name: `retrieved-archive.tar.gz`
 - Download the Must-gather from the Support Case. Example file name: `must-gather.tar.gz`
 
 ## Review guide: exploring the failed tests <a name="review-process"></a>
@@ -87,7 +87,7 @@ Required to use this section:
 - OPCT CLI downloaded to the current directory
 - OpenShift e2e test suite exported to the current directory
 - Baseline results exported to the current directory
-- The Certification Result is in the current directory
+- The conformance result is in the current directory
 
 
 ### Exploring the failures <a name="review-process-exploring"></a>
@@ -276,7 +276,7 @@ This section is a guide of the initial files to review when start exploring the 
 
 Items to review:
 
-- OCP version matches the certification request
+- OCP version matches the ticket request
 - Review the result file
 - Check if the failures are 0, if not, need to check one by one
 - To provide a better interaction between the review process, one spreadsheet named `failures-index.xlsx` is created inside the extracted directory (`./processed/` exemplified in the last section). It can be used as a tool to review failures and take notes about them.
@@ -290,7 +290,7 @@ Additional items to review:
 
 ## Review Guide: Manual Y-Stream Upgrade <a name="upgrade-review-process"></a>
 
-Certification requires a successful y-stream upgrade (e.g. upgrade 4.11.17 to 4.12.0). 
+The validation process (when applyging for the Partner Support Case) requires a successful y-stream upgrade (e.g. upgrade 4.11.17 to 4.12.0).
 Upgrade review should only proceed if there is reasonably high confidence in passing and not if there are still significant issues in passing the review process above. 
 
 > TODO: Rework this documentation after the automated upgrade procedure is merged in https://github.com/redhat-openshift-ecosystem/provider-certification-tool/pull/33
@@ -315,12 +315,12 @@ Is the manual intervention...
 - Working around an issue specific to the cloud provider?
 
 If the answer to any of the questions above is "Yes" then take the necessary steps to remediate the situation (if needed) through 
-documentation, bug reports, and escalations to meet the certification timeline. 
+documentation, bug reports, and escalations to meet the Validation requirements.
 
 After a successful upgrade where any manual interventions aren't a blocker, review the Must Gather that was captured. 
 First, check the `ClusterVersion` resource to verify the upgrade was successful:
 
-Using the `omg` tool...
+Using the `omg` tool:
 
 ```
 omg get clusterversion
