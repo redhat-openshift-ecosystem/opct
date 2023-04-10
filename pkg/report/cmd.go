@@ -271,11 +271,18 @@ func showSummaryPlugin(p *summary.OPCTPluginSummary, bProcessed bool) {
 	}
 	fmt.Printf("   - Failed (Filter CI Flakes): %d\n", len(p.FailedFilterFlaky))
 
-	// rewrite the original status when pass on all filters
+	// checking for runtime failure
+	runtimeFailed := false
+	if p.Total == p.Failed {
+		runtimeFailed = true
+	}
+
+	// rewrite the original status when pass on all filters and not failed on runtime
 	status := p.Status
-	if len(p.FailedFilterFlaky) == 0 {
+	if (len(p.FailedFilterFlaky) == 0) && !runtimeFailed {
 		status = "pass"
 	}
+
 	fmt.Printf("   - Status After Filters     : %s\n", status)
 }
 
