@@ -17,7 +17,7 @@ Table of Contents:
 ## Release <a name="release"></a>
 
 Releasing a new version of the tool is done automatically through [this GitHub Action](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/release.yaml)
-which is run on new tags. Tags should the SemVer format. Example: v0.1.0, v0.1.0-alpha1 (...)
+which is run on new tags. Tags should follow the SemVer format. Example: v0.1.0, v0.1.0-alpha1 (...)
 
 Tags should only be created from the `main` branch which only accepts pull-requests that pass through [this CI GitHub Action](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/go.yaml).
 
