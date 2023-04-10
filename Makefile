@@ -45,7 +45,7 @@ cross-build-darwin-arm64:
 	GOOS=darwin GOARCH=arm64 go build -o openshift-provider-cert-darwin-arm64 $(GO_BUILD_FLAGS)
 
 .PHONY: linux-amd64-container
-linux-amd64-container:
+linux-amd64-container: clean
 	podman build -t $(IMG):latest -f hack/Containerfile --build-arg=RELEASE_TAG=$(RELEASE_TAG) .
 
 .PHONY: test
@@ -56,8 +56,6 @@ test:
 vet:
 	go vet ./...
 
-
 .PHONY: clean
 clean:
-	rm -rf \
-	  openshift-provider-cert
+	rm -rvf ./openshift-provider-cert*

@@ -6,4 +6,4 @@ LABEL io.k8s.display-name="OPCT" \
 
 COPY ./openshift-provider-cert-linux-amd64 /usr/bin/
 
-CMD ["/usr/bin/opct"]
+CMD ["/usr/bin/openshift-provider-cert-linux-amd64"]
