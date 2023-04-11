@@ -146,44 +146,83 @@ export MUST_GATHER_PATH=${PWD}/must-gather.local.2905984348081335046
 > This binary will be available when this card will be completed: https://issues.redhat.com/browse/SPLAT-857
 
 ```bash
-oc image extract quay.io/ocp-cert/tools:latest --file="/usr/bin/insights-ocp-etcd-logs"
-chmod u+x insights-ocp-etcd-logs
+oc image extract quay.io/ocp-cert/tools:latest --file="/usr/bin/ocp-etcd-log-filters"
+chmod u+x ocp-etcd-log-filters
 ```
 
 - Overall report:
 
 > Note: This report can not be usefull depending how old is the logs. We recommend looking at the next report which aggregates by the hour, so you can check the time frame the validation environment has been executed
 
-> This utility will be updated to simpligy the steps. The work can be tracked on https://issues.redhat.com/browse/SPLAT-857
-
 ```bash
-grep -rni "apply request took too long" ${MUST_GATHER_PATH} \
-    | grep -Po 'took":"([a-z0-9\.]+)"' \
-    | awk -F'took":' '{print$2}' \
-    | tr -d '"' \
-    | ./insights-ocp-etcd-logs
+$ cat ${MUST_GATHER_PATH}/*/namespaces/openshift-etcd/pods/*/etcd/etcd/logs/current.log \
+    | ./ocp-etcd-log-filters
+> Filter Name: ApplyTookTooLong
+> Group by: all
+>>> Summary <<<
+all	 16949
+>500ms	 1485	(8.762 %)
+---
+>>> Buckets <<<
+low-200	 0	(0.000 %)
+200-300	 9340	(55.106 %)
+300-400	 4169	(24.597 %)
+400-500	 1853	(10.933 %)
+500-600	 716	(4.224 %)
+600-700	 223	(1.316 %)
+700-800	 185	(1.092 %)
+800-900	 139	(0.820 %)
+900-1s	 79	(0.466 %)
+1s-inf	 143	(0.844 %)
+unkw	 102	(0.602 %)
 ```
 
 - Report aggregated by hour:
 
-> This utility will be updated to simpligy the steps. The work can be tracked on https://issues.redhat.com/browse/SPLAT-857
-
 ```bash
-FILTER_MSG="apply request took too long"
-for TS in $( grep -rni "${FILTER_MSG}" ${MUST_GATHER_PATH} \
-    | awk '{print$1}' \
-    | awk -F'.log:' '{print$2}' \
-    | awk -F':' '{print$2}' \
-    | sort | uniq); do
-    echo "-> ${TS}"
-    grep -rni "${FILTER_MSG}" ${MUST_GATHER_PATH} \
-        | grep $TS \
-        | grep -Po 'took":"([a-z0-9\.]+)"' \
-        | awk -F'took":' '{print$2}' \
-        | tr -d '"' \
-        | ./insights-ocp-etcd-logs
-done
+$ cat ${MUST_GATHER_PATH}/*/namespaces/openshift-etcd/pods/*/etcd/etcd/logs/current.log \
+    | ./ocp-etcd-log-filters -aggregator hour
+> Filter Name: ApplyTookTooLong
+> Group by: hour
+
+>> 2023-03-01T17
+>>> Summary <<<
+all	 558
+>500ms	 54	(9.677 %)
+---
+>>> Buckets <<<
+low-200	 0	(0.000 %)
+200-300	 385	(68.996 %)
+300-400	 90	(16.129 %)
+400-500	 28	(5.018 %)
+500-600	 9	(1.613 %)
+600-700	 10	(1.792 %)
+700-800	 7	(1.254 %)
+800-900	 9	(1.613 %)
+900-1s	 16	(2.867 %)
+1s-inf	 3	(0.538 %)
+unkw	 1	(0.179 %)
+(...)
+>> 2023-03-01T16
+>>> Summary <<<
+all	 8651
+>500ms	 812	(9.386 %)
+---
+>>> Buckets <<<
+low-200	 0	(0.000 %)
+200-300	 4833	(55.866 %)
+300-400	 1972	(22.795 %)
+400-500	 983	(11.363 %)
+500-600	 328	(3.791 %)
+600-700	 135	(1.561 %)
+700-800	 111	(1.283 %)
+800-900	 75	(0.867 %)
+900-1s	 48	(0.555 %)
+1s-inf	 115	(1.329 %)
+unkw	 51	(0.590 %)
 ```
+
+The values on the output are a reference for expected results: most of the slow requests reported on the logs (>=200ms) should be under 500 ms while the tests are executing.
 
 #### Mount /var/lib/etcd in separate disk <a name="components-etcd-mount"></a>
 
