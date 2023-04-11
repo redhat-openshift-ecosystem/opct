@@ -26,6 +26,9 @@ jobs:
           set -xe
           ./hack/update-generated-bindata.sh
           set +ex
+          # bypassing CI check for pkg/assets/bindata.go due go-bindata issues with ioutils
+          # https://issues.redhat.com/browse/OPCT-199
+          git checkout pkg/assets/bindata.go
           git diff --exit-code
 
       - name: Run unit tests
