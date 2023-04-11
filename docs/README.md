@@ -1,10 +1,10 @@
-# OpenShift Provider Certification Tool
+# OpenShift Provider Compatibility Tool
 
-Welcome to the documentation for the OpenShift Provider Certification Tool!
+Welcome to the documentation for the OpenShift Provider Compatibility Tool (OPCT)!
 
-OpenShift Provider Certification Tool is used to evaluate an OpenShift installation on a provider or hardware is in conformance.
+OPCT is used to evaluate an OpenShift installation on a provider or hardware is in conformance.
 
-Here you can find the initial steps to use the OpenShift Provider Certification Tool.
+Here you can find the initial steps to use the tool:
 
 - [User Guide](./user.md)
     - [Installation Check List](./user-installation-checklist.md)

@@ -53,4 +53,4 @@ oc image mirror -a ${PULL_SECRET} -f images-to-mirror
 
 
 
-For additional details and configuration options, see [OpenShift Provider Certification Tool - User Guide](./user.md).
+For additional details and configuration options, see [User Guide](./user.md).

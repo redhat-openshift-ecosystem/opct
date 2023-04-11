@@ -1,6 +1,6 @@
 # Installation Review
 
-> WIP - this document is working in progress
+> Note: this document is in constant update and provides a **guidance** to review the installed environment. It's always encorajed to review the product documentation first: [docs.openshift.com](https://docs.openshift.com/).
 
 This document complements the [official page of "Installing a cluster on any platform"](https://docs.openshift.com/container-platform/4.11/installing/installing_platform_agnostic/installing-platform-agnostic.html) to review specific configurations and components after the cluster has been installed.
 
@@ -131,9 +131,9 @@ The steps below use a utility `insights-ocp-etcd-logs` to parse the logs, aggreg
 
 This is the utility to help you to troubleshoot the slow requests in your cluster, and help make some decisions like changing the flavor of the block device used by the control plane, increasing IOPS, changing the flavor of the instances, etc.
 
-There's no magic or desired number, but for reference, based on the observations from integrated platforms, is to have no more than 30-40% of requests above 500ms while running the certification tests.
+There's no magic or desired number, but for reference, based on the observations from integrated platforms, is to have no more than 30-40% of requests above 500ms while running the conformance tests.
 
-> TODO: provide guidance on how to get the errors from the etcd pods, and parse it into buckets of latency to understand the performance of the etcd while running the certification environment.
+> TODO: provide guidance on how to get the errors from the etcd pods, and parse it into buckets of latency to understand the performance of the etcd while running the validated environment.
 
 - Export the location you must-gather has been extracted:
 
@@ -152,7 +152,7 @@ chmod u+x insights-ocp-etcd-logs
 
 - Overall report:
 
-> Note: This report can not be usefull depending how old is the logs. We recommend looking at the next report which aggregates by the hour, so you can check the time frame the certification has been executed
+> Note: This report can not be usefull depending how old is the logs. We recommend looking at the next report which aggregates by the hour, so you can check the time frame the validation environment has been executed
 
 > This utility will be updated to simpligy the steps. The work can be tracked on https://issues.redhat.com/browse/SPLAT-857
 

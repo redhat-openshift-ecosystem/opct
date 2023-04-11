@@ -1,24 +1,24 @@
-# OpenShift Provider Certification Tool - Cluster Installation Checklist
+# OPCT - Cluster Installation Checklist
 
 <!--
 Do not change the following markdown commented lines.
 __version__: 0.1.0-preview
 -->
 
-This checklist should be provided for every new support case, or when any items have been changed (for Example, Compute flavor). This will help the Red Hat engineers while working in your partner support case during the certification process.
+This checklist should be provided for every new support case, or when any items have been changed (for Example, Compute flavor). This will help the Red Hat engineers while working in your partner support case during the validation process.
 
 If you have any questions you can:
 
 - Review the [Installation Review Guide](./user-installation-review.md)
 - Review the [OpenShift Infrastructure Provider Guide](https://docs.providers.openshift.org/)
-- Review the [OpenShift Documentation Page related to the version your are certifying](https://docs.openshift.com/container-platform)
+- Review the [OpenShift Documentation Page related to the version your are validating](https://docs.openshift.com/container-platform)
 - Ask your Red Hat Partner
 
 ## Provider Information
 
 - Provider Name:                # Example: MyCloud
-- Certification Type:           # Options: (Standard | Upgrade)
-- OpenShift Version:            # Example: 4.11.4
+- Validation Type:              # Options: (Standard | Upgrade  | Disconnected)
+- OpenShift Version:            # Example: 4.12.11
 - OpenShift Topology:           # Example: Standard HA
 
 ## Review Checklist
@@ -66,7 +66,7 @@ API Load Balancer details:
 
 #### etcd
 
-- [ ] I have checked the etcd logs while running the certification tool
+- [ ] I have checked the etcd logs while running OPCT
 - [ ] I ran the etcd performance tool to measure the performance of the disk used by the mount point used by etcd(`/var/lib/etcd`) and it reported below than 10 ms (milliseconds).
 
 *See more at [User Installation Review > Components > etcd](./user-installation-review.md#components-etcd)*
