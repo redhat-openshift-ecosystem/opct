@@ -3,7 +3,7 @@ package sippy
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -115,7 +115,7 @@ func (a *SippyAPI) QueryTests(r *SippyTestsRequestInput) (*SippyTestsRequestOutp
 	}
 	defer res.Body.Close()
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse response body. %+v", err)
 

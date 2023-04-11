@@ -26,6 +26,9 @@ jobs:
           set -xe
           ./hack/update-generated-bindata.sh
           set +ex
+          # bypassing CI check for pkg/assets/bindata.go due go-bindata issues with ioutils
+          # https://issues.redhat.com/browse/OPCT-199
+          git checkout pkg/assets/bindata.go
           git diff --exit-code
 
       - name: Run unit tests
@@ -35,6 +38,6 @@ jobs:
         run: make vet
 
       - name: Run static code analysis
-        uses: dominikh/staticcheck-action@v1.2.0
+        uses: dominikh/staticcheck-action@v1.3.0
         with:
-          version: "2022.1.1"
+          version: "2022.1.3"
