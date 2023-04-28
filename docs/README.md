@@ -1,4 +1,4 @@
-# OpenShift Provider Compatibility Tool
+# Home
 
 Welcome to the documentation for the OpenShift Provider Compatibility Tool (OPCT)!
 
