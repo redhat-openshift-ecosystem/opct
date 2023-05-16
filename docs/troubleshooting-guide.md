@@ -1,5 +1,7 @@
 # OpenShift Provider Certification Tool - Troubleshooting Guide
 
+This document present known solutions to common issues in running the opct tool.
+
 - [Certification Failures](#review)
 - [Troubleshooting](#review-troubleshooting)
     - [Review Results Archive](#review-archive)
@@ -7,7 +9,8 @@
 
 ## Certification Tests Failures <a name="review"></a>
 
-Under any type of certification test failure, it is recommended to recreate the cluster under test.
+Under any type of certification test failure, it is recommended to recreate the cluster under test and retry the execution at least a couple times.
+
 The certification tests check cluster metrics and logs which are persisted and this **will impact subsequent certification tests**.
 
 If you already know the reason for a test failure then resolve the problem, re-install the cluster under test, and re-run the provider certification tool again so a new certification archive is created.

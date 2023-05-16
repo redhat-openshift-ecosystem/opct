@@ -9,6 +9,7 @@ The following documents present the steps to get started with the OpenShift Prov
 - [User Guide](./user.md)
     - [Installation Check List](./user-installation-checklist.md)
     - [Installation Review](./user-installation-review.md)
-    - [Results Review](./user-results-review.md)
 - [Support Guide](./support-guide.md)
 - [Development Guide](./dev.md)
+- [Troubleshooting Guide](./troubleshooting-guide.md)
+- [FAQ](./FAQ.md)

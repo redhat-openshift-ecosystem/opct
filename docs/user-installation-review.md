@@ -1,10 +1,10 @@
 # Installation Review
 
-> WIP - this document is working in progress
+This document presents a reference documentation for reviewing the OpenShift cluster under test, so that the ["OPCT Installation Checklist"](./user-installation-checklist.md) is verified and de cluster can be reliably tested.
 
-This document complements the [official page of "Installing a cluster on any platform"](https://docs.openshift.com/container-platform/4.11/installing/installing_platform_agnostic/installing-platform-agnostic.html) to review specific configurations and components after the cluster has been installed.
+> WIP - This document is a work in progress and is not expected to be a complete implemention, but a supporting reference.
 
-This document is also a helper for ["OPCT - Installation Checklist"](./user-installation-checklist.md) user document.
+Also refer to the [official page of "Installing a cluster on any platform"](https://docs.openshift.com/container-platform/4.11/installing/installing_platform_agnostic/installing-platform-agnostic.html) to review further configurations and components after the cluster has been installed.
 
 
 - [Compute](#compute)

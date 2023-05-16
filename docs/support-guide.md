@@ -1,5 +1,7 @@
 # OPCT - Support Guide
 
+This document presents further information about how to manage the certification support case and review conformace test results.
+
 - [Support Case Check List](#check-list)
     - [New Support Cases](#check-list-new-case)
     - [New Executions](#check-list-new-executions)
