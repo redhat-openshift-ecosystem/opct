@@ -2,9 +2,9 @@
 
 Welcome to the documentation for the OpenShift Provider Compatibility Tool (OPCT)!
 
-OPCT is used to evaluate an OpenShift installation on a provider or hardware is in conformance.
+The OPCT tool is used to evaluate if an OpenShift installation is in conformance with OpenShift tests, ensuring compatibility and interoperability across providers. Cloud service providers and Red Hat partners can use this tool to verify and demonstrate that their hardware and software comply with OpenShift standards.
 
-Here you can find the initial steps to use the tool:
+The following documents present the steps to get started with the OpenShift Provider Certification Tool and use it to verify clusters for compatibility with OpenShift.
 
 - [User Guide](./user.md)
     - [Installation Check List](./user-installation-checklist.md)
@@ -12,3 +12,5 @@ Here you can find the initial steps to use the tool:
     - [Results Review](./user-results-review.md)
 - [Support Guide](./support-guide.md)
 - [Development Guide](./dev.md)
+- [Troubleshooting Guide](./troubleshooting-guide.md)
+- [FAQ](./FAQ.md)

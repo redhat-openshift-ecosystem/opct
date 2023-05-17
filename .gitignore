@@ -1,5 +1,25 @@
-openshift-provider-cert-*
+# Authentication files
 kubeconfig
+
+# IDE files
 .idea/
 
+# Object fils
 dist/
+
+# Known binary files
+ccoctl
+oc
+kubectl
+openshift-install
+openshift-provider-cert*
+
+# Terraform state files
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+.terraform
+
+# Env files
+.envrc
+.env
