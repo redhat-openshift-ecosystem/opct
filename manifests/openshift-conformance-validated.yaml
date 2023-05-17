@@ -6,7 +6,7 @@ podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: "{{ .ToolsImage }}"
+      image: "{{ .PluginsImage }}"
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -39,7 +39,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: "{{ .ToolsImage }}"
+  image: "{{ .PluginsImage }}"
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
