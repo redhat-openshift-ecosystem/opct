@@ -40,10 +40,10 @@ type RunOptions struct {
 	dedicated       bool
 	sonobuoyImage   string
 	imageRepository string
-	// ToolsImage
+	// PluginsImage
 	// defines the image containing plugins associated with the provider-certification-tool.
-	// this variable is referenced by plugin manifest templates to dynamically reference the tools image.
-	ToolsImage   string
+	// this variable is referenced by plugin manifest templates to dynamically reference the plugins image.
+	PluginsImage string
 	timeout      int
 	watch        bool
 	devCount     string
@@ -136,7 +136,7 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().StringVar(&o.upgradeImage, "upgrade-to-image", defaultUpgradeImage, "Target OpenShift Release Image. Example: oc adm release info 4.11.18 -o jsonpath={.image}")
 	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times. (default plugins can be reviewed with assets subcommand)")
 	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", fmt.Sprintf("%s/sonobuoy:%s", pkg.DefaultToolsRepository, buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
-	cmd.Flags().StringVar(&o.ToolsImage, "tools-image", pkg.PluginsImage, "Image containing plugins to be executed.")
+	cmd.Flags().StringVar(&o.PluginsImage, "plugins-image", pkg.PluginsImage, "Image containing plugins to be executed.")
 	cmd.Flags().StringVar(&o.imageRepository, "image-repository", "", "Image repository containing required images test environment. Example: openshift-provider-cert-tool --mirror-repository mirror.repository.net/ocp-cert")
 	cmd.Flags().IntVar(&o.timeout, "timeout", defaultRunTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", defaultRunWatchFlag, "Keep watch status after running")
@@ -144,7 +144,7 @@ func NewCmdRun() *cobra.Command {
 	// Hide dedicated flag since this is for development only
 	cmd.Flags().MarkHidden("dedicated")
 	cmd.Flags().MarkHidden("dev-count")
-	cmd.Flags().MarkHidden("tools-image")
+	cmd.Flags().MarkHidden("plugins-image")
 
 	return cmd
 }
@@ -385,7 +385,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 		log.Infof("Mirror registry is configured %s ", r.imageRepository)
 	}
 	r.sonobuoyImage = fmt.Sprintf("%s/sonobuoy:%s", imageRepository, buildinfo.Version)
-	r.ToolsImage = fmt.Sprintf("%s/%s", imageRepository, r.ToolsImage)
+	r.PluginsImage = fmt.Sprintf("%s/%s", imageRepository, r.PluginsImage)
 
 	// Let Sonobuoy do some preflight checks before we run
 	errs := sclient.PreflightChecks(&sonobuoyclient.PreflightConfig{
