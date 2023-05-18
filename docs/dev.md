@@ -4,26 +4,55 @@ This document is a guide for developers detailing the OPCT solution, design choi
 
 Table of Contents:
 
-- [Release](#release)
+- [Create Releases](#release)
 - [Development Notes](#dev-notes)
     - [Command Line Interface](#dev-cli)
     - [Integration with Sonobuoy CLI](#dev-integration-cli)
-    - [Sonobuoy Plugins](#dev-sonobuoy-plugins)
-    - [Diagrams](#dev-diagrams)
-    - [CLI Result filters](#dev-diagram-filters)
-    - [Running Customized Plugins](#dev-running-custom-plugins)
-    - [Project Documentation](#dev-project-docs)
+- [Sonobuoy Plugins](#dev-sonobuoy-plugins)
+- [Diagrams](#dev-diagrams)
+- [CLI Result filters](#dev-diagram-filters)
+- [Running Customized Plugins](#dev-running-custom-plugins)
+- [Project Documentation](#dev-project-docs)
 
-## Release <a name="release"></a>
+## Create Release <a name="release"></a>
 
-Releasing a new version of the tool is done automatically through [this GitHub Action](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/release.yaml)
-which is run on new tags. Tags should follow the SemVer format. Example: v0.1.0, v0.1.0-alpha1 (...)
+Releasing a new version of the tool is done automatically through [GitHub Action workflow](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/release.yaml)
+which is run when tags are created. Tags should follow the [Semantic Versioning (SemVer)](https://semver.org/) standard. Example: v0.1.0, v0.1.0-alpha1 (...).
 
 Tags should only be created from the `main` branch which only accepts pull-requests that pass through [this CI GitHub Action](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/go.yaml).
 
 The container image for CLI is automatically published to the container registry [`quay.io/ocp-cert/opct`](https://quay.io/repository/ocp-cert/opct?tab=tags) by Github Action job `Build Container and Release to Quay` every new release.
 
 Note that any version in v0.* will be considered part of the **preview release** of the tool.
+
+Release process checklist:
+
+- Make sure the base image has Security issues on Quay Security Scan. Steps to check:
+    - Build a "dev tag" for Plugin image: `cd openshift-tests-provider-cert && make build-dev`
+    - Check the Security Scan results on https://quay.io/repository/ocp-cert/openshift-tests-provider-cert?tab=tags
+        - if there is security scan needed to fix on the base image, you must build the base image and tools image with the following steps:
+        - 1. bump the version with fixes on the base image. Example: [provider-certification-plugins#41](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/pull/41)
+        - 2. build the tools image: `./hack/build-image.sh build-tools`
+        - 3. push the tools image:  `podman push quay.io/ocp-cert/tools:v0.0.0-<the version>`
+        - 4. check security scan results
+        - 5. if success, promote to latest: `podman push quay.io/ocp-cert/tools:latest`
+        - 6. rebuild the plugins image with new base
+    - Build a "dev tag" for CLI image:
+        - `make linux-amd64-container IMG=quay.io/my-user/opct`
+        - `podman push quay.io/my-user/opct:latest`
+    - Check the Security Scan results on https://quay.io/repository/my-user/opct?tab=tags
+- Run one-shot/preflight before promoting the tag:
+    - [install a cluster using the **latest OCP GA** version](https://redhat-openshift-ecosystem.github.io/provider-certification-tool/user/#prerequisites) for validation (platform agnostic installation)
+    - [run the conformance validation (regular or upgrade)](https://redhat-openshift-ecosystem.github.io/provider-certification-tool/user/#run-conformance-tests)
+    - [collect the results](https://redhat-openshift-ecosystem.github.io/provider-certification-tool/user/#collect-the-results)
+    - review if the execution finished correctly
+        - plugins finished
+        - artifacts collected
+        - results are under regular [CI executions](https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html)
+- Create a tag on [Plugins repository](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins) based on the `main` branch (or the commit for the release);
+- Open a PR updating the [`PluginsImage` value](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/pkg/types.go#LL16C2-L16C14) on the CLI repository, merge it;
+- Create a tag on [CLI/Tool repository](https://github.com/redhat-openshift-ecosystem/provider-certification-tool) based on the `main` branch (or the commit for the release)
+
 
 ## Development Notes <a name="dev-notes"></a>
 
@@ -75,17 +104,17 @@ reader, ec, err := config.SonobuoyClient.RetrieveResults(&client.RetrieveConfig{
 })
 ```
 
-### Sonobuoy Plugins <a name="dev-sonobuoy-plugins"></a>
+## Sonobuoy Plugins <a name="dev-sonobuoy-plugins"></a>
 
 OPCT is extended by Sonobuoy Plugins.
 
 The Plugins source code is available on the project [provider-certification-plugins](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins).
 
-### Diagrams <a name="diagrams"></a>
+## Diagrams <a name="diagrams"></a>
 
 The diagrams are available under the page [Diagrams](./diagrams).
 
-### CLI Result filters <a name="dev-diagram-filters"></a>
+## CLI Result filters <a name="dev-diagram-filters"></a>
 
 The CLI currently implements a few filters to help the reviewers (Partners, Support, Engineering teams) to find the root cause of the failures. The filters consumes the data sources below to improve the feedback, by plugin level, when using the command `process`:
 
@@ -111,7 +140,7 @@ The diagram visualizing the filters is available on draw.io, stored on the share
 - https://app.diagrams.net/#G1NOhcF3jJtE1MjWCtbVgLEeD24oKr3IGa
 
 
-### Running Customized Plugins <a name="dev-running-custom-plugins"></a>
+## Running Customized Plugins <a name="dev-running-custom-plugins"></a>
 
 In some situations, you may need to modify the plugins that are run by the OPCT.
 Running the OPCT with customized plugin manifests cannot be used for final validation of an OpenShift cluster!
@@ -132,7 +161,7 @@ vi /tmp/openshift-kube-conformance.yaml
 openshift-provider-cert run --plugin /tmp/openshift-kube-conformance.yaml --plugin /tmp/openshift-conformance-validated.yaml
 ```
 
-### Project Documentation  <a name="dev-project-docs"></a>
+## Project Documentation  <a name="dev-project-docs"></a>
 
 The documentation is available in the directory `docs/`. You can render it as HTML using `mkdocs` locally - it's not yet published the HTML version.
 
