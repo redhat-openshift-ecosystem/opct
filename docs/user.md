@@ -1,10 +1,8 @@
 # User Guide
 
-Welcome to the user documentation for the OpenShift Provider Compatibility Tool (OPCT)!
+This document describes the process of testing an OpenShift cluster with the OpenShift Provider Certification Tool (OPCT). It describes in detail the necessary steps to provision and configure the cluster for test execution, as well as executing the OCPT tool.
 
-The OPCT is used to validate an OpenShift/OKD installation on an infrastructure or hardware provider is in conformance with required e2e suites.
-
-> Note: This document is under `preview` release and it's in constant improvement.
+> Disclaimer: This document is under development and released as a `preview`.
 
 Table Of Contents:
 
@@ -33,22 +31,24 @@ Table Of Contents:
 
 ## Process Overview <a name="process"></a>
 
-This section describes the steps of the process when submiting the results to Red Hat Partner.
+This section describes the steps of the process when submitting the results to Red Hat Partner.
 If the goal is not sharing the results to Red Hat, you can go to the next section.
 
 Overview of the process to apply the results to the Red Hat Partner support case:
 
-0. Install an OpenShift cluster on **the version desired** to be validated
-1. Prepare the OpenShift cluster to run the validated environment
-2. Download and install the OPCT
-3. Run the OPCT
-4. Monitor tests 
-5. Gather results
-6. Share the results archive with Red Hat Partner support case
+1. Define the OpenShift version and cluster topology to be tested
+1. Install an OpenShift cluster on **the specific version and topology** to be tested
+1. Prepare the OpenShift cluster to run the tests
+1. Download and install the OPCT tool
+1. Run the OPCT tool
+1. Monitor test execution
+1. Gather test results
+1. Share the test results with Red Hat by opening a support case
 
-It's not uncommon for specific tests to occasionally fail.  As a result, you may be asked by Support Engineers to repeat the process a few times depending on the results.
 
-Finally, you will be asked to manually upgrade the cluster to the next minor release.
+Do not expect all tests to pass in the first run. It's not uncommon for some tests to occasionally fail.  As a result, you may be asked to work with Support Engineers to adjust settings and repeat the process a few times, depending on the submitted results.
+
+Additionally, partners may be asked to manually upgrade the cluster to the next minor release and re-submit test results. This is referred to as the "upgrade" OPCT Execution Mode.
 
 More detail on each step can be found in the sections further below.
 
@@ -68,11 +68,13 @@ It's highly recommended to use the latest OPCT version.
 
 [releases]:https://github.com/redhat-openshift-ecosystem/provider-certification-tool/releases
 
-### Standard Environment <a name="standard-env"></a>
+### Standard Clusters <a name="standard-env"></a>
 
-A dedicated compute node should be used to avoid disruption of the test scheduler. Otherwise, the concurrency between resources scheduled on the cluster, e2e-test manager (aka openshift-tests-plugin), and other stacks like monitoring can disrupt the test environment, leading to unexpected results, like the eviction of plugins or aggregator server (`sonobuoy` pod).
+A dedicated compute node should be used to execute tests, to avoid interference with the test scheduler. Otherwise, the concurrency between resources scheduled on the cluster, e2e-test manager (aka openshift-tests-plugin), and other stacks like monitoring can interfere with the test environment, leading to unexpected results, like the eviction of plugins or aggregator server (`sonobuoy` pod).
 
 The dedicated node environment cluster size can be adjusted to match the table below. Note the differences in the `Dedicated Test` machine:
+
+Recommended resources:
 
 | Machine       | Count | CPU | RAM (GB) | Storage (GB) |
 | ------------- | ----- | --- | -------- | ------------ |
@@ -98,8 +100,8 @@ There are two options to accomplish this type of setup:
 ##### Option A: Command Line
 
 ```shell
-oc label node <node_name> node-role.kubernetes.io/tests=""
-oc adm taint node <node_name> node-role.kubernetes.io/tests="":NoSchedule
+oc label node $NODE_NAME node-role.kubernetes.io/tests=""
+oc adm taint node $NODE_NAME node-role.kubernetes.io/tests="":NoSchedule
 ```
 
 ##### Option B: Machine Set
@@ -150,6 +152,37 @@ Make sure the `MachineConfigPool` has been created correctly:
 oc get machineconfigpool opct
 ```
 
+### "Compact" Clusters
+In the "compact" topology we allow both the control plane and compute pods to be scheduled on the same nodes. This topology maintain redundancy for high-availability, while reducing costs. This can be an interesting alternative to edge and other reduced deployments.
+
+Recommended resources:
+
+| Machine           | Count | CPU | RAM (GB) | Storage (GB) |
+|-------------------| ----- |-----|----------| ------------ |
+| Bootstrap         | 1     | 4   | 16       | 100          |
+| Control + Compute | 3     | 8   | 32       | 100          |
+| Dedicated Test    | 1     | 4   | 8        | 100          |
+
+To create a "compact" cluster, ensure that you have set the number of worker replicas to zero. Check the "Configuring a three-node cluster" section of the [OpenShift documentation](https://docs.openshift.com/container-platform/4.12/installing/installing_bare_metal/installing-bare-metal.html#installation-three-node-cluster_installing-bare-metal) for more information about configuring a three-node cluster.
+
+Compact clusters can be tested and reported with the same process describe for standard clusters.
+
+### "Single Node" Clusters
+In the "single node" topology we execute all pods in a single node without redundancy.
+This topology can not only reduce costs, but simplify the provisioning of development environments.
+
+Recommended resources:
+
+| Machine           | Count | CPU | RAM (GB) | Storage (GB) |
+|-------------------|-------|-----|----------| ------------ |
+| Bootstrap         | 1     | 4   | 16       | 100          |
+| Control + Compute | 1     | 32  | 256      | 100          |
+| Dedicated Test    | 1     | 4   | 8        | 100          |
+
+To create a "single node" cluster, ensure that you have set the number of worker replicas to zero and the number of masters set to one. Check the "Installing OpenShift on a single node" section of the [OpenShift documentation](https://docs.openshift.com/container-platform/4.12/installing/installing_sno/install-sno-installing-sno.html) for more information about configuring a single node cluster.
+
+Single node clusters can be tested and reported with the same process describe for standard clusters.
+
 #### Testing in a Disconnected Environment <a name="disconnected-env-setup"></a>
 
 The OPCT requires numerous images during the setup and execution of tests.
@@ -159,7 +192,7 @@ registry for images.
 
 ### Privilege Requirements <a name="priv-requirements"></a>
 
-A user with [cluster administrator privilege](https://docs.openshift.com/container-platform/latest/authentication/using-rbac.html#creating-cluster-admin_using-rbac) must be used to run the tool. You also use the default `kubeadmin` user if you wish.
+A user with [cluster administrator privilege](https://docs.openshift.com/container-platform/latest/authentication/using-rbac.html#creating-cluster-admin_using-rbac) must be used to run the tool. The default `kubeadmin` user has sufficient privileges and can be used to run the tool.
 
 ## Install <a name="install"></a>
 
@@ -202,7 +235,7 @@ openshift-provider-cert run --mode=upgrade --upgrade-to-image=$(oc adm release i
 
 #### Run with the Disconnected Mirror registry<a name="usage-run-disconnected"></a>
 
-Tests are able to be run in a disconnected environment through the use of a mirror registry.
+Tests can be executed in a disconnected environment through the use of a mirror registry.
 
 Requirements for running tests with a disconnected mirror registry:
 
