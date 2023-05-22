@@ -19,6 +19,7 @@ opct_aws:
       ansible_host: localhost
       ansible_connection: local
       provider: aws
+      cluster_profile: ha
       provider_region: us-east-1
       config_cluster_region: us-east-1
       config_provider: aws
@@ -33,3 +34,42 @@ opct_aws:
       destroy_bootstrap: yes
       topology_network: single-AZ
       topology_compute: single-AZ
+
+# OPCT AWS Group vars - SingleReplica/SNO
+# opct_aws_sno:
+#   hosts:
+#     localhost:
+#       ansible_host: localhost
+#       ansible_connection: local
+#       provider: aws
+#       #cluster_name: opct-sno
+#       provider_region: us-east-1
+#       config_cluster_region: us-east-1
+      
+#       cluster_profile: sno
+#       create_worker: no
+#       destroy_bootstrap: no
+#       config_compute_replicas: 0
+#       config_controlplane_replicas: 1
+#       config_bootstrapinplace_disk: /dev/nvme0n1
+#       controlplane_instance: m6id.xlarge
+#       config_patches:
+#       - mc_varlibcontainers
+#       - mc_varlibetcd
+#       - rm-capi-machines
+#       cfg_patch_mc_varlibcontainers:
+#         device_path: /dev/nvme2n1
+#         device_name: nvme2n1
+#         machineconfiguration_roles:
+#         - master
+
+#       config_provider: aws
+#       config_platform: none
+#       config_base_domain: devcluster.openshift.com
+#       #config_pull_secret_home: ".openshift/pull-secret-latest.json"
+#       config_pull_secret_file: "{{ ansible_env.HOME }}/.openshift/pull-secret-latest.json"
+#       config_ssh_key: "{{ lookup('file', ansible_env.HOME + '/.ssh/id_rsa.pub') }}"
+#       #config_ssh_key_home: ".ssh/id_rsa.pub"
+#       cert_expected_nodes: 0
+#       cert_max_retries: 1
+#       cert_wait_interval_sec: 5

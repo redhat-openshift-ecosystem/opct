@@ -4,7 +4,7 @@
 #  -e cluster_version=4.12.0-rc.4
 
 - name: OPCT | Cluster Create | AWS | Check Args
-  hosts: opct_aws
+  hosts: '{{ target | default("opct_aws") }}'
   tasks:
   - name: OPCT | Cluster Create | AWS | Check  cluster_name
     ansible.builtin.assert:
@@ -20,7 +20,7 @@
 
 
 - name: OPCT | Cluster Create | AWS
-  hosts: '{{ target|default("localhost") }}'
+  hosts: '{{ target | default("opct_aws") }}'
   connection: local
   gather_facts: true
 
@@ -56,14 +56,6 @@
 
 - name: OPCT | Cluster Create | AWS | Create all stacks
   ansible.builtin.import_playbook: mtulio.okd_installer.create_all
-  #vars:
-    #provider: "{{ okd_installer_env.CONFIG_PROVIDER }}"
-    #cluster_name: "{{ okd_installer_env.CONFIG_CLUSTER_NAME }}"
-    # certs_max_retries: 20
-    # cert_wait_interval_sec: 60
-    # create_registry: yes
-    # destroy_bootstrap: yes
-    #target: opct_aws
   environment: "{{ okd_installer_env }}"
 
 - name: OPCT | Cluster Create | AWS | Setup dedicated environment
@@ -71,7 +63,7 @@
   environment: "{{ okd_installer_env }}"
 
 - name: OPCT | Cluster Create | AWS | Finish
-  hosts: '{{ target|default("localhost") }}'
+  hosts: "{{ target | default('opct_aws') }}"
   connection: local
   gather_facts: true
 

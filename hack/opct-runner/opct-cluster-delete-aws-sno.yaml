@@ -1,0 +1,14 @@
+---
+- name: OPCT | Cluster Delete | AWS | Check Args
+  hosts: opct_aws
+  tasks:
+  - name: Check required variables - cluster_name
+    ansible.builtin.assert:
+      that:
+        - cluster_name is defined
+      fail_msg: "'cluster_name' is not defined. Set the '-e cluster_name=value' "
+
+- name: OPCT | Cluster Delete | AWS | Destroy stacks
+  ansible.builtin.import_playbook: mtulio.okd_installer.destroy_cluster
+  vars:
+    target: opct_aws_sno

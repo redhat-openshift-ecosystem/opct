@@ -328,3 +328,29 @@ ansible-playbook opct-runner-all-aws.yaml \
 ~~~
 
 The results should be saved at `${HOME}/.ansible/okd-installer/clusters/${CLUSTER}/opct`.
+
+
+### Running release tests
+
+- Define the default vars
+
+```
+
+```
+
+- OCP 4.9.55 OPCT v0.3.0 mode=regular
+
+```bash
+VERSION_OPCT=v0.3.0
+VERSION_OCP=4.9.55
+CLUSTER_NAME="${VERSION_OPCT//./}-${VERSION_OCP//./}"
+RUNNER_OPCT_BIN=${PWD}/opct-${VERSION_OPCT}-ocp-${VERSION_OCP}
+
+wget https://github.com/redhat-openshift-ecosystem/provider-certification-tool/releases/download/$VERSION_OPCT}/openshift-provider-cert-linux-amd64 -o ${RUNNER_OPCT_BIN}
+chmod u+x ${RUNNER_OPCT_BIN}
+ansible-playbook opct/hack/opct-runner/opct-runner-all-aws-ha.yaml \
+    -i opct/hack/opct-runner/inventories \
+    -e cluster_name=${CLUSTER_NAME} \
+    -e cluster_version=${VERSION_OCP} \
+    -e opct_bin="${RUNNER_OPCT_BIN}"
+```

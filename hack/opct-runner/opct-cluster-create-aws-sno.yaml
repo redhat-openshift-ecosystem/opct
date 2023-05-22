@@ -1,0 +1,5 @@
+---
+- name: OPCT | Cluster Create | AWS | Check clients are installed
+  ansible.builtin.import_playbook: opct-cluster-create-aws.yaml
+  vars:
+    target: opct_aws_sno

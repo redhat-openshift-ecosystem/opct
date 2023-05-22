@@ -1,0 +1,5 @@
+---
+- name: OPCT | Cluster Delete | AWS | Destroy Bootstrap
+  ansible.builtin.import_playbook: mtulio.okd_installer.destroy_bootstrap
+  vars:
+    target: opct_aws_sno

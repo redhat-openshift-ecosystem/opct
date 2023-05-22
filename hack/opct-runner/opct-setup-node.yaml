@@ -22,7 +22,6 @@
     retries: 10
     delay: 5
     kubernetes.core.k8s_info:
-      kubeconfig: "{{ kubeconfig }}"
       api_version: v1
       kind: Node
       label_selectors:
@@ -37,6 +36,11 @@
     set_fact:
       node_name: "{{ all_nodes.resources[0].metadata.name }}"
     when: all_nodes.resources | length > 0
+  
+  - name: OPCT | Setup | Node label | Show node
+    debug:
+      var: node_name
+    when: debug | d(false)
 
   - name: OPCT | Setup | Node label | Apply label
     environment:

@@ -2,7 +2,7 @@
 
 # https://github.com/mtulio/ansible-collection-okd-installer/pull/22
 # https://github.com/mtulio/ansible-collection-okd-installer/actions/runs/4008306599
-FROM quay.io/mrbraga/okd-installer:0.0.0-dev.197-4008306599
+FROM quay.io/mrbraga/okd-installer:0.0.0-ci.212-4120332897
 
 COPY --from=quay.io/ocp-cert/tools:latest /usr/bin/oc /usr/bin/
 

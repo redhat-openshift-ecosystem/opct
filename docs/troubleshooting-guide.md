@@ -18,7 +18,7 @@ If you are not sure why you have failed tests or if some of the tests fail inter
 
 ## Troubleshooting <a name="review-troubleshooting"></a>
 
-#### Review Results Archive <a name="review-archive"></a>
+### Review Results Archive <a name="review-archive"></a>
 
 The results archive file can be used to identify certification test failures so you can address them in the cluster installation process you are attempting to certify.
 
@@ -68,7 +68,7 @@ yq -r '.items[].items[].items[] | select (.status=="failed") | .name ' results/p
 yq -r '.items[].items[].items[] | select (.name=="[sig-arch] Monitor cluster while tests execute").details.failure ' results/plugins/openshift-kube-conformance/sonobuoy_results.yaml
 ```
 
-#### Cluster Failures <a name="review-cluster-failures"></a>
+### Cluster Failures <a name="review-cluster-failures"></a>
 
 If you run into issues where the certification pods are crashing or the command line tool is not working for some reason then troubleshooting the OpenShift cluster under test may be required. 
 
@@ -80,3 +80,18 @@ oc adm inspect openshift-provider-certification
 ```
 
 Use the two archives created by the commands above to begin troubleshooting. The must-gather archive provides a snapshot view of the whole cluster. The inspection archive will contain information about the openshift provider certification namespace only.
+
+
+### Pulling images from internal registry <a name="review-image-registry"></a>
+
+```bash
+ADMIN_USER=kubeadmin
+ADMIN_PASS=$(cat auth/kubeadmin-password)
+API_INT=$(oc get infrastructures cluster -o jsonpath={.status.apiServerInternalURI})
+NODE_NAME=$(oc get nodes -l node-role.kubernetes.io/edge -o jsonpath={.items[0].metadata.name})
+
+oc debug node/${NODE_NAME} --  chroot /host /bin/bash -c "\
+oc login --insecure-skip-tls-verify -u ${ADMIN_USER} -p ${ADMIN_PASS} ${API_INT}; \
+podman login -u ${ADMIN_USER} -p \$(oc whoami -t) image-registry.openshift-image-registry.svc:5000; \
+podman pull image-registry.openshift-image-registry.svc:5000/openshift/tests";
+```
