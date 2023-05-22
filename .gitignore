@@ -1,4 +1,5 @@
 openshift-provider-cert-*
+opct-*
 kubeconfig
 .idea/
 

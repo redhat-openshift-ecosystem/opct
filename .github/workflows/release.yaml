@@ -64,7 +64,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
-            openshift-provider-cert*
+            openshift-provider-cert-*
+            opct-*
           body: |
             ## Changelog
             ${{steps.github_release.outputs.changelog}}
