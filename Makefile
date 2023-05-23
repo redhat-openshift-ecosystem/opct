@@ -14,7 +14,7 @@ GO_BUILD_FLAGS := -ldflags '-s -w -X github.com/redhat-openshift-ecosystem/provi
 unexport GOFLAGS
 
 .PHONY: all
-all: linux-amd64 linux-amd64-container cross-build-windows-amd64 cross-build-darwin-amd64 cross-build-darwin-arm64
+all: linux-amd64-container cross-build-windows-amd64 cross-build-darwin-amd64 cross-build-darwin-arm64
 
 .PHONY: build
 build:
@@ -31,21 +31,25 @@ verify-codegen:
 .PHONY: linux-amd64
 linux-amd64:
 	GOOS=linux GOARCH=amd64 go build -o openshift-provider-cert-linux-amd64 $(GO_BUILD_FLAGS)
+	cp openshift-provider-cert-linux-amd64 opct-linux-amd64
 
 .PHONY: cross-build-windows-amd64
 cross-build-windows-amd64:
 	GOOS=windows GOARCH=amd64 go build -o openshift-provider-cert-windows.exe $(GO_BUILD_FLAGS)
+	cp openshift-provider-cert-windows.exe opct-windows.exe
 
 .PHONY: cross-build-darwin-amd64
 cross-build-darwin-amd64:
 	GOOS=darwin GOARCH=amd64 go build -o openshift-provider-cert-darwin-amd64 $(GO_BUILD_FLAGS)
+	cp openshift-provider-cert-darwin-amd64 opct-darwin-amd64
 
 .PHONY: cross-build-darwin-arm64
 cross-build-darwin-arm64:
 	GOOS=darwin GOARCH=arm64 go build -o openshift-provider-cert-darwin-arm64 $(GO_BUILD_FLAGS)
+	cp openshift-provider-cert-darwin-arm64 opct-darwin-arm64
 
 .PHONY: linux-amd64-container
-linux-amd64-container: clean
+linux-amd64-container: linux-amd64
 	podman build -t $(IMG):latest -f hack/Containerfile --build-arg=RELEASE_TAG=$(RELEASE_TAG) .
 
 .PHONY: test
@@ -58,4 +62,4 @@ vet:
 
 .PHONY: clean
 clean:
-	rm -rvf ./openshift-provider-cert*
+	rm -rvf ./openshift-provider-cert-* ./opct-*

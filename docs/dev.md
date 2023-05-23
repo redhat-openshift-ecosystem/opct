@@ -50,9 +50,32 @@ Release process checklist:
         - artifacts collected
         - results are under regular [CI executions](https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html)
 - Create a tag on [Plugins repository](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins) based on the `main` branch (or the commit for the release);
+~~~bash
+# Example
+git tag v0.4.0 -m "Release for OPCT v0.4 related to features on OPCT-XXX"
+git push --tags upstream
+~~~
 - Open a PR updating the [`PluginsImage` value](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/pkg/types.go#LL16C2-L16C14) on the CLI repository, merge it;
 - Create a tag on [CLI/Tool repository](https://github.com/redhat-openshift-ecosystem/provider-certification-tool) based on the `main` branch (or the commit for the release)
+~~~bash
+# Example
+git tag v0.4.0 -m "Release for OPCT v0.4 related to features on OPCT-XXX"
+git push --tags upstream
+~~~
 
+### Manual tests
+
+- Create an OCP cluster
+- Prepare the cluster to run OPCT: set tests label for dedicated node, taint, create registry, create MachineConfigPool for upgrade, wait to be ready, etc
+    - It's possible to use the Ansible Playbook to do everything in Day-2 by running (WIP on [#38](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/pull/38)):
+```bash
+ansible-playbook hack/opct-runner/opct-run-tool-preflight.yaml  -e cluster_name=opct-v040
+```
+- Run the tool
+```bash
+./opct-linux-amd64 run -w --plugins-image=openshift-tests-provider-cert:v0.4.0-beta2
+```
+- Collect the results and compare with old releases. Baseline CI artifacts is available [here](https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html).
 
 ## Development Notes <a name="dev-notes"></a>
 

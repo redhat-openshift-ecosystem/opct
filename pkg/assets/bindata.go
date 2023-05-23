@@ -63,7 +63,7 @@ var _manifestsOpenshiftArtifactsCollectorYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: "{{ .ToolsImage }}"
+      image: "{{ .PluginsImage }}"
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -96,7 +96,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: "{{ .ToolsImage }}"
+  image: "{{ .PluginsImage }}"
   imagePullPolicy: Always
   volumeMounts:
   - mountPath: /tmp/sonobuoy/results
@@ -160,7 +160,7 @@ var _manifestsOpenshiftClusterUpgradeYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: "{{ .ToolsImage }}"
+      image: "{{ .PluginsImage }}"
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -193,7 +193,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: "{{ .ToolsImage }}"
+  image: "{{ .PluginsImage }}"
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
@@ -258,7 +258,7 @@ var _manifestsOpenshiftConformanceValidatedYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: "{{ .ToolsImage }}"
+      image: "{{ .PluginsImage }}"
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -291,7 +291,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: "{{ .ToolsImage }}"
+  image: "{{ .PluginsImage }}"
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
@@ -355,7 +355,7 @@ var _manifestsOpenshiftKubeConformanceYaml = []byte(`podSpec:
       emptyDir: {}
   containers:
     - name: report-progress
-      image: "{{ .ToolsImage }}"
+      image: "{{ .PluginsImage }}"
       imagePullPolicy: Always
       priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
@@ -388,7 +388,7 @@ sonobuoy-config:
   skipCleanup: true
 spec:
   name: plugin
-  image: "{{ .ToolsImage }}"
+  image: "{{ .PluginsImage }}"
   imagePullPolicy: Always
   priorityClassName: system-node-critical
   volumeMounts:
