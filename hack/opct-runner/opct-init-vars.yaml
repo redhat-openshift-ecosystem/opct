@@ -4,7 +4,7 @@
   gather_facts: yes
 
   vars:
-    installer_path: "{{ ansible_env.HOME + '/.ansible/okd-installer' }}"
+    installer_path: "{{ collection_work_dir | d(ansible_env.HOME + '/.ansible/okd-installer') }}"
 
   pre_tasks:
   - name: OPCT | Init Vars | Assert

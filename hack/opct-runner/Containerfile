@@ -1,12 +1,12 @@
 # Build opct-runner
 
-# https://github.com/mtulio/ansible-collection-okd-installer/pull/22
-# https://github.com/mtulio/ansible-collection-okd-installer/actions/runs/4008306599
-FROM quay.io/mrbraga/okd-installer:0.0.0-ci.212-4120332897
+# https://github.com/mtulio/ansible-collection-okd-installer/pull/26
+FROM quay.io/mrbraga/okd-installer:0.0.0-dev.92-5763394953
 
 COPY --from=quay.io/ocp-cert/tools:latest /usr/bin/oc /usr/bin/
+COPY --from=quay.io/ocp-cert/tools:latest /usr/bin/jq /usr/bin/
 
-ENV ANSIBLE_LOG_PATH=/root/.ansible/okd-installer/opct-runner.log
+ENV ANSIBLE_LOG_PATH=/opt/okd-installer/opct-runner.log
 
 WORKDIR /opct-runner
 
