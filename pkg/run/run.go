@@ -77,8 +77,8 @@ func NewCmdRun() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "run",
-		Short: "Run the suite of tests for provider certification",
-		Long:  `Launches the provider certification environment inside of an already running OpenShift cluster`,
+		Short: "Run the suite of tests for provider validation",
+		Long:  `Launches the provider validation environment inside of an already running OpenShift cluster`,
 		PreRun: func(cmd *cobra.Command, args []string) {
 			// Client setup
 			kclient, sclient, err = client.CreateClients()
@@ -93,7 +93,7 @@ func NewCmdRun() *cobra.Command {
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			log.Info("Running OpenShift Provider Certification Tool...")
+			log.Info("Running OPCT...")
 
 			// Fire off sonobuoy
 			err := o.Run(kclient, sclient)
@@ -174,7 +174,7 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 		for _, err := range errs {
 			log.Warn(err)
 		}
-		return errors.New("All Cluster Operators must be available, not progressing, and not degraded before certification can run")
+		return errors.New("All Cluster Operators must be available, not progressing, and not degraded before validation can run")
 	}
 
 	// Get ConfigV1 client for Cluster Operators
@@ -189,7 +189,7 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 		return err
 	}
 	if !managed {
-		return errors.New("OpenShift Image Registry must deployed before certification can run")
+		return errors.New("OpenShift Image Registry must deployed before validation can run")
 	}
 
 	// TODO: checkOrCreate MachineConfigPool with:
@@ -416,7 +416,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 
 	if r.plugins == nil || len(*r.plugins) == 0 {
 		// Use default built-in plugins
-		log.Debugf("Loading default certification plugins")
+		log.Debugf("Loading default plugins")
 		var err error
 		manifests, err = loadPluginManifests(r)
 		if err != nil {
@@ -435,7 +435,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 	}
 
 	if len(manifests) == 0 {
-		return errors.New("No certification plugins to run")
+		return errors.New("No validation plugins to run")
 	}
 
 	// Fill out the aggregator and worker configs

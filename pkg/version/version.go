@@ -5,6 +5,7 @@ package version
 import (
 	"fmt"
 
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/sonobuoy/pkg/buildinfo"
 )
@@ -28,15 +29,22 @@ type VersionContext struct {
 }
 
 func (vc *VersionContext) String() string {
-	return fmt.Sprintf("OpenShift Provider Certification Tool: %s+%s", vc.Version, vc.Commit)
+	return fmt.Sprintf("OPCT CLI: %s+%s", vc.Version, vc.Commit)
 }
+
+func (vc *VersionContext) StringPlugins() string {
+	return fmt.Sprintf("OPCT Plugins: %s", pkg.PluginsImage)
+}
+
 func NewCmdVersion() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Print provider certification tool version",
+		Short: "Print provider validation tool version",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println(Version.String())
-			fmt.Printf("Sonobuoy Version: %s\n", buildinfo.Version)
+			fmt.Println(Version.StringPlugins())
+			fmt.Printf("Sonobuoy: %s\n", buildinfo.Version)
+			// TODO: collect OpenShift and Kube versions too
 		},
 	}
 }

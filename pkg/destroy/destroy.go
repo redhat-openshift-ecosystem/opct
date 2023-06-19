@@ -32,7 +32,7 @@ func NewCmdDestroy() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "destroy",
 		Aliases: []string{"delete"},
-		Short:   "Destroy current Certification Environment",
+		Short:   "Destroy current validation environment",
 		Long:    `Destroys resources used for conformance testing inside of the target OpenShift cluster. This will not destroy OpenShift cluster.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			log.Info("Starting the destroy flow...")
