@@ -63,7 +63,7 @@ $ omg get clusterversion
 NAME     VERSION  AVAILABLE  PROGRESSING  SINCE  STATUS
 version  4.11.13   True       False        11h    Cluster version is 4.11.13
 ```
-2. Navigate to https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html and find the latest results (by date) for the matching OpenShift version
+2. Navigate to the [CI results](https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html) and find the latest results (by date) for the matching OpenShift version
 3. Download the *latest* test results for the version (bottom of list). Copy the results archive link from the webpage in previous step. 
 ```bash
 $ curl --output 4.11.13-20221125.tar.gz https://openshift-provider-certification.s3.us-west-2.amazonaws.com/baseline-results/4.11.13-20221125.tar.gz
@@ -293,22 +293,25 @@ Additional items to review:
 The validation process (when applyging for the Partner Support Case) requires a successful y-stream upgrade (e.g. upgrade 4.11.17 to 4.12.0).
 Upgrade review should only proceed if there is reasonably high confidence in passing and not if there are still significant issues in passing the review process above. 
 
-> TODO: Rework this documentation after the automated upgrade procedure is merged in https://github.com/redhat-openshift-ecosystem/provider-certification-tool/pull/33
+> TODO: Review this documentation after the automated upgrade procedure is merged in https://github.com/redhat-openshift-ecosystem/provider-certification-tool/pull/33
 
 Once prepared to review an upgrade, this is the recommended procedure:
 
 1. Cloud provider to install _new_ cluster as the version previously reviewed in the process above
 2. Initiate upgrade to next Y-stream version per OpenShift documentation 
 3. Cloud provider to make note of the following during upgrade:
+
    - Any manual intervention required during upgrade
    - Time taken to complete upgrade 
    - Any components left in failed state or not upgraded (e.g. web console offline, inaccessible API)
+
 4. Must gather after successful or failed upgrade
 
 If there was manual intervention required during the upgrade this will require judgement of the OpenShift engineer reviewing the upgrade. 
 Some questions to ask are:
 
 Is the manual intervention...
+
 - Working around a known bug in OpenShift?
 - Working around a potential new bug in OpenShift?
 - Working around a known issue in OpenShift but not considered a bug and has documentation?
@@ -322,17 +325,17 @@ First, check the `ClusterVersion` resource to verify the upgrade was successful:
 
 Using the `omg` tool:
 
-```
+```bash
 omg get clusterversion
 ```
 
 Next, check each Cluster Operator and Node was upgraded and in a working/ready state:
 
-```
+```bash
 omg get clusteroperators
 omg get nodes
 ```
 
-Review the Must Gather using the Insights tool as mentioned (here)[#review-process-guidelines].
+Review the Must Gather using the Insights tool as mentioned [here](#review-process-guidelines).
 
 If there are any issues found in the steps above, the upgrade should be performed again (on a _new_ cluster) and upgrade review process restarted.
