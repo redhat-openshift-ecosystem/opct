@@ -42,6 +42,7 @@ results/
 ├── servergroups.json
 └── serverversion.json
 ```
+
 - `hosts` provides the kubelet configuration and health check for each node on the cluster
 - `meta` has the metadata collected from the cluster and validation environment
 - `plugins` has the plugins definitions and results
