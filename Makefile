@@ -18,10 +18,7 @@ GOARCH ?= amd64
 unexport GOFLAGS
 
 .PHONY: all
-all: build-linux-amd64
-all: build-windows-amd64
-all: build-darwin-amd64
-all: build-darwin-arm64
+all: linux-amd64-container build-windows-amd64 build-darwin-amd64 build-darwin-arm64
 
 .PHONY: build-dep
 build-dep:
@@ -29,8 +26,8 @@ build-dep:
 
 .PHONY: build
 build: build-dep
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BUILD_DIR)/opct-$(GOOS)-$(GOARCH)$(GOEXT) $(GO_BUILD_FLAGS)
-	@cd $(BUILD_DIR); md5sum $(BUILD_DIR)/opct-$(GOOS)-$(GOARCH)$(GOEXT) > $(BUILD_DIR)/opct-$(GOOS)-$(GOARCH)$(GOEXT).sum; cd -
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BUILD_DIR)/opct-$(GOOS)-$(GOARCH) $(GO_BUILD_FLAGS)
+	@cd $(BUILD_DIR); md5sum $(BUILD_DIR)/opct-$(GOOS)-$(GOARCH) > $(BUILD_DIR)/opct-$(GOOS)-$(GOARCH).sum; cd -
 
 .PHONY: build-linux-amd64
 build-linux-amd64: GOOS = linux
@@ -38,10 +35,9 @@ build-linux-amd64: GOARCH = amd64
 build-linux-amd64: build
 
 .PHONY: build-windows-amd64
-build-windows-amd64: GOOS = windows
-build-windows-amd64: GOARCH = amd64
-build-windows-amd64: GOEXT = .exe
-build-windows-amd64: build
+build-windows-amd64: build-dep
+	GOOS=windows GOARCH=amd64 go build -o $(BUILD_DIR)/opct-windows.exe $(GO_BUILD_FLAGS)
+	@cd $(BUILD_DIR); md5sum $(BUILD_DIR)/opct-windows-amd64 > $(BUILD_DIR)/opct-windows-amd64.sum; cd -
 
 .PHONY: build-darwin-amd64
 build-darwin-amd64: GOOS = darwin
@@ -57,11 +53,18 @@ build-darwin-arm64: build
 linux-amd64-container: build-linux-amd64
 	podman build -t $(IMG):latest -f hack/Containerfile --build-arg=RELEASE_TAG=$(RELEASE_TAG) .
 
-# Utils dev
-.PHONY: update-go
-update-go:
-	go get -u
-	go mod tidy
+# Publish devel binaries (non-official). Must be used only for troubleshooting in development/support.
+.PHONY: publish-amd64-devel
+publish-amd64-devel: build-linux-amd64
+	aws s3 cp $(BUILD_DIR)/opct-linux-amd64 s3://openshift-provider-certification/bin/opct-linux-amd64-devel
+
+.PHONY: publish-darwin-arm64-devel
+publish-darwin-arm64-devel: build-darwin-arm64
+	aws s3 cp $(BUILD_DIR)/opct-darwin-arm64 s3://openshift-provider-certification/bin/opct-darwin-arm64-devel
+
+.PHONY: publish-devel
+publish-devel: publish-amd64-devel
+publish-devel: publish-darwin-arm64-devel
 
 .PHONY: test
 test:

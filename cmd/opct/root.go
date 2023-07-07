@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
 
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/cmd/report"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/destroy"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/report"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/retrieve"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/run"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/status"

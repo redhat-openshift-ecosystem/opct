@@ -4,6 +4,6 @@ LABEL io.k8s.display-name="OPCT" \
       io.opct.tags="opct,conformance,openshift,tests,e2e" \
       io.opct.os="linux" io.opct.arch="amd64"
 
-COPY ./openshift-provider-cert-linux-amd64 /usr/bin/
+COPY ./build/opct-linux-amd64 /usr/bin/
 
-CMD ["/usr/bin/openshift-provider-cert-linux-amd64"]
+CMD ["/usr/bin/opct-linux-amd64"]

@@ -60,6 +60,9 @@ func getPrintableRunningStatus(s *aggregation.Status) PrintableStatus {
 			}
 		} else if pl.ResultStatus == "" {
 			message = "waiting for post-processor..."
+			if pl.Status != "" {
+				message = pl.Status
+			}
 		} else {
 			passCount := pl.ResultStatusCounts["passed"]
 			failedCount := pl.ResultStatusCounts["failed"]
