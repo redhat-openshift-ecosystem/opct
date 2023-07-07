@@ -1,0 +1,447 @@
+<!-- README for template delimiter: This file changed the template delimiter for Golang to '[ [' and '] ]',
+preventing conflict with Vue delimiter. 
+ example from https://bootstrap-vue.org/docs/components/table 
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>OPCT Filters</title>
+
+  <link rel="shortcut icon" href="#">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js" integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+  <!-- <link href="https://cdn.jsdelivr.net/npm/vuetify@3.3.7/dist/vuetify.min.css" rel="stylesheet" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/vuetify@3.3.7/dist/vuetify.min.js"></script> -->
+
+
+<!-- Load required Bootstrap and BootstrapVue CSS -->
+<link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css" />
+<link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css" />
+
+<!-- Load polyfills to support older browsers -->
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es2015%2CIntersectionObserver" crossorigin="anonymous"></script>
+
+<!-- Load Vue followed by BootstrapVue -->
+<!-- <script src="https://unpkg.com/vue@latest/dist/vue.min.js"></script> -->
+<script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>
+
+<!-- Load the following for BootstrapVueIcons support -->
+<script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue-icons.min.js"></script>
+
+<style>
+/* styles: Tab */
+/* Style the tab */
+.tab { overflow: hidden; border: 1px solid #ccc; background-color: #f1f1f1; }
+
+/* Style the buttons that are used to open the tab content */
+.tab button { background-color: inherit; float: left; border: none; outline: none;
+  cursor: pointer; padding: 14px 16px; transition: 0.3s; }
+
+/* Change background color of buttons on hover */
+.tab button:hover { background-color: #ddd; }
+
+/* Create an active/current tablink class */
+.tab button.active { background-color: #ccc; }
+
+/* Style the tab content */
+.tabcontent { display: none; padding: 6px 12px; border: 1px solid #ccc; border-top: none; }
+
+/* styles: OPCT */
+div#nav-col ul { list-style: none; }
+
+data { display: none; }
+#nav-col { max-width: 200px; }
+span.float-right { float: right; }
+table { font-size: 8pt; }
+</style>
+
+</head>
+<body>
+
+  <!-- Tab manager -->
+  <div class="tab">
+    <button class="tablinks"  onclick="openTab(event, 'OPCT')" id="tabDefault">OPCT Baseline</button>
+  </div>
+
+  <!-- Tab content: OPCT -->
+  <div id="OPCT" class="tabcontent">
+    <div id="app_opct">
+      <div class="row mt-2">
+        <!-- OPCT side nav menu -->
+        <div class="col-2" id="nav-col">
+          <div class="list-group">
+            <a href="#" class="list-group-item list-group-item-action">Failures</a>
+          </div>
+        </div>
+        <!-- OPCT content -->
+        <h3>[[ .Summary.Tests.Archive ]]</h3>
+        <div class="col-10">
+          <div>
+            <b-container fluid>
+              <!-- User Interface controls -->
+              <b-row>
+                <b-col lg="6" class="my-1">
+                  <b-form-group
+                    label="Sort"
+                    label-for="sort-by-select"
+                    label-cols-sm="3"
+                    label-align-sm="right"
+                    label-size="sm"
+                    class="mb-0"
+                    v-slot="{ ariaDescribedby }"
+                  >
+                    <b-input-group size="sm">
+                      <b-form-select
+                        id="sort-by-select"
+                        v-model="sortBy"
+                        :options="sortOptions"
+                        :aria-describedby="ariaDescribedby"
+                        class="w-75"
+                      >
+                        <template #first>
+                          <option value="">-- none --</option>
+                        </template>
+                      </b-form-select>
+          
+                      <b-form-select
+                        v-model="sortDesc"
+                        :disabled="!sortBy"
+                        :aria-describedby="ariaDescribedby"
+                        size="sm"
+                        class="w-25"
+                      >
+                        <option :value="false">Asc</option>
+                        <option :value="true">Desc</option>
+                      </b-form-select>
+                    </b-input-group>
+                  </b-form-group>
+                </b-col>
+          
+                <b-col lg="6" class="my-1">
+                  <b-form-group
+                    label="Initial sort"
+                    label-for="initial-sort-select"
+                    label-cols-sm="3"
+                    label-align-sm="right"
+                    label-size="sm"
+                    class="mb-0"
+                  >
+                    <b-form-select
+                      id="initial-sort-select"
+                      v-model="sortDirection"
+                      :options="['asc', 'desc', 'last']"
+                      size="sm"
+                    ></b-form-select>
+                  </b-form-group>
+                </b-col>
+          
+                <b-col lg="6" class="my-1">
+                  <b-form-group
+                    label="Filter"
+                    label-for="filter-input"
+                    label-cols-sm="3"
+                    label-align-sm="right"
+                    label-size="sm"
+                    class="mb-0"
+                  >
+                    <b-input-group size="sm">
+                      <b-form-input
+                        id="filter-input"
+                        v-model="filter"
+                        type="search"
+                        placeholder="Type to Search"
+                      ></b-form-input>
+          
+                      <b-input-group-append>
+                        <b-button :disabled="!filter" @click="filter = ''">Clear</b-button>
+                      </b-input-group-append>
+                    </b-input-group>
+                  </b-form-group>
+                </b-col>
+          
+                <b-col lg="6" class="my-1">
+                  <b-form-group
+                    v-model="sortDirection"
+                    label="Filter On"
+                    description="Leave all unchecked to filter on all data"
+                    label-cols-sm="3"
+                    label-align-sm="right"
+                    label-size="sm"
+                    class="mb-0"
+                    v-slot="{ ariaDescribedby }"
+                  >
+                    <b-form-checkbox-group
+                      v-model="filterOn"
+                      :aria-describedby="ariaDescribedby"
+                      class="mt-1"
+                    >
+                      <b-form-checkbox value="id">ID</b-form-checkbox>
+                      <b-form-checkbox value="name">Name</b-form-checkbox>
+                      <b-form-checkbox value="status">Status</b-form-checkbox>
+                      <b-form-checkbox value="state">State</b-form-checkbox>
+                    </b-form-checkbox-group>
+                  </b-form-group>
+                </b-col>
+          
+                <b-col sm="5" md="6" class="my-1">
+                  <b-form-group
+                    label="Per page"
+                    label-for="per-page-select"
+                    label-cols-sm="6"
+                    label-cols-md="4"
+                    label-cols-lg="3"
+                    label-align-sm="right"
+                    label-size="sm"
+                    class="mb-0"
+                  >
+                    <b-form-select
+                      id="per-page-select"
+                      v-model="perPage"
+                      :options="pageOptions"
+                      size="sm"
+                    ></b-form-select>
+                  </b-form-group>
+                </b-col>
+          
+                <b-col sm="7" md="6" class="my-1">
+                  <b-pagination
+                    v-model="currentPage"
+                    :total-rows="totalRows"
+                    :per-page="perPage"
+                    align="fill"
+                    size="sm"
+                    class="my-0"
+                  ></b-pagination>
+                </b-col>
+              </b-row>
+          
+              <!-- Main table element -->
+              <b-table
+                :items="failedItems"
+                :fields="failedFields"
+                :current-page="currentPage"
+                :per-page="perPage"
+                :filter="filter"
+                :filter-included-fields="filterOn"
+                :sort-by.sync="sortBy"
+                :sort-desc.sync="sortDesc"
+                :sort-direction="sortDirection"
+                stacked="md"
+                show-empty
+                small
+                @filtered="onFiltered"
+              >
+                <!-- <template #cell(id)="row">
+                  {{ row.value.ud }}
+                </template> -->
+          
+                <template #cell(actions)="row">
+                  <b-button size="sm" @click="info(row.item, row.index, $event.target)" class="mr-1">
+                    Info
+                  </b-button>
+                  <b-button size="sm" @click="row.toggleDetails">
+                    {{ row.detailsShowing ? 'Hide' : 'Details' }}
+                  </b-button>
+                </template>
+          
+                <template #row-details="row">
+                  <b-card>
+                    <ul>
+                      <li v-for="(value, key) in row.item" :key="key">{{ key }}: {{ value }}</li>
+                    </ul>
+                  </b-card>
+                </template>
+              </b-table>
+          
+              <!-- Info modal -->
+              <b-modal :id="infoModal.id" :title="infoModal.title" ok-only @hide="resetInfoModal">
+                <pre>{{ infoModal.content }}</pre>
+              </b-modal>
+            </b-container>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+     
+
+<!-- Tab CAMG End -->
+
+<!-- Scripts -->
+
+<script>
+  /* Script for: Tab manager */
+  function openTab(evt, tabName) {
+    // Declare all variables
+    var i, tabcontent, tablinks;
+
+    // Get all elements with class="tabcontent" and hide them
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (i = 0; i < tabcontent.length; i++) {
+      tabcontent[i].style.display = "none";
+    }
+
+    // Get all elements with class="tablinks" and remove the class "active"
+    tablinks = document.getElementsByClassName("tablinks");
+    for (i = 0; i < tablinks.length; i++) {
+      tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " active";
+  }
+   /* Script for: OPCT app */
+  var app_opct = new Vue({
+    el: "#app_opct",
+    data() {
+      return {
+        items: [
+          { isActive: true, age: 40, name: { first: 'Dickerson', last: 'Macdonald' } },
+          { isActive: false, age: 21, name: { first: 'Larsen', last: 'Shaw' } },
+          {
+            isActive: false,
+            age: 9,
+            name: { first: 'Mini', last: 'Navarro' },
+            _rowVariant: 'success'
+          },
+          { isActive: false, age: 89, name: { first: 'Geneva', last: 'Wilson' } },
+          { isActive: true, age: 38, name: { first: 'Jami', last: 'Carney' } },
+          { isActive: false, age: 27, name: { first: 'Essie', last: 'Dunlap' } },
+          { isActive: true, age: 40, name: { first: 'Thor', last: 'Macdonald' } },
+          {
+            isActive: true,
+            age: 87,
+            name: { first: 'Larsen', last: 'Shaw' },
+            _cellVariants: { age: 'danger', isActive: 'warning' }
+          },
+          { isActive: false, age: 26, name: { first: 'Mitzi', last: 'Navarro' } },
+          { isActive: false, age: 22, name: { first: 'Genevieve', last: 'Wilson' } },
+          { isActive: true, age: 38, name: { first: 'John', last: 'Carney' } },
+          { isActive: false, age: 29, name: { first: 'Dick', last: 'Dunlap' } }
+        ],
+        fields: [
+          { key: 'name', label: 'Person full name', sortable: true, sortDirection: 'desc' },
+          { key: 'age', label: 'Person age', sortable: true, class: 'text-center' },
+          {
+            key: 'isActive',
+            label: 'Is Active',
+            formatter: (value, key, item) => {
+              return value ? 'Yes' : 'No'
+            },
+            sortable: true,
+            sortByFormatted: true,
+            filterByFormatted: true
+          },
+          { key: 'actions', label: 'Actions' }
+        ],
+        totalRows: 1,
+        currentPage: 1,
+        perPage: 30,
+        pageOptions: [5, 10, 30, 50, { value: 100, text: "Show a lot" }],
+        sortBy: '',
+        sortDesc: false,
+        sortDirection: 'asc',
+        filter: null,
+        filterOn: [],
+        infoModal: {
+          id: 'info-modal',
+          title: '',
+          content: ''
+        },
+        report: {},
+      }
+    },
+    computed: {
+      sortOptions() {
+        // Create an options list from our failedFields
+        return this.failedFields
+          .filter(f => f.sortable)
+          .map(f => {
+            return { text: f.label, value: f.key }
+          })
+      },
+      failedItems() {
+        if (this.report.provider == null) {
+          console.log("report.provider is empty")
+          return []
+        }
+        merged = []
+        for (let plugin of ["10-openshift-kube-conformance", "20-openshift-conformance-validated"]) {
+          const tests = new Map(Object.entries(this.report.provider.plugins[plugin].tests));
+          for (let key of tests.keys()) {
+            var o = new Map();
+            Object.assign(o, this.report.provider.plugins[plugin].tests[key]);
+            Object.assign(o, {"name": key});
+            if (this.report.provider.plugins[plugin].tests[key].errorCounters !== undefined) {
+              Object.assign(o, {"errors": this.report.provider.plugins[plugin].tests[key].errorCounters["total"] ?? 0});
+            }
+            if (this.report.provider.plugins[plugin].tests[key].flake !== undefined) {
+              Object.assign(o, {"flakePerc": this.report.provider.plugins[plugin].tests[key].flake["current_flake_percentage"] ?? 0});
+            }
+            merged.push(o);
+          }
+        }
+        return merged
+      },
+      failedFields() {
+        return [
+          { key: 'id', label: 'Test ID', sortable: true},
+          { key: 'name', label: 'Test Name', sortable: true},
+          { key: 'status', label: 'Status', sortable: true},
+          { key: 'state', label: 'State', sortable: true},
+          { key: 'errors', label: 'Errors', sortable: true},
+          { key: 'flakePerc', label: '% Flake', sortable: true},
+          { key: 'actions', label: 'Actions' }
+        ]
+      }
+    },
+    mounted() {
+      // Set the initial number of items
+      this.totalRows = this.failedItems.length
+    },
+    methods: {
+      info(item, index, button) {
+        this.infoModal.title = `Row index: ${index}`
+        this.infoModal.content = JSON.stringify(item, null, 2)
+        this.$root.$emit('bv::show::modal', this.infoModal.id, button)
+      },
+      resetInfoModal() {
+        this.infoModal.title = ''
+        this.infoModal.content = ''
+      },
+      onFiltered(filteredItems) {
+        // Trigger pagination to update the number of buttons/pages due to filtering
+        this.totalRows = filteredItems.length
+        this.currentPage = 1
+      },
+      fetchReport() {
+        axios.defaults.headers.post['Content-Type'] ='application/json;charset=utf-8';
+        axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*';
+        axios.get('opct-report.json')
+          .then(resp => { 
+                this.report = resp.data;
+          })
+          .catch(error => {
+            console.log("Error fetching opct-report.json");
+            console.log(error);
+          })
+      }
+    },
+    created(){
+        this.fetchReport()
+    },
+  })
+
+  /* main */
+  document.getElementById("tabDefault").click();
+  // app_opct.changeContent('summary')
+</script>
+
+</body>
+</html>

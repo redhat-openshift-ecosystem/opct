@@ -55,17 +55,19 @@ type SippyTestsRequestOutput []SippyTestsResponse
 
 // SippyAPI is the Sippy API structure holding the API client
 type SippyAPI struct {
-	client *http.Client
+	client     *http.Client
+	ocpVersion string
 }
 
 // NewSippyAPI creates a new API setting the http attributes to improve the connection reuse.
-func NewSippyAPI() *SippyAPI {
+func NewSippyAPI(ocpVersion string) *SippyAPI {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.MaxIdleConns = defaultMaxIdleConns
 	t.MaxConnsPerHost = defaultMaxConnsPerHost
 	t.MaxIdleConnsPerHost = defaultMaxIddleConnsPerHost
 
 	return &SippyAPI{
+		ocpVersion: ocpVersion,
 		client: &http.Client{
 			Timeout:   defaultConnTimeoutSec * time.Second,
 			Transport: t,
@@ -75,14 +77,14 @@ func NewSippyAPI() *SippyAPI {
 
 // QueryTests receive a input with attributes to query the results of a single test
 // by name on the CI, returning the list with result items.
-func (a *SippyAPI) QueryTests(r *SippyTestsRequestInput) (*SippyTestsRequestOutput, error) {
+func (a *SippyAPI) QueryTests(in *SippyTestsRequestInput) (*SippyTestsRequestOutput, error) {
 
 	filter := SippyTestsRequestFilter{
 		Items: []SippyTestsRequestFilterItems{
 			{
 				ColumnField:   "name",
 				OperatorValue: "equals",
-				Value:         r.TestName,
+				Value:         in.TestName,
 			},
 		},
 	}
@@ -98,7 +100,7 @@ func (a *SippyAPI) QueryTests(r *SippyTestsRequestInput) (*SippyTestsRequestOutp
 	}
 
 	params := url.Values{}
-	params.Add("release", "4.11")
+	params.Add("release", a.ocpVersion)
 	params.Add("filter", string(b))
 
 	baseUrl.RawQuery = params.Encode()
@@ -119,6 +121,10 @@ func (a *SippyAPI) QueryTests(r *SippyTestsRequestInput) (*SippyTestsRequestOutp
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse response body. %+v", err)
 
+	}
+
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		return nil, fmt.Errorf("invalid status code: %d", res.StatusCode)
 	}
 
 	sippyResponse := SippyTestsRequestOutput{}

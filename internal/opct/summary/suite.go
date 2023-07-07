@@ -27,7 +27,7 @@ type OpenshiftTestsSuite struct {
 	InputFile string
 	Name      string
 	Count     int
-	Tests     []string
+	Tests     []string `json:"-"`
 }
 
 func (s *OpenshiftTestsSuite) Load(ifile string, buf *bytes.Buffer) error {
