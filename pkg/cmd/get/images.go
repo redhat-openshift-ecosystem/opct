@@ -5,7 +5,6 @@ import (
 
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
 	"github.com/spf13/cobra"
-	"github.com/vmware-tanzu/sonobuoy/pkg/buildinfo"
 )
 
 type imageOptions struct {
@@ -36,15 +35,15 @@ func generateImage(repo, name string) string {
 }
 
 func runGetImages(cmd *cobra.Command, args []string) {
-
 	images := []string{}
 
 	// Sonobuoy
-	images = append(images, generateImage("quay.io/ocp-cert", fmt.Sprintf("sonobuoy:%s", buildinfo.Version)))
+	images = append(images, generateImage(pkg.DefaultToolsRepository, pkg.SonobuoyImage))
 
 	// Plugins
-	images = append(images, generateImage("quay.io/ocp-cert", pkg.PluginsImage))
-	images = append(images, generateImage("quay.io/opct", "must-gather-monitoring:v0.1.0"))
+	images = append(images, generateImage(pkg.DefaultToolsRepository, pkg.PluginsImage))
+	images = append(images, generateImage(pkg.DefaultToolsRepository, pkg.CollectorImage))
+	// images = append(images, generateImage(pkg.DefaultToolsRepository, pkg.MustGatherMonitoringImage))
 
 	// etcdfio
 	img_etcdfio := "quay.io/openshift-scale/etcd-perf:latest"

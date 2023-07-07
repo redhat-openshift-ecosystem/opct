@@ -1,53 +1,91 @@
+---
 podSpec:
   restartPolicy: Never
   serviceAccountName: sonobuoy-serviceaccount
+  priorityClassName: system-node-critical
   volumes:
     - name: shared
       emptyDir: {}
-  containers:
-    - name: report-progress
+  initContainers:
+    - name: sync
       image: "{{ .PluginsImage }}"
       imagePullPolicy: Always
-      priorityClassName: system-node-critical
-      command: ["./report-progress.sh"]
+      command:
+        - "/bin/bash"
+        - "-c"
+        - "cp -vf ./entrypoint-tests.sh ./platform.sh /tmp/shared/"
       volumeMounts:
-      - mountPath: /tmp/sonobuoy/results
-        name: results
-      - mountPath: /tmp/shared
-        name: shared
+        - mountPath: /tmp/shared
+          name: shared
+    - name: login
+      image: "{{ .OpenshiftTestsImage }}"
+      imagePullPolicy: Always
+      command:
+        - "/bin/bash"
+        - "-c"
+        - |
+          /usr/bin/oc login "${KUBE_API_URL}" \
+            --token="$(cat "${SA_TOKEN_PATH}")" \
+            --certificate-authority="${SA_CA_PATH}";
       env:
-        - name: PLUGIN_ID
-          value: "10"
-        - name: ENV_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: ENV_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: ENV_POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
+        - name: KUBECONFIG
+          value: "/tmp/shared/kubeconfig"
+        - name: KUBE_API_URL
+          value: "https://172.30.0.1:443"
+        - name: SA_TOKEN_PATH
+          value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        - name: SA_CA_PATH
+          value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+      volumeMounts:
+        - mountPath: /tmp/shared
+          name: shared
+  containers:
+    - name: tests
+      image: "{{ .OpenshiftTestsImage }}"
+      imagePullPolicy: Always
+      volumeMounts:
+        - mountPath: /tmp/shared
+          name: shared
+      command: ["/bin/bash", "/tmp/shared/entrypoint-tests.sh"]
+      env:
+        - name: KUBECONFIG
+          value: /tmp/shared/kubeconfig
+        - name: DEFAULT_SUITE_NAME
+          value: "kubernetes/conformance"
+        - name: OT_RUN_COMMAND
+          value: "run"
+        - name: PLUGIN_NAME
+          value: "openshift-kube-conformance"
+
 sonobuoy-config:
   driver: Job
   plugin-name: 10-openshift-kube-conformance
   result-format: junit
-  description: The end-to-end tests maintained by Kubernetes to certify the platform.
-  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-kube-conformance.yaml
+  description: |
+    OPCT plugin to schedule e2e tests using openshift-tests tool to validate
+    an OpenShift Container Platform cluster installed in a specific provider.
+  source-url:
+    "https://github.com/redhat-openshift-ecosystem/provider-certification-tool/\
+    blob/main/manifests/openshift-kube-conformance.yaml"
   skipCleanup: true
 spec:
   name: plugin
   image: "{{ .PluginsImage }}"
+  command:
+    - "/bin/sh"
+    - "-c"
+    - "/usr/bin/openshift-tests-plugin run --name ${PLUGIN_NAME}"
   imagePullPolicy: Always
-  priorityClassName: system-node-critical
   volumeMounts:
-  - mountPath: /tmp/sonobuoy/results
-    name: results
-  - mountPath: /tmp/shared
-    name: shared
+    - mountPath: /tmp/sonobuoy/results
+      name: results
+    - mountPath: /tmp/shared
+      name: shared
   env:
+    - name: KUBECONFIG
+      value: /tmp/shared/kubeconfig
+    - name: PLUGIN_NAME
+      value: "openshift-kube-conformance"
     - name: PLUGIN_ID
       value: "10"
     - name: ENV_NODE_NAME

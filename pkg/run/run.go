@@ -22,33 +22,43 @@ import (
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/loader"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/manifest"
 	v1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
 
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/client"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/status"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/wait"
+	rbacv1 "k8s.io/api/rbac/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 )
 
 type RunOptions struct {
-	plugins         *[]string
-	dedicated       bool
+	plugins *[]string
+
 	sonobuoyImage   string
 	imageRepository string
+
 	// PluginsImage
 	// defines the image containing plugins associated with the provider-certification-tool.
 	// this variable is referenced by plugin manifest templates to dynamically reference the plugins image.
-	PluginsImage  string
-	timeout       int
-	watch         bool
-	watchInterval int
+	PluginsImage              string
+	CollectorImage            string
+	MustGatherMonitoringImage string
+	OpenshiftTestsImage       string
+
+	timeout      int
+	watch        bool
+	mode         string
+	upgradeImage string
+
+	// devel flags
 	devCount      string
-	mode          string
-	upgradeImage  string
+	devSkipChecks bool
+
+	// Dedicated node
+	dedicated bool
 }
 
 const (
@@ -86,56 +96,51 @@ func NewCmdRun() *cobra.Command {
 			// Client setup
 			kclient, sclient, err = client.CreateClients()
 			if err != nil {
-				return fmt.Errorf("run finished with errors: %v", err)
+				log.WithError(err).Error("pre-run failed when creating clients")
+				return err
 			}
 
 			// Pre-checks and setup
 			if err = o.PreRunCheck(kclient); err != nil {
-				return fmt.Errorf("run finished with errors: %v", err)
+				log.WithError(err).Error("pre-run failed when checking dependencies")
+				return err
 			}
 
 			if err = o.PreRunSetup(kclient); err != nil {
-				return fmt.Errorf("run finished with errors: %v", err)
+				log.WithError(err).Error("pre-run failed when initializing the environment")
+				return err
 			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			log.Info("Running OPCT...")
-
-			// Fire off sonobuoy
-			err := o.Run(kclient, sclient)
-			if err != nil {
-				log.WithError(err).Errorf("Error running the tool. Please check the errors and try again.")
+			if err := o.Run(kclient, sclient); err != nil {
+				log.WithError(err).Errorf("execution finished with errors.")
 				return err
 			}
 
 			log.Info("Jobs scheduled! Waiting for resources be created...")
-
-			// Wait for Sonobuoy to create
-			err = wait.WaitForRequiredResources(kclient)
-			if err != nil {
-				log.WithError(err).Errorf("error waiting for sonobuoy pods to become ready")
+			if err := wait.WaitForRequiredResources(kclient); err != nil {
+				log.WithError(err).Errorf("error waiting for required pods to become ready")
 				return err
 			}
 
 			// Sleep to give status time to appear
-			s := status.NewStatusOptions(&status.StatusInput{Watch: o.watch, IntervalSeconds: o.watchInterval})
-			time.Sleep(s.GetIntervalSeconds())
+			time.Sleep(status.StatusInterval)
 
-			err = s.WaitForStatusReport(cmd.Context(), sclient)
-			if err != nil {
+			// Retrieve the first status and print it, finishing when --watch is not set.
+			s := status.NewStatusOptions(&status.StatusInput{Watch: o.watch})
+			if err := s.WaitForStatusReport(cmd.Context(), sclient); err != nil {
 				log.WithError(err).Error("error retrieving aggregator status")
 				return err
 			}
 
-			err = s.Update(sclient)
-			if err != nil {
+			if err := s.Update(sclient); err != nil {
 				log.WithError(err).Error("error retrieving update")
 				return err
 			}
 
-			err = s.Print(cmd, sclient)
-			if err != nil {
+			if err := s.Print(cmd, sclient); err != nil {
 				log.WithError(err).Error("error showing status")
 				return err
 			}
@@ -147,22 +152,39 @@ func NewCmdRun() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&o.dedicated, "dedicated", defaultDedicatedFlag, "Setup plugins to run in dedicated test environment.")
-	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
+	cmd.Flags().BoolVar(&o.dedicated, "dedicated", defaultDedicatedFlag, "Enable to schedule test environment in dedicated node.")
+
 	cmd.Flags().StringVar(&o.mode, "mode", defaultRunMode, "Run mode: Availble: regular, upgrade")
 	cmd.Flags().StringVar(&o.upgradeImage, "upgrade-to-image", defaultUpgradeImage, "Target OpenShift Release Image. Example: oc adm release info 4.11.18 -o jsonpath={.image}")
 	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times. (default plugins can be reviewed with assets subcommand)")
-	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", fmt.Sprintf("%s/sonobuoy:%s", pkg.DefaultToolsRepository, buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
-	cmd.Flags().StringVar(&o.PluginsImage, "plugins-image", pkg.PluginsImage, "Image containing plugins to be executed.")
 	cmd.Flags().StringVar(&o.imageRepository, "image-repository", "", "Image repository containing required images test environment. Example: openshift-provider-cert-tool --mirror-repository mirror.repository.net/ocp-cert")
+
 	cmd.Flags().IntVar(&o.timeout, "timeout", defaultRunTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", defaultRunWatchFlag, "Keep watch status after running")
-	cmd.Flags().IntVarP(&o.watchInterval, "watch-interval", "", status.DefaultStatusIntervalSeconds, "Interval to watch the status and print in the stdout")
+
+	cmd.Flags().StringVar(&o.devCount, "devel-limit-tests", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
+	cmd.Flags().BoolVar(&o.devSkipChecks, "devel-skip-checks", false, "Developer Mode only: skip checks")
+
+	// Override dependency images used in pipeline
+	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", pkg.GetSonobuoyImage(), "Image override for the Sonobuoy worker and aggregator")
+	cmd.Flags().StringVar(&o.PluginsImage, "plugins-image", pkg.GetPluginsImage(), "Image containing plugins to be executed.")
+	cmd.Flags().StringVar(&o.CollectorImage, "collector-image", pkg.GetCollectorImage(), "Image containing the collector plugin.")
+	cmd.Flags().StringVar(&o.MustGatherMonitoringImage, "must-gather-monitoring-image", pkg.GetMustGatherMonitoring(), "Image containing the must-gather monitoring plugin.")
+
+	// devel can be override by quay.io/opct/openshift-tests:devel
+	// opct run --devel-skip-checks=true --plugins-image=plugin-openshift-tests:v0.0.0-devel-8ff93d9 --devel-tests-image=quay.io/opct/openshift-tests:devel
+	cmd.Flags().StringVar(&o.OpenshiftTestsImage, "openshift-tests-image", pkg.OpenShiftTestsImage, "Developer Mode only: openshift-tests image override")
 
 	// Hide optional flags
 	hideOptionalFlags(cmd, "dedicated")
-	hideOptionalFlags(cmd, "dev-count")
+	// hideOptionalFlags(cmd, "devel-limit-tests")
+	// hideOptionalFlags(cmd, "devel-skip-checks")
+
+	hideOptionalFlags(cmd, "sonobuoy-image")
 	hideOptionalFlags(cmd, "plugins-image")
+	hideOptionalFlags(cmd, "collector-image")
+	hideOptionalFlags(cmd, "must-gather-monitoring-image")
+	hideOptionalFlags(cmd, "openshift-tests-image")
 
 	return cmd
 }
@@ -176,18 +198,22 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	if err != nil {
 		return err
 	}
-	configClient, err := coclient.NewForConfig(restConfig)
+	oc, err := coclient.NewForConfig(restConfig)
 	if err != nil {
 		return err
 	}
 
 	// Check if Cluster Operators are stable
-	errs := checkClusterOperators(configClient)
-	if errs != nil {
+	if errs := checkClusterOperators(oc); errs != nil {
+		errorMessages := []string{}
 		for _, err := range errs {
-			log.Warn(err)
+			errorMessages = append(errorMessages, err.Error())
 		}
-		return errors.New("All Cluster Operators must be available, not progressing, and not degraded before validation can run")
+		log.Errorf("Preflights checks failed: operators are not in ready state, check the status with 'oc get clusteroperator': %v", errorMessages)
+		if !r.devSkipChecks {
+			return errors.New("All Cluster Operators must be available, not progressing, and not degraded before validation can run.")
+		}
+		log.Warnf("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping Cluster Operator checks: %v", errs)
 	}
 
 	// Get ConfigV1 client for Cluster Operators
@@ -199,10 +225,16 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	// Check if Registry is in managed state or exit
 	managed, err := checkRegistry(irClient)
 	if err != nil {
-		return err
+		if !r.devSkipChecks {
+			return err
+		}
+		log.Warn("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping Image registry check: %w", err)
 	}
 	if !managed {
-		return errors.New("OpenShift Image Registry must deployed before validation can run")
+		if !r.devSkipChecks {
+			return errors.New("OpenShift Image Registry must deployed before validation can run")
+		}
+		log.Warn("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping unmanaged image registry check")
 	}
 
 	if r.dedicated {
@@ -214,7 +246,10 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 			return errors.Wrap(err, "error getting the Node list")
 		}
 		if len(nodes.Items) == 0 {
-			return fmt.Errorf("missing dedicated node. Set the label 'node-role.kubernetes.io/tests=\"\"' to a node and try again")
+			errMsg := fmt.Sprintf("missing dedicated node. Set the label %q to a node and try again", pkg.DedicatedNodeRoleLabelSelector)
+			errMsg = fmt.Sprintf("%s\nCheck the documentation[1] or run 'opct adm setup-node' to set the label and taints", errMsg)
+			errMsg = fmt.Sprintf("%s\n[1] https://redhat-openshift-ecosystem.github.io/provider-certification-tool/user/#standard-env-setup-node", errMsg)
+			return fmt.Errorf(errMsg)
 		}
 		if len(nodes.Items) > 2 {
 			return fmt.Errorf("too many nodes with label %q. Set the label to only one node and try again", pkg.DedicatedNodeRoleLabelSelector)
@@ -267,17 +302,17 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfigPool
 metadata:
-name: opct
+  name: opct
 spec:
-machineConfigSelector:
-matchExpressions:
-  - key: machineconfiguration.openshift.io/role,
-	operator: In,
-	values: [worker,opct]
-nodeSelector:
-matchLabels:
-  node-role.kubernetes.io/tests: ""
-paused: true
+  machineConfigSelector:
+    matchExpressions:
+      - key: machineconfiguration.openshift.io/role,
+        operator: In,
+        values: [worker,opct]
+  nodeSelector:
+    matchLabels:
+      node-role.kubernetes.io/tests: ""
+  paused: true
 EOF`)
 		}
 		if len(poolList.Items) == 0 {
@@ -313,8 +348,9 @@ func (r *RunOptions) PreRunSetup(kclient kubernetes.Interface) error {
 
 	namespace := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   pkg.CertificationNamespace,
-			Labels: pkg.SonobuoyDefaultLabels,
+			Name:        pkg.CertificationNamespace,
+			Labels:      pkg.SonobuoyDefaultLabels,
+			Annotations: make(map[string]string),
 		},
 	}
 
@@ -330,8 +366,8 @@ func (r *RunOptions) PreRunSetup(kclient kubernetes.Interface) error {
 		}
 
 		namespace.Annotations = map[string]string{
-			"scheduler.alpha.kubernetes.io/defaultTolerations": string(tolerations),
 			"openshift.io/node-selector":                       pkg.DedicatedNodeRoleLabelSelector,
+			"scheduler.alpha.kubernetes.io/defaultTolerations": string(tolerations),
 		}
 	}
 
@@ -459,13 +495,13 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 		imageRepository = r.imageRepository
 		log.Infof("Mirror registry is configured %s ", r.imageRepository)
 	}
-	// the flag --sonobuoy-image should not be used in default validation.
-	if overrideSonobuoyImageSet {
-		log.Warn("Flag --sonobuoy-image is not supported in official validation process, unset it if you are submitting the results to Red Hat.")
-	} else {
-		r.sonobuoyImage = fmt.Sprintf("%s/sonobuoy:%s", imageRepository, buildinfo.Version)
+	if imageRepository != pkg.DefaultToolsRepository {
+		log.Infof("Setting up images for custom image repository %s", imageRepository)
+		r.sonobuoyImage = fmt.Sprintf("%s/%s", imageRepository, pkg.SonobuoyImage)
+		r.PluginsImage = fmt.Sprintf("%s/%s", imageRepository, pkg.PluginsImage)
+		r.CollectorImage = fmt.Sprintf("%s/%s", imageRepository, pkg.CollectorImage)
+		r.MustGatherMonitoringImage = fmt.Sprintf("%s/%s", imageRepository, pkg.MustGatherMonitoringImage)
 	}
-	r.PluginsImage = fmt.Sprintf("%s/%s", imageRepository, r.PluginsImage)
 
 	// Let Sonobuoy do some preflight checks before we run
 	errs := sclient.PreflightChecks(&sonobuoyclient.PreflightConfig{
@@ -478,7 +514,10 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 		for _, err := range errs {
 			log.Error(err)
 		}
-		return errors.New("preflight checks failed")
+		if !r.devSkipChecks {
+			return errors.New("preflight checks failed")
+		}
+		log.Warn("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping preflight checks")
 	}
 
 	// Create version information ConfigMap
@@ -518,12 +557,11 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 	}
 
 	if r.plugins == nil || len(*r.plugins) == 0 {
-		// Use default built-in plugins
 		log.Debugf("Loading default plugins")
 		var err error
 		manifests, err = loadPluginManifests(r)
 		if err != nil {
-			return nil
+			return err
 		}
 	} else {
 		// User provided their own plugins at command line

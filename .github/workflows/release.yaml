@@ -1,3 +1,4 @@
+---
 name: OPCT Release
 
 on:
@@ -24,7 +25,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.19
+          go-version: 1.22
 
       - name: Install dependencies
         run: |
@@ -48,7 +49,9 @@ jobs:
           podman login -u="${QUAY_USER}" -p="${QUAY_PASS}" quay.io
 
           echo "> Build container image:"
-          podman build -t ${CONTAINER_REPO}:${RELEASE_TAG} -f hack/Containerfile.ci .
+          podman build \
+            -t ${CONTAINER_REPO}:${RELEASE_TAG} \
+            -f hack/Containerfile.ci .
 
           echo "> Publish container image:"
           podman push ${CONTAINER_REPO}:${RELEASE_TAG}
@@ -83,6 +86,6 @@ jobs:
           body: |
             ## Changelog
             ${{steps.github_release.outputs.changelog}}
-            
+
             ## Container Images
             - [${{ env.CONTAINER_REPO }}:${{ env.RELEASE_TAG }}](https://quay.io/repository/ocp-cert/opct?tab=tags)

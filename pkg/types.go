@@ -1,10 +1,16 @@
 package pkg
 
+import (
+	"fmt"
+
+	"github.com/vmware-tanzu/sonobuoy/pkg/buildinfo"
+)
+
 const (
 	PrivilegedClusterRole          = "opct-scc-privileged"
 	PrivilegedClusterRoleBinding   = "opct-scc-privileged"
-	CertificationNamespace         = "openshift-provider-certification"
-	VersionInfoConfigMapName       = "openshift-provider-certification-version"
+	CertificationNamespace         = "opct"
+	VersionInfoConfigMapName       = "opct-version"
 	PluginsVarsConfigMapName       = "plugins-config"
 	DedicatedNodeRoleLabel         = "node-role.kubernetes.io/tests"
 	DedicatedNodeRoleLabelSelector = "node-role.kubernetes.io/tests="
@@ -12,8 +18,15 @@ const (
 	SonobuoyLabelNamespaceName     = "namespace"
 	SonobuoyLabelComponentName     = "component"
 	SonobuoyLabelComponentValue    = "sonobuoy"
-	DefaultToolsRepository         = "quay.io/ocp-cert"
-	PluginsImage                   = "openshift-tests-provider-cert:v0.5.0-alpha.1"
+	DefaultToolsRepository         = "quay.io/opct"
+	PluginsImage                   = "plugin-openshift-tests:v0.5.0-alpha.5"
+	CollectorImage                 = "plugin-artifacts-collector:v0.5.0-alpha.5"
+	MustGatherMonitoringImage      = "must-gather-monitoring:v0.5.0-alpha.5"
+	OpenShiftTestsImage            = "image-registry.openshift-image-registry.svc:5000/openshift/tests"
+)
+
+var (
+	SonobuoyImage = fmt.Sprintf("sonobuoy:%s", buildinfo.Version)
 )
 
 var (
@@ -28,3 +41,19 @@ var (
 		"pod-security.kubernetes.io/warn":    "privileged",
 	}
 )
+
+func GetSonobuoyImage() string {
+	return fmt.Sprintf("%s/%s", DefaultToolsRepository, SonobuoyImage)
+}
+
+func GetPluginsImage() string {
+	return fmt.Sprintf("%s/%s", DefaultToolsRepository, PluginsImage)
+}
+
+func GetCollectorImage() string {
+	return fmt.Sprintf("%s/%s", DefaultToolsRepository, CollectorImage)
+}
+
+func GetMustGatherMonitoring() string {
+	return fmt.Sprintf("%s/%s", DefaultToolsRepository, MustGatherMonitoringImage)
+}

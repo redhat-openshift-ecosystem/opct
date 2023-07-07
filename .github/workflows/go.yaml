@@ -1,3 +1,4 @@
+---
 name: "OPCT"
 
 on:
@@ -49,8 +50,8 @@ jobs:
     name: go-test
     runs-on: ubuntu-latest
     needs:
-    - go-lint
-    - go-static
+      - go-lint
+      - go-static
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -63,8 +64,8 @@ jobs:
     name: "go-vet"
     runs-on: ubuntu-latest
     needs:
-    - go-lint
-    - go-static
+      - go-lint
+      - go-static
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -77,8 +78,8 @@ jobs:
     name: "build-artifact"
     runs-on: ubuntu-latest
     needs:
-    - go-test
-    - go-vet
+      - go-test
+      - go-vet
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -121,8 +122,7 @@ jobs:
   e2e-cmd_report:
     name: "e2e-cmd_report"
     runs-on: ubuntu-latest
-    needs:
-    - build
+    needs: [build]
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -132,24 +132,30 @@ jobs:
 
       - name: Running report
         env:
-          RESULT_ARTIFACT_URL: "https://openshift-provider-certification.s3.us-west-2.amazonaws.com"
-          RESULT_ARTIFACT_VERSION: "v0.4.0/default/4.15.0-20240228-HighlyAvailable-vsphere-None.tar.gz"
-          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
+          BUCKET: openshift-provider-certification
+          REGION: us-west-2
+          OPCT_MODE: v0.4.0/default
+          EXEC_MODE: default
+          ARTIFACT: 4.15.0-20240228-HighlyAvailable-vsphere-None.tar.gz
+          OPCT: /tmp/build/opct-linux-amd64
         run: |
-          echo "> Downloading sample artifact: ${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
-          wget -qO /tmp/result.tar.gz "${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
+          URI=${OPCT_MODE}/${ARTIFACT}
+          URL=https://${BUCKET}.s3.${REGION}.amazonaws.com/${URI}
+
+          echo "> Downloading sample artifact: ${URL}"
+          wget -qO /tmp/result.tar.gz "${URL}"
 
           echo "> Setting run permissions to OPCT:"
-          chmod u+x ${CUSTOM_BUILD_PATH}
+          chmod u+x ${OPCT}
 
           echo "> Running OPCT report:"
-          ${CUSTOM_BUILD_PATH} report /tmp/result.tar.gz
+          ${OPCT} report /tmp/result.tar.gz
 
   e2e-cmd_adm-parse-etcd-logs:
     name: "e2e-cmd_adm-parse-etcd-logs"
     runs-on: ubuntu-latest
     needs:
-    - build
+      - build
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -159,14 +165,16 @@ jobs:
 
       - name: Preparing testdata
         env:
-          RESULT_ARTIFACT_URL: "https://openshift-provider-certification.s3.us-west-2.amazonaws.com"
-          RESULT_ARTIFACT_VERSION: "testdata/must-gather-etcd-logs.tar.gz"
+          BUCKET: openshift-provider-certification
+          REGION: us-west-2
+          VERSION: "testdata/must-gather-etcd-logs.tar.gz"
           CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
           LOCAL_TEST_DATA: /tmp/must-gather.tar.gz
           LOCAL_TEST_DATA_DIR: /tmp/must-gather
         run: |
-          echo "> Downloading sample artifact: ${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
-          wget -qO ${LOCAL_TEST_DATA} "${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
+          URL=https://${BUCKET}.s3.${REGION}.amazonaws.com
+          echo "> Downloading sample artifact: ${URL}/${VERSION}"
+          wget -qO ${LOCAL_TEST_DATA} "${URL}/${VERSION}"
 
           echo "> Setting run permissions to OPCT:"
           chmod u+x ${CUSTOM_BUILD_PATH}
@@ -178,37 +186,43 @@ jobs:
       - name: "e2e stdin reader: cat <etcd pod logs> | opct adm parse-etcd-logs"
         env:
           CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
-          LOCAL_TEST_DATA_DIR: /tmp/must-gather
+          TEST_DATA_DIR: /tmp/must-gather
+          NS_PATH_ETCD: namespaces/openshift-etcd/pods
+          LOG_PATH: etcd/etcd/logs
         run: |
-          cat ${LOCAL_TEST_DATA_DIR}/*/*/namespaces/openshift-etcd/pods/*/etcd/etcd/logs/*.log | \
+          cat ${TEST_DATA_DIR}/*/*/${NS_PATH_ETCD}/*/${LOG_PATH}/*.log | \
             ${CUSTOM_BUILD_PATH} adm parse-etcd-logs
 
       - name: "e2e must-gather dir: opct adm parse-etcd-logs <must-gather-dir>"
         env:
           CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
-          LOCAL_TEST_DATA_DIR: /tmp/must-gather
+          TEST_DATA_DIR: /tmp/must-gather
         run: |
-          ${CUSTOM_BUILD_PATH} adm parse-etcd-logs ${LOCAL_TEST_DATA_DIR}
+          ${CUSTOM_BUILD_PATH} adm parse-etcd-logs ${TEST_DATA_DIR}
 
-      - name: "e2e aggregate by hour: opct adm parse-etcd-logs --aggregator hour <must-gather-dir>"
+      - name: |
+          e2e aggregate by hour: opct adm parse-etcd-logs
+            --aggregator hour <must-gather-dir>
         env:
-          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
-          LOCAL_TEST_DATA_DIR: /tmp/must-gather
+          OPCT: /tmp/build/opct-linux-amd64
+          TEST_DATA_DIR: /tmp/must-gather
         run: |
-          ${CUSTOM_BUILD_PATH} adm parse-etcd-logs --aggregator hour ${LOCAL_TEST_DATA_DIR}
+          ${OPCT} adm parse-etcd-logs --aggregator hour ${TEST_DATA_DIR}
 
-      - name: "e2e ignore error counters: opct adm parse-etcd-logs --skip-error-counter=true <must-gather-dir>"
+      - name: |
+          e2e ignore error counters: opct adm parse-etcd-logs
+            --skip-error-counter=true <must-gather-dir>
         env:
-          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
-          LOCAL_TEST_DATA_DIR: /tmp/must-gather
+          OPCT: /tmp/build/opct-linux-amd64
+          TEST_DATA_DIR: /tmp/must-gather
         run: |
-          ${CUSTOM_BUILD_PATH} adm parse-etcd-logs --skip-error-counter=true ${LOCAL_TEST_DATA_DIR}
+          ${OPCT} adm parse-etcd-logs \
+            --skip-error-counter=true ${TEST_DATA_DIR}
 
   e2e-cmd_adm-parse-metrics:
     name: "e2e-cmd_adm-parse-metrics"
     runs-on: ubuntu-latest
-    needs:
-    - build
+    needs: [build]
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -218,15 +232,19 @@ jobs:
 
       - name: Preparing testdata
         env:
-          RESULT_ARTIFACT_URL: "https://openshift-provider-certification.s3.us-west-2.amazonaws.com"
-          RESULT_ARTIFACT_VERSION: "testdata/ci-external-aws-ccm_1757495441294888960-artifacts_must-gather-metrics.tar.xz"
+          BUCKET: openshift-provider-certification
+          REGION: us-west-2
+          PREFIX: testdata/ci-external-aws-ccm_
+          VERSION: 1757495441294888960-artifacts_must-gather-metrics.tar.xz
           CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
           LOCAL_TEST_DATA: /tmp/opct-metrics.tar.xz
         run: |
-          echo "> Downloading sample artifact: ${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
-          wget -qO ${LOCAL_TEST_DATA} "${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
+          DATA_VERSION=${PREFIX}${VERSION}
+          URL=https://${BUCKET}.s3.${REGION}.amazonaws.com
+          echo "> Downloading sample artifact: ${URL}/${DATA_VERSION}"
+          wget -qO ${LOCAL_TEST_DATA} "${URL}/${DATA_VERSION}"
 
-          echo "> Setting run permissions to OPCT:"
+          echo "> Setting exec permissions to OPCT:"
           chmod u+x ${CUSTOM_BUILD_PATH}
 
       - name: "e2e parse metrics: opct adm parse-etcd-logs <must-gather-dir>"
@@ -234,5 +252,40 @@ jobs:
           CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
           LOCAL_TEST_DATA: /tmp/opct-metrics.tar.xz
         run: |
-          ${CUSTOM_BUILD_PATH} adm parse-metrics --input ${LOCAL_TEST_DATA} --output /tmp/metrics
+          ${CUSTOM_BUILD_PATH} adm parse-metrics \
+            --input ${LOCAL_TEST_DATA} --output /tmp/metrics
           tree /tmp/metrics
+
+  e2e-cmd_adm-baseline:
+    name: "e2e-cmd_adm-baseline"
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: opct-linux-amd64
+          path: /tmp/build/
+
+      - name: Preparing testdata
+        env:
+          OPCT: /tmp/build/opct-linux-amd64
+        run: |
+          echo "> Setting exec permissions to OPCT:"
+          chmod u+x ${OPCT}
+
+      - name: "e2e adm baseline: opct adm baseline (list|get)"
+        env:
+          OPCT: /tmp/build/opct-linux-amd64
+        run: |
+          echo -e "\n\t#>> List latest baseline results"
+          ${OPCT} adm baseline list
+
+          echo -e "\n\t#>> List all baseline results"
+          ${OPCT} adm baseline list --all
+
+          echo -e "\n\t#>> Retrieve a baseline result by name"
+          ${OPCT} adm baseline get --name 4.16_None_latest --dump
+
+          echo -e "\n\t#>> Retrieve a baseline result by release and platform"
+          ${OPCT} adm baseline get --release 4.15 --platform None
