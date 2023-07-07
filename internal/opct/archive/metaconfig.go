@@ -7,6 +7,7 @@ import (
 	sbconfig "github.com/vmware-tanzu/sonobuoy/pkg/config"
 )
 
+// MetaConfigSonobuoy is the sonobuoy configuration type.
 type MetaConfigSonobuoy = sbconfig.Config
 
 // ParseMetaConfig extract relevant attributes to export to data keeper.

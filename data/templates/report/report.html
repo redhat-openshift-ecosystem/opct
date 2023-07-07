@@ -1,0 +1,1166 @@
+<!-- README: This Go Template replaces the delimiter '[ [' and '] ]' (without spaces),
+preventing conflict with Vue/JS language. -->
+
+<!DOCTYPE html>
+<html lang="en"> <head>
+  <meta charset="UTF-8" />
+  <title>OPCT Report</title>
+  <link rel="shortcut icon" href="#">
+
+  <!-- Load required Bootstrap and BootstrapVue CSS -->
+  <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css" />
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css" />
+
+  <link type="text/css" rel="stylesheet" href="./opct-report.css" />
+
+</head>
+<body>
+
+<!-- Tab manager -->
+<div class="tab">
+  <button class="tablinks" onclick="openTab(event, 'OPCT')" id="tabDefault">OPCT</button>
+  <button class="tablinks" onclick="openTab(event, 'CAMGI')">CAMGI</button>
+  <button class="tablinks" onclick="openTab(event, 'Tests')">Tests</button>
+  <button class="tablinks" onclick="openTab(event, 'MGEvents')">Events</button>
+  <!-- <button class="tablinks" onclick="openExternalTab(event, '/must-gather/event-filter.html')">Events</button> -->
+  <!-- <button class="tablinks" onclick="openTab(event, 'Metrics')">Metrics</button> -->
+  <button class="tablinks" onclick="openExternalTab(event, '/metrics')">Metrics</button>
+</div>
+
+<!-- Tab content: OPCT -->
+<div id="OPCT" class="tabcontent">
+  <div class="alert">
+    <span class="closebtn" onclick="this.parentElement.style.display='none';">&times;</span>
+    <strong>Warning!</strong> This report is under developer preview.
+    If you encounter any issues or bugs, please report on <a href="https://github.com/redhat-openshift-ecosystem/provider-certification-tool/issues/new/choose" target="_blank">Github Project</a> or in
+    <a href="https://issues.redhat.com/projects/OPCT/summary" target="_blank">Jira</a>. Thanks!
+  </div>
+  <div id="app_opct">
+    <div class="row mt-2">
+      <!-- OPCT side nav menu -->
+      <div class="col-2" id="nav-col">
+        <div class="list-group">
+          <!-- <a href="#" v-on:click="changeContent('summary')" class="list-group-item list-group-item-action">Summary</a> -->
+          <a href="#" v-on:click="changeMenu('summary')" class="list-group-item list-group-item-action">Summary</a>
+          <a href="#" v-on:click="changeMenu('checks')" class="list-group-item list-group-item-action">Checks
+            [[ if .Summary.Alerts.Checks ]]
+            <span class= "badge bg-[[ .Summary.Alerts.Checks ]] float-right">[[ .Summary.Alerts.ChecksMessage ]]</span>
+            [[ end ]]
+          </a>
+          <!-- TODO: move plugin page rendering from Go template (static) to changeMenu (js, dynamic page) -->
+          <!-- <a href="#" v-on:click="changeContent('10-openshift-kube-conformance')" class="list-group-item list-group-item-action">Suite Kubernetes -->
+          <a href="#" v-on:click="changeMenu('10-openshift-kube-conformance')" class="list-group-item list-group-item-action">Suite Kubernetes
+            [[ if .Summary.Alerts.PluginK8S ]]
+            <span class= "badge bg-[[ .Summary.Alerts.PluginK8S ]] float-right">[[ .Summary.Alerts.PluginK8SMessage ]]</span>
+            [[ end ]]
+          </a>
+          <!-- <a href="#" v-on:click="changeContent('20-openshift-conformance-validated')" class="list-group-item list-group-item-action">Suite OpenShift -->
+          <a href="#" v-on:click="changeMenu('20-openshift-conformance-validated')" class="list-group-item list-group-item-action">Suite OpenShift
+            [[ if .Summary.Alerts.PluginOCP ]]
+            <span class= "badge bg-[[ .Summary.Alerts.PluginOCP ]] float-right">[[ .Summary.Alerts.PluginOCPMessage ]]</span>
+            [[ end ]]
+          </a>
+          <a href="#" v-on:click="changeMenu('suite-errors')" class="list-group-item list-group-item-action">Suite Errors
+            [[ if .Summary.Alerts.SuiteErrors ]]
+            <span class= "badge bg-[[ .Summary.Alerts.SuiteErrors ]] float-right">[[ .Summary.Alerts.SuiteErrorsMessage ]]</span>
+            [[ end ]]
+          </a>
+          <a href="#" v-on:click="changeMenu('workload-errors')" class="list-group-item list-group-item-action">Workload Errors
+            [[ if .Summary.Alerts.WorkloadErrors ]]
+            <span class= "badge bg-[[ .Summary.Alerts.WorkloadErrors ]] float-right">[[ .Summary.Alerts.WorkloadErrorsMessage ]]</span>
+            [[ end ]]
+          </a>
+          <a href="#" v-on:click="changeMenu('etcd')" class="list-group-item list-group-item-action">etcd</a>
+          <a href="#" v-on:click="changeMenu('network')" class="list-group-item list-group-item-action">Network</a>
+          <a href="#" v-on:click="changeMenu('runtime')" class="list-group-item list-group-item-action">Runtime</a>
+          <a class="list-group-item list-group-item-action disabled">Suite Upgrade</a>
+          <a class="list-group-item list-group-item-action disabled">Plugin Artifacts</a>
+
+          <!-- TODO: parse firing alerts
+          <a class="list-group-item list-group-item-action disabled">Monitoring</a>  -->
+
+          <!-- TODO: Temp disablied. Download report will be useful when can import/upload remote results.
+          <button id="download" @click="downloadReport">Download</button> -->
+          <!-- <td>
+            <label for="files" class="btn">Upload</label>
+            <input id="files" style="visibility:hidden;" type="file" ref="file" @change="uploadReport">
+          </td> -->
+
+          <a href="https://redhat-openshift-ecosystem.github.io/provider-certification-tool/user/" class="list-group-item list-group-item-action text-center" target="_blank">
+            <img src="https://github.com/favicon.ico" alt="GitHub logo" title="Found a bug or issue? Visit this project's git repo.">
+          </a>
+        </div>
+      </div>
+      <!-- OPCT content -->
+      <div class="col-10">
+        <div v-if="isLoading">
+          <div>Loading... ({{ loadingMessage }})</div>
+        </div>
+        <div id="main-content" class="overflow-auto"><span v-html="menuTitle"></span></div>
+        <div id="main-content" class="overflow-auto"><span v-html="menuBody"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- TAB START CAMGI -->
+<div id="CAMGI" class="tabcontent">
+[[ if .Summary.Features.HasCAMGI ]]
+  <iframe src="./artifacts_must-gather_camgi.html" height="800" width="100%" title="Iframe Example"></iframe>
+[[ else ]]
+  <p><a href="https://github.com/elmiko/camgi.rs">CAMGI</a>, Cluster Autoscaler Must Gather Investigator, is a tool for examining OKD/OpenShift must-gather
+    records to investigate cluster autoscaler behavior and configuration.</p>
+  <p>Steps to use with OPCT:</p>
+  <ul>
+  <li>1) download the tool</li>
+  <li>2) extract must-gather from artifacts</li>
+  </ul>
+  <pre><code class="lang-sh"><span class="hljs-comment">
+# Extract the OPCT result file (artifacts.tar.gz)</span>
+mkdir results &amp;&amp; \
+tar xfz artifacts.tar.gz -C results
+<span class="hljs-comment">
+# Extract the must-gather (requires xz)</span>
+mkdir results<span class="hljs-regexp">/must-gather &amp;&amp; \
+tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-collector/</span>results<span class="hljs-regexp">/global/</span>artifacts_must-gather.tar.xz -C results<span class="hljs-regexp">/must-gather</span>
+  </code></pre>
+  <ul><li>3) run camgi</li></ul>
+  <pre><code class="lang-sh">.<span class="hljs-regexp">/camgi results/mu</span>st-gather &gt; results<span class="hljs-regexp">/camgi.html</span>
+  </code></pre>
+  <ul><li>4) Open the file results/camgi.html in your browser.</li></ul>
+  <blockquote><blockquote>
+  <p>TODO: collect the camgd.html in the artifacts plugin.</p>
+  </blockquote></blockquote>
+[[ end ]]
+</div>
+<!-- Tab END CAMGI -->
+
+<div id="Tests" class="tabcontent">
+  <iframe src="./opct-filter.html" height="800" width="100%" title="ALl Tests (raw)"></iframe>
+</div>
+
+<div id="MGEvents" class="tabcontent">
+  <iframe src="./must-gather/event-filter.html" height="800" width="100%" title="Events collected by must-gather"></iframe>
+</div>
+
+<!-- Scripts -->
+
+<!-- Chart JSON -->
+
+<script>
+  // TODO: move script to external file.
+  /* Script for: Tab manager */
+  function openTab(evt, tabName) {
+    // Declare all variables
+    var i, tabcontent, tablinks;
+
+    // Get all elements with class="tabcontent" and hide them
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (i = 0; i < tabcontent.length; i++) {
+      tabcontent[i].style.display = "none";
+    }
+
+    // Get all elements with class="tablinks" and remove the class "active"
+    tablinks = document.getElementsByClassName("tablinks");
+    for (i = 0; i < tablinks.length; i++) {
+      tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " active";
+  }
+
+  function openExternalTab(evt, path) {
+    let url = window.location.href.split('/opct-report.html')[0] + path
+    window.open(url, '_blank').focus();
+  }
+
+  /* Script for: OPCT app */
+  // TODO: move to components.
+  var app_opct = new Vue({
+    el: "#app_opct",
+    data() {
+      return {
+[[ if not .Setup.Frontend.EmbedData ]] // Go template
+        report: {},
+[[ end ]]
+        providerPlugins: [],
+        menus: [
+            { id: "summary", name: "Summary", title: '', alert: ''},
+            { id: "suite-k8s", name: "Kubernetes", title: 'Test Suite Kubernetes Conformance', alert: "danger", alertMsg: "2"},
+            { id: "suite-ocp", name: "OpenShift", title: 'Test Suite OpenShift Conformance', alert: "warning", alertMsg: "2" },
+          ],
+        currentContent: '<h1> OPCT </h1>',
+        currentMenu: 'default',
+        menuTitle: '',
+        menuBody: '',
+        isLoading: true,
+        loadingMessage: '',
+        showMetrics: false,
+      };
+    },
+    methods: {
+      changeContent: function(target) {
+        this.currentMenu = 'default'
+        let newdata = document.getElementById(target + '-data')
+        this.currentContent = newdata.innerHTML
+      },
+      downloadReport() {
+        let text = JSON.stringify(this.report);
+        let filename = this.report.provider.tests.archive + ".json";
+        let element = document.createElement('a');
+        element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(text));
+        element.setAttribute('download', filename);
+
+        element.style.display = 'none';
+        document.body.appendChild(element);
+
+        element.click();
+        document.body.removeChild(element);     
+      },
+      uploadReport() {
+        this.report = this.$refs.file.files[0];
+      },
+      appAddress() {
+        return window.location.href.split('/opct-report.html')[0]
+      },
+      fetchReport() {
+        axios.defaults.headers.post['Content-Type'] ='application/json;charset=utf-8';
+        axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*';
+        axios.get('opct-report.json')
+          .then(resp => { 
+                this.report = resp.data;
+                this.isLoading = false;
+                app_opct.changeMenu('summary').click();
+          })
+          .catch(error => {
+            console.log("Error fetching opct-report.json");
+            console.log(error);
+          })
+      },
+      changeMenu(m) {
+        this.currentMenu = m;
+        this.changeMenuCleanup();
+        console.log("changeMenu " + this.currentMenu)
+        switch (m) {
+        case "summary":
+          console.log("menu summary selected");
+          this.changeMenuSummary();
+        break;
+        case "suite-errors":
+          console.log("menu suite-errors selected");
+          this.changeMenuSuiteError();
+        break;
+        case "workload-errors":
+          console.log("menu workload-errors selected");
+          this.changeMenuWorkloadError()
+        break;
+        case "checks":
+          console.log("menu checks selected");
+          this.changeMenuChecks();
+          break;
+        case "10-openshift-kube-conformance":
+        case "20-openshift-conformance-validated":
+          console.log("menu selected: conformance plugin " + m);
+          this.changeMenuPluginConformance(m)
+          break;
+        case "etcd":
+          console.log("menu selected: etcd");
+          this.changeMenuETCD()
+          break;
+        case "network":
+          console.log("menu selected: network");
+          this.changeMenuNetwork();
+          break;
+        case "runtime":
+          console.log("menu selected: runtime");
+          this.changeMenuRuntime();
+          break;
+        default:
+          console.log("menu default selected");
+          break;
+        };
+      },
+      changeMenuCleanup() {
+        this.menuTitle = '';
+        this.menuBody = '';
+      },
+      createTableRevHTML(table=[]) {
+        htmlTable = `<table class="table table-sm table-striped font-monospace"><tbody>`
+        for (let i in table.data) {
+          htmlTable += `<tr>`
+          fieldsDyn = new Map(Object.entries(table.data[i])).keys();
+          for (let h of fieldsDyn) {
+            htmlTable += `<th scope="col">`+ h +`</th>`
+            htmlTable += `<td>`+ table.data[i][h] +`</td>`
+          }
+          htmlTable += `<tr>`
+        }
+        htmlTable += `</tbody></table>`
+        return htmlTable
+      },
+      getTotalCounter(errors=[]) {
+        for (let e in errors) {
+          if (e == "total") {
+            return errors[e]
+          }
+        }
+      },
+      changeMenuSummary() {
+        this.menuTitle = `<h1>Summary</h1><hr/>`
+        if (this.isLoading == true) {
+          return
+        }
+        this.menuBody += `<dt class="text-light bg-secondary ps-1 mb-1"> Cluster </dt>`
+        this.menuBody += `<table class="table table-sm table-striped font-monospace">
+          <tbody><tr><th scope="col">Result file</th><td>`+ this.archiveName +`</td></tr></tbody></table>`
+        installConfigRef = "--"
+        if (this.report.summary.features.hasInstallConfig != undefined && this.report.summary.features.hasInstallConfig == true) {
+          installConfigRef = "<a href=\"./install-config.txt\" target=\"_blank\">install-config.yaml</a><br>"
+        }
+        dataCluster = [
+          {
+            "OpenShift:": this.report.provider.version.openshift.desired,
+            "Kubernetes:": this.report.provider.version.kubernetes
+          },
+          {
+            "PlatformType:": this.platformType,
+            "NetworkType:": this.report.provider.infra.networkType
+          },
+          {
+            "InfraID:": this.report.provider.infra.name,
+            "ClusterID:": this.report.provider.version.openshift.clusterID
+          },
+          {
+            "Topology:": this.report.provider.infra.topology,
+            "ControlPlaneTopology:": this.report.provider.infra.controlPlaneTopology
+          },
+          {
+            "InstallConfig:": installConfigRef
+          }
+        ]
+        this.menuBody += this.createTableRevHTML(table={data: dataCluster});
+
+        // Section: Tests summary
+        this.menuBody += `<dt class="text-light bg-secondary ps-1 mb-1"> Tests </dt>`
+        dataP = []
+        dataP.push(this.getPluginStat("05-openshift-cluster-upgrade")[0])
+        dataP.push(this.getPluginStat("10-openshift-kube-conformance")[0])
+        dataP.push(this.getPluginStat("20-openshift-conformance-validated")[0])
+        dataP.push(this.getPluginStat("80-openshift-tests-replay")[0])
+        dataP.push(this.getPluginStat("99-openshift-artifacts-collector")[0])
+        dataP.push({"Plugin Name": "Execution Time", "Time": this.report.summary.runtime.executionTime})
+
+        const pluginHeaders = new Map(Object.entries(dataP[0]));
+        let tbPluginsRes = {
+          data: dataP,
+          fields: pluginHeaders.keys(),
+          fieldMap: {}
+        }
+        this.menuBody += this.createTableHTML(table=tbPluginsRes);
+        this.menuBody += "<i>*Prio.Failures: Priority failures after filters</i><p>";
+
+        this.menuBody += `<dt class="text-light bg-secondary ps-1 mb-1"> Overall counters </dt>`
+        dataPerf = [
+          {
+            "Cluster status:": this.report.provider.version.openshift.overallStatus,
+            "etcd slow req(avg):": this.report.provider.mustGatherInfo.ErrorEtcdLogs.FilterRequestSlowAll.all.StatMean,
+            "Errors Workloads": this.getTotalCounter(this.errorCountersWorkload.errors),
+          },
+          {
+            "Failed checks:": this.report.checks.failures.length,
+            "etcd slow req(max):": this.report.provider.mustGatherInfo.ErrorEtcdLogs.FilterRequestSlowAll.all.StatMax,
+            "Errors Suite": this.errorCountersSuite.counters.total,
+          },
+          {
+            "Network Outages:": this.report.provider.mustGatherInfo.PodNetworkChecks.TotalOutages,
+            "etcd slow req(>1s):": this.report.provider.mustGatherInfo.ErrorEtcdLogs.FilterRequestSlowAll.all.Buckets["1000-inf"],
+            "Errors etcd": this.getTotalCounter(this.report.provider.mustGatherInfo.ErrorEtcdLogs.ErrorCounters),
+          },
+        ]
+        this.menuBody += this.createTableRevHTML(table={data: dataPerf});
+
+        let tbNodes = {
+          header: "Node Info",
+          data: this.report.provider.nodes,
+          headline: "",
+          fields: ["hostname", "osId", "architecture", "capacityCpu", "capacityMemGB","capacityStorageGB", "nodeRoles", "taints", "creationDate"],
+          fieldMap: {"capacityCpu": "CPU", "capacityMemGB": "Mem(GB)", "capacityStorageGB": "Storage(GB)"}
+        }
+        this.menuBody += this.createTableHTML(table=tbNodes);
+      },
+      changeMenuSuiteError() {
+        this.menuTitle = `<h1>Suite Errors</h1>`
+        this.menuBody = this.pageHeadline
+        this.menuBody += "<p>Error Counters extracted from logs of end-to-end tests."
+
+        // Table: Errors by pattern
+        if (this.errorCountersSuite.counters !== undefined) {
+          table = this.extractErrorCountersToTable(this.errorCountersSuite.counters)
+          table.header = "Error Pattern Counters"
+          this.menuBody += this.createTableHTML(table=table);
+        }
+
+        // Table: Errors by tests
+        let tbErrorsTests = {
+          header: "Tests by Error Pattern",
+          data: this.errorCountersSuite.tests,
+          headline: "",
+          fields: ["Name", "ID", "Pattern", "Count"],
+          fieldMap: {}
+        }
+        this.menuBody += this.createTableHTML(table=tbErrorsTests);
+      },
+      changeMenuWorkloadError() {
+        this.menuTitle = `<h1>Workload Errors</h1>`
+        this.menuBody = this.pageHeadline
+        this.menuBody += "<p>Error Counters extracted from must-gather.</>"
+
+        // Table: Errors by pattern
+        if (this.errorCountersWorkload.errors !== undefined) {
+          table = this.extractErrorCountersToTable(this.errorCountersWorkload.errors)
+          table.header = "Error Counters on workloads (pod logs)"
+          this.menuBody += this.createTableHTML(table=table);
+        }
+
+        // Table: Errors by namespace
+        let tbErrorsNS = {
+          header: "Error counter by Namespace",
+          data: [],
+          headline: "",
+          fields: ["Pattern", "Counter"],
+          fieldMap: {}
+        }
+        const errorsN = new Map(Object.entries(this.errorCountersWorkload.namespace));
+        for (let ns of errorsN.keys()) {
+          tbErrorsNS.data.push({"Pattern": ns, "Counter": this.errorCountersWorkload.namespace[ns]})
+        }
+        this.menuBody += this.createTableHTML(table=tbErrorsNS);
+
+        // Table: Errors by pods
+        let tbErrorsPods = {
+          header: "Error Counters by Pod and Pattern",
+          data: this.errorCountersWorkload.logs,
+          headline: "",
+          fields: ["Name", "Pattern", "Count"],
+          fieldMap: {}
+        }
+        this.menuBody += this.createTableHTML(table=tbErrorsPods);
+      },
+      changeMenuChecks() {
+        this.menuTitle = `<h1>Checks</h1>`
+        this.menuBody = this.pageHeadline
+        this.menuBody += "<p>Presubmit checks extracted from OPCT results.</>"
+
+        dtFailures = []
+        for (let check of this.report.checks.failures) {
+          // build hyperlinks in the name (when exists)
+          if (check.documentation != "" && check.patched == undefined) {
+            check.patched = true
+            check.slo = "<a href=\""+ check.documentation +"\" target=\"_blank\">"+ check.slo +"</a><br>"
+          }
+          dtFailures.push(check)
+        }
+        let tbFailures = {
+          header: "Failed Checks [must be fixed] ("+ dtFailures.length +")",
+          data: dtFailures,
+          headline: "",
+          fields: fields=["id","slo", "sloResult", "sliTarget", "sliCurrent"],
+          fieldMap: {"id":"ID", "slo":"NAME", "sloResult": "RESULT","sliTarget":"WANT", "sliCurrent":"CURRENT"}
+        }
+        this.menuBody += this.createTableHTML(table=tbFailures);
+
+        dtWarnings = []
+        for (let check of this.report.checks.warnings) {
+          if (check.documentation != "" && check.patched == undefined) {
+            check.patched = true
+            check.slo = "<a href=\""+ check.documentation +"\" target=\"_blank\">"+ check.slo +"</a><br>"
+          }
+          dtWarnings.push(check)
+        }
+        let tbWarnnigs = {
+          header: "Warning Checks ("+ dtWarnings.length +")",
+          data: dtWarnings,
+          headline: "",
+          fields: fields=["id","slo", "sloResult", "sliTarget", "sliCurrent"],
+          fieldMap: {"id":"ID", "slo":"NAME", "sloResult": "RESULT","sliTarget":"WANT", "sliCurrent":"CURRENT"}
+        }
+        this.menuBody += this.createTableHTML(table=tbWarnnigs);
+
+        dtSuccess = []
+        for (let check of this.report.checks.successes) {
+          if (check.documentation != "" && check.patched == undefined) {
+            check.patched = true
+            check.slo = "<a href=\""+ check.documentation +"\" target=\"_blank\">"+ check.slo +"</a><br>"
+          }
+          dtSuccess.push(check)
+        }
+        for (let check of this.report.checks.skips) {
+          if (check.documentation != "" && check.patched == undefined) {
+            check.patched = true
+            check.slo = "<a href=\""+ check.documentation +"\" target=\"_blank\">"+ check.slo +"</a><br>"
+          }
+          dtSuccess.push(check)
+        }
+        let tSucc = {
+          header: "Passed and Skipped checks ("+ dtSuccess.length +")",
+          data: dtSuccess,
+          headline: "",
+          fields: fields=["id","slo", "sloResult", "sliTarget", "sliCurrent"],
+          fieldMap: {"id":"ID", "slo":"NAME", "sloResult": "RESULT","sliTarget":"WANT", "sliCurrent":"CURRENT"}
+        }
+        this.menuBody += this.createTableHTML(table=tSucc);
+      },
+      getPluginStat(name) {
+        let plugin = this.report.provider.plugins[name];
+        logPath = "log-sonobuoy-"+ plugin.id +"-plugin.txt";
+        pluginNameURL = "<a href=\"./"+ logPath +"\" target=\"_blank\">"+ plugin.id +"</a><br>"
+        table = [{
+          "Plugin Name": pluginNameURL,
+          "Time": this.report.summary.runtime.plugins[name],
+          "Result": plugin.stat.result,
+          "Status": plugin.stat.status,
+          "Total": plugin.stat.total,
+          "Pass": plugin.stat.passed,
+          "Fail": plugin.stat.failed,
+          "T*out": plugin.stat.timeout,
+          "Skip": plugin.stat.skipped,
+          "Prio.Failures*": plugin.stat.filterFailures,
+        }]
+        return table
+      },
+      isFloat(value) {
+        if (
+          typeof value === 'number' &&
+          !Number.isNaN(value) &&
+          !Number.isInteger(value)
+        ) {
+          return true;
+        }
+        return false;
+      },
+      normalizePluginData(pluginName, data) {
+        for (let i in data) {
+          // create 'reference' field with links
+          let ref = ""
+          if (data[i].documentation !== "") {
+            ref += "<a href=\""+ data[i].documentation +"\" target=\"_blank\">docs</a><br>"
+          }
+          ref += "<a href=\"./failures-"+ pluginName +"/"+ data[i].id +"-failure.txt\" target=\"_blank\">failure</a><br>"
+          ref += "<a href=\"./failures-"+ pluginName +"/"+ data[i].id +"-systemOut.txt\" target=\"_blank\">systemOut</a>"
+          data[i].reference = ref
+          // round flake perc field
+          if (data[i].flakePerc !== undefined) {
+            if (this.isFloat(data[i].flakePerc)) {
+              data[i].flakePerc = data[i].flakePerc.toFixed(2)
+            }
+          }
+        }
+        return data;
+      },
+      changeMenuPluginConformance(pluginName) {
+        this.menuTitle = `<h1>Conformance Suite</h1>`
+        this.menuBody = this.pageHeadline
+        this.menuBody += "<p><p>Results for Conformance plugin: "+ pluginName +" </>"
+
+        // show plugin result summary
+        let tbTests = {
+          header: "Tests",
+          data: this.getPluginStat(pluginName),
+          headline: "",
+          fields: [],
+          fieldMap: {}
+        }
+        this.menuBody += this.createTableHTML(table=tbTests);
+        this.menuBody += "<i>*Prio.Failures: Priority failures after filters</i><p>";
+
+        let plugin = this.report.provider.plugins[pluginName]
+
+        this.menuBody += "<p><b>Failures filtered by OPCT report pipeline:</p></b>";
+        // Create table with counters by filter
+        let tbFilters = {
+          header: "Details of filter pipeline for failed tests:",
+          data: [{
+            "ID": "F1",
+            "Summary": "SuiteOnly: filter failures not included in the suite.",
+            "Previous": plugin.stat.failed,
+            "Excluded": plugin.stat.filter1Excluded,
+            "Result": plugin.stat.filter1Suite,
+          }, {
+            "ID": "F2",
+            "Summary": "KF: filter failures known and/or persistent failures.",
+            "Previous": plugin.stat.filter1Suite,
+            "Excluded": plugin.stat.filter5Excluded,
+            "Result": plugin.stat.filter5Failures,
+          }, {
+            "ID": "F3",
+            "Summary": "Replay: filter failures passing in the Replay step (re-run)",
+            "Previous": plugin.stat.filter5Failures,
+            "Excluded": plugin.stat.filter6Excluded,
+            "Result": plugin.stat.filter6Failures,
+          }, {
+            "ID": "F4",
+            "Summary": "Baseline: filter failures failing in the baseline archive (deprecated soon)",
+            "Previous": plugin.stat.filter6Failures,
+            "Excluded": plugin.stat.filter2Excluded,
+            "Result": plugin.stat.filter2Baseline,
+          }, {
+            "ID": "F5",
+            "Summary": "FlakeAPI: filter failures failing in OpenShift CI",
+            "Previous": plugin.stat.filter2Baseline,
+            "Excluded": plugin.stat.filter3Excluded,
+            "Result": plugin.stat.filter3FailedPriority,
+          }, {
+            "ID": "F6",
+            "Summary": "BaselineAPI: filter failures failing in OPCT CI jobs (baseline)",
+            "Previous": plugin.stat.filter3FailedPriority,
+            "Excluded": plugin.stat.filter4Excluded,
+            "Result": plugin.stat.filter4FailedAPI,
+          }],
+          headline: "",
+          fields: ["ID", "Summary", "Previous", "Excluded", "Result"]
+        }
+        this.menuBody += this.createTableHTML(table=tbFilters);
+
+        // Create table for Priority (filtered failures)
+        let tbPrio = {
+          header: "Test failures [high priority]",
+          data: [],
+          headline: "",
+          fields: ["errorsTotal", "reference", "name"],
+          fieldMap: {
+            "errorsTotal": "Errors",
+            "reference": "Ref",
+            "name": "Test Name",
+          }
+        }
+        if (plugin.failedFiltered != undefined) {
+          dt = this.normalizePluginData(pluginName, plugin.failedFiltered)
+          tbPrio.data = dt
+          tbPrio.header += " ("+ tbPrio.data.length +")"
+          tbPrio.headline = "<p>Tests by tags: " + (plugin.failedFiltered == undefined ? "[]" : plugin.tagsFailuresFiltered)
+        }
+        this.menuBody += this.createTableHTML(table=tbPrio);
+
+        // Filtered by FlakeAPI
+        this.menuBody += this.buildTableFailuresByFilter(plugin, "F3")
+
+        // Filtered by BaslineAPI
+        this.menuBody += this.buildTableFailuresByFilter(plugin, "F4")
+
+        // Filtered by Replay
+        this.menuBody += this.buildTableFailuresByFilter(plugin, "F6")
+
+        // Filtered by KF
+        // TODO
+
+        // Filtered by SuiteOnly
+        this.menuBody += this.buildTableFailuresByFilter(plugin, "F1")
+      },
+      extractErrorCountersToTable(errorCounters) {
+        let table = {
+          header: "",
+          data: [],
+          headline: "",
+          fields: ["Pattern", "Count"],
+          fieldMap: {}
+        }
+        const counterObj = new Map(Object.entries(errorCounters));
+        for (let kerror of counterObj.keys()) {
+          var o = new Map();
+          Object.assign(o, {"Pattern": kerror, "Count": errorCounters[kerror]});
+          table.data.push(o);
+        }
+        table.data = this.rankByKey(table.data, "Count")
+        return table
+      },
+      extractErrorEtcdLogByAggBucketToTable(aggregated) {
+        // check by aggregate keys
+        let table = {header:"",data:[],headline:"",fields:[],fieldMap:{}}
+        const aggObj = new Map(Object.entries(aggregated));
+        for (let aggregName of aggObj.keys()) {
+          var o = new Map();
+          // extract each data
+          Object.assign(o, {
+            "Name": aggregName,
+            "Count": aggregated[aggregName].RequestCount,
+            "Higher 500ms": aggregated[aggregName].Higher500ms,
+            "Bucket 200ms": aggregated[aggregName].Buckets["200-300"],
+            "Bucket 300ms": aggregated[aggregName].Buckets["300-400"],
+            "Bucket 400ms": aggregated[aggregName].Buckets["400-500"],
+            "Bucket 500ms": aggregated[aggregName].Buckets["500-600"],
+            "Bucket 600ms": aggregated[aggregName].Buckets["600-700"],
+            "Bucket 700ms": aggregated[aggregName].Buckets["700-800"],
+            "Bucket 800ms": aggregated[aggregName].Buckets["800-900"],
+            "Bucket 900ms": aggregated[aggregName].Buckets["900-999"],
+            "Bucket 1s+": aggregated[aggregName].Buckets["1000-inf"],
+          });
+          table.data.push(o);
+        }
+        return table
+      },
+      extractErrorEtcdLogByAggStatToTable(aggregated) {
+        // check by aggregate keys
+        table = {header:"",data:[],headline:"",fields:[],fieldMap:{}}
+        const aggObj = new Map(Object.entries(aggregated));
+        for (let aggregName of aggObj.keys()) {
+          var o = new Map();
+          // extract each data
+          Object.assign(o, {
+            "Name": aggregName,
+            "Count": aggregated[aggregName].StatCount,
+            "Median (ms)": aggregated[aggregName].StatMedian,
+            "Mean (ms)": aggregated[aggregName].StatMean,
+            "Min (ms)": aggregated[aggregName].StatMin,
+            "Max (ms)": aggregated[aggregName].StatMax,
+            "Perc90 (ms)": aggregated[aggregName].StatPerc90,
+            "Perc99 (ms)": aggregated[aggregName].StatPerc99,
+            "Perc999 (ms)": aggregated[aggregName].StatPerc999,
+            "Sum (ms)": aggregated[aggregName].StatSum,
+            "Stddev": aggregated[aggregName].StatStddev,
+          });
+          table.data.push(o);
+        }
+        return table
+      },
+      extractErrorCountersETCDLogsToTable(header, ErrorEtcdLogs) {
+        this.menuBody += `<p>View Stat/Counters (All)</p>`
+        // FilterRequestSlowAll (Stat)
+        if (ErrorEtcdLogs.FilterRequestSlowAll !== undefined) {
+          table = this.extractErrorEtcdLogByAggStatToTable(ErrorEtcdLogs.FilterRequestSlowAll)
+          table.header = header + " (FilterRequestSlowAll by Stat)"
+          this.menuBody += this.createTableHTML(table=table);
+        }
+        this.menuBody += `<p>View Bucket (All)</p>`
+        // FilterRequestSlowAll (Bucket)
+        if (ErrorEtcdLogs.FilterRequestSlowAll !== undefined) {
+          table = this.extractErrorEtcdLogByAggBucketToTable(ErrorEtcdLogs.FilterRequestSlowAll)
+          table.header = header + " (FilterRequestSlowAll by Bucket)"
+          this.menuBody += this.createTableHTML(table=table);
+        }
+        this.menuBody += `<p>View Stat/Counters (Hourly)</p>`
+        // FilterRequestSlowHour (Stat)
+        if (ErrorEtcdLogs.FilterRequestSlowHour !== undefined) {
+          table = this.extractErrorEtcdLogByAggStatToTable(ErrorEtcdLogs.FilterRequestSlowHour)
+          table.header = header + " (FilterRequestSlowHour by Stat)"
+          this.menuBody += this.createTableHTML(table=table);
+        }
+        this.menuBody += `<p>View Bucket (Hourly)</p>`
+        // FilterRequestSlowHour (Bucket)
+        if (ErrorEtcdLogs.FilterRequestSlowHour !== undefined) {
+          table = this.extractErrorEtcdLogByAggBucketToTable(ErrorEtcdLogs.FilterRequestSlowHour)
+          table.header = header + " (FilterRequestSlowHour by Bucket)"
+          this.menuBody += this.createTableHTML(table=table);
+        }
+      },
+      changeMenuETCD() {
+        this.menuTitle = `<h1>etcd information</h1>`
+        this.menuBody = this.pageHeadline
+        this.menuBody += "<p>Information extracted from etcd logs.</>"
+
+        // TODO#1 create checks / summary in the top of page
+        // TODO#2 implement checks rules
+        if (this.report.provider.mustGatherInfo.ErrorEtcdLogs.ErrorCounters !== undefined) {
+          table = this.extractErrorCountersToTable(this.report.provider.mustGatherInfo.ErrorEtcdLogs.ErrorCounters)
+          table.header = "Counters for error pattern in etcd logs"
+          this.menuBody += this.createTableHTML(table=table);
+        }
+        this.menuBody += `<h2>Aggregated Logs for etcd pods</h2>`
+        if (this.report.provider.mustGatherInfo.ErrorEtcdLogs !== undefined) {
+          this.extractErrorCountersETCDLogsToTable(
+            "Aggregated pod logs 'apply request took too long'",
+            this.report.provider.mustGatherInfo.ErrorEtcdLogs)
+        }
+        // by pod
+        for (let i in this.report.provider.mustGatherInfo.NamespaceErrors) {
+          if (this.report.provider.mustGatherInfo.NamespaceErrors[i].ErrorEtcdLogs !== undefined) {
+            podName = this.report.provider.mustGatherInfo.NamespaceErrors[i].Pod
+            this.menuBody += "<h2>Logs by etcd pod: "+ podName +"</h2>"
+            this.extractErrorCountersETCDLogsToTable(
+              "Pod '"+ podName +"' logs: 'apply request took too long'",
+              this.report.provider.mustGatherInfo.NamespaceErrors[i].ErrorEtcdLogs)
+          }
+        }
+      },
+      changeMenuNetwork() {
+        this.menuTitle = `<h1>Network</h1>`
+        this.menuBody = this.pageHeadline
+        //this.menuBody += "<p>Pod Network Connectivity Check resource</p>"
+
+        netConn = this.report.provider.mustGatherInfo.PodNetworkChecks
+        this.menuBody += this.createTableHTML(table={
+          header: "Pod Network Connectivity Check (Total Counters)",
+          data: [{
+            "Success": netConn["TotalSuccess"],
+            "Failures": netConn["TotalFailures"],
+            "Outages": netConn["TotalOutages"],
+          }],
+          fields: ["Success", "Failures", "Outages"]}
+        );
+
+        // checks (rank by outage)
+        tbChecks = {
+          header: "Pod Network Connectivity Check (Summary)",
+          data: netConn["Checks"],
+          fields: [],
+          fieldMap: {"TotalSuccess":"Success", "TotalFailures": "Failures", "TotalOutages":"Outages"}
+        }
+        tbChecks.header += " ["+ tbChecks.data.length +"]"
+        tbChecks.data = this.sortByKey(tbChecks.data, "Outages")
+        this.menuBody += this.createTableHTML(table=tbChecks)
+
+        // outages (sort by start)
+        tbOutages = {
+          header: "Pod Network Connectivity Check (Outages)",
+          data: netConn["Outages"],
+          fields: [],
+        }
+        tbOutages.header += " ["+ tbOutages.data.length +"]"
+        tbOutages.data = this.sortByKey(tbOutages.data, "Start")
+        this.menuBody += this.createTableHTML(table=tbOutages)
+
+        // failures (sort by time)
+        tbFailures = {
+          header: "Pod Network Connectivity Check (Failures)",
+          data: netConn["Failures"],
+          fields: [],
+        }
+        tbFailures.header += " ["+ tbFailures.data.length +"]"
+        tbFailures.data = this.sortByKey(tbFailures.data, "Time")
+        this.menuBody += this.createTableHTML(table=tbFailures)
+
+        // aggregate failures by time
+        tbFailuresAggH = {
+          header: "Failures by Hour",
+          data: [],
+          fields: [],
+        }
+        netFailuresTimeCounterByHour = {"undefined":0}
+        for (let i in tbFailures.data) {
+          if (tbFailures.data[i].Time == undefined) {
+            netFailuresTimeCounterByHour["undefined"]+=1
+            continue
+          }
+          hour = tbFailures.data[i].Time.split(":")[0]
+          if (netFailuresTimeCounterByHour[hour] == undefined) {
+            netFailuresTimeCounterByHour[hour]=0
+          }
+          netFailuresTimeCounterByHour[hour]+=1
+        }
+        for (const [k, v] of Object.entries(netFailuresTimeCounterByHour)) {
+          tbFailuresAggH.data.push({"Time": k, "Count": v})
+        }
+        tbFailuresAggH.header += " ["+ tbFailuresAggH.data.length +"]"
+        tbFailuresAggH.data = this.sortByKey(tbFailuresAggH.data, "Time")
+        this.menuBody += this.createTableHTML(table=tbFailuresAggH)
+      },
+      changeMenuRuntime() {
+        this.menuTitle = `<h1>Runtime Information</h1>`
+        this.menuBody = this.pageHeadline
+
+        this.menuBody += this.createTableHTML(table={
+          header: "Server Events",
+          data: this.report.provider.runtime.serverLogs,
+          fields: ["time", "name", "total", "delta"],
+          fieldMap: {"time": "Time", "name": "Name"},}
+        );
+
+        this.menuBody += this.createTableHTML(table={
+          header: "Server Config Attributes",
+          data: this.report.provider.runtime.serverConfig,
+          fields: ["name", "value"],
+          fieldMap: {"name": "Name", "value": "Value"},
+        }
+        );
+
+        this.menuBody += this.createTableHTML(table={
+          header: "OPCT Config Attributes",
+          data: this.report.provider.runtime.opctConfig,
+          fields: ["config", "name", "value"],
+          fieldMap: {"config":"Config", "name": "Name", "value": "Value"},
+        }
+        );
+      },
+      buildTableFailuresByFilter(plugin, filterID) {
+        let tb = {
+          header: "",
+          headline: "",
+          data: [],
+          fields: ["flakePerc", "flakeCount", "errorsTotal", "reference", "name"],
+          fieldMap: {
+            "flakePerc": "Flake%",
+            "flakeCount": "Flake#",
+            "errorsTotal": "Errors",
+            "reference": "Ref",
+            "name": "Test Name",
+          }
+        }
+        switch (filterID) {
+          case "F1":
+            console.log("building table for filter F1")
+            if (plugin.failedTestsFilter1 != undefined) {
+              tb.data = this.normalizePluginData(plugin.id, plugin.failedTestsFilter1)
+              tb.headline = "<p>Tests by tags: " + (plugin.tagsFailuresFilter1 == undefined ? "[]" : plugin.tagsFailuresFilter1)
+            }
+            tb.header = "Test failures removed in Filter: SuiteOnly ("+ tb.data.length +")"
+            break;
+          case "F3":
+            console.log("building table for filter F3")
+            if (plugin.failedTestsFilter3 != undefined) {
+              tb.data = this.normalizePluginData(plugin.id, plugin.failedTestsFilter3)
+              tb.headline = "<p>Tests by tags: " + (plugin.tagsFailuresFilter3 == undefined ? "[]" : plugin.tagsFailuresFilter3)
+            }
+            tb.header = "Test failures removed in Filter: FlakeAPI [flake ratio/candidate OpenShift CI] ("+ tb.data.length +")"
+            break;
+          case "F4":
+            console.log("building table for filter F4")
+            if (plugin.failedTestsFilter4 != undefined) {
+              tb.data = this.normalizePluginData(plugin.id, plugin.failedTestsFilter4)
+              tb.headline = "<p>Tests by tags: " + (plugin.tagsFailuresFilter4 == undefined ? "[]" : plugin.tagsFailuresFilter4)
+            }
+            tb.header = "Test failures removed in Filter: BaselineAPI [failing in OPCT CI jobs] ("+ tb.data.length +")"
+            break;
+          case "F6":
+              console.log("building table for filter F6")
+              if (plugin.failedTestsFilter6 != undefined) {
+                tb.data = this.normalizePluginData(plugin.id, plugin.failedTestsFilter6)
+                tb.headline = "<p>Tests by tags: " + (plugin.tagsFailuresFilter6 == undefined ? "[]" : plugin.tagsFailuresFilter6)
+              }
+              tb.header = "Test failures filted by: Replay step ("+ tb.data.length +")"
+            break;
+          default:
+            console.log("unknown filter ID: "+ filterID)
+            return ""
+        }
+        return this.createTableHTML(table=tb)
+      },
+      createTableHTML(table=this.defaultTable) {
+        htmlTable = `<dl>`
+        if (table.header !== undefined) {
+          htmlTable += `<dt class="text-light bg-secondary ps-1 mb-1">`+ table.header +`</dt>`
+        }
+        if (table.headline !== undefined) {
+          htmlTable += table.headline
+        }
+
+        // build table header
+        htmlTable += `<dd><table class="table table-sm table-striped font-monospace">
+        <thead><tr>`
+        if (table.fields.length > 0) {
+          for (let col of table.fields) {
+            let colName = col
+            if (table.fieldMap !== undefined) {
+              if (table.fieldMap[col] !== undefined) {
+                colName = table.fieldMap[col]
+              }
+            }
+            htmlTable += `<th scope="col">`+ colName +`</th>`;
+          }
+        } else {
+          fieldsDyn = []
+          if (table.data.length > 0) {
+            fieldsDyn = new Map(Object.entries(table.data[0])).keys();
+          }
+          for (let col of fieldsDyn) {
+            let colName = col
+            if (table.fieldMap !== undefined) {
+              if (table.fieldMap[col] !== undefined) {
+                colName = table.fieldMap[col]
+              }
+            }
+            htmlTable += `<th scope="col">`+ colName +`</th>`;
+          }
+        }
+        htmlTable += `</tr></thead>`
+
+        // build table rows
+        htmlTable += `<tbody>`
+        for (let i in table.data) {
+          htmlTable+=`<tr>`
+          if (table.fields.length > 0) {
+            for (let h of table.fields) {
+              if (table.data[i][h] !== undefined) {
+                htmlTable += `<td>`+ table.data[i][h] + `</td>`
+              } else {
+                htmlTable += `<td></td>`
+              }
+            }
+          } else {
+            fieldsDyn = new Map(Object.entries(table.data[i])).keys();
+            for (let h of fieldsDyn) {
+              if (table.data[i][h] !== undefined) {
+                htmlTable += `<td>`+ table.data[i][h] + `</td>`
+              } else {
+                htmlTable += `<td></td>`
+              }
+            }
+          }
+          htmlTable+=`</tr>`
+        }
+        htmlTable += `</tbody></table></dd></dl>`
+        return htmlTable
+      },
+      // sort a dict-list by key
+      sortByKey(array, key) {
+        return array.sort(function(a, b) {
+          var x = a[key]; var y = b[key];
+          return ((x < y) ? -1 : ((x > y) ? 1 : 0));
+        });
+      },
+      // Rank a dict-list by key
+      rankByKey(array, key) {
+        return this.sortByKey(array, key).reverse()
+      },
+      rankMapByValue(obj) {
+        toArr = []
+        const o = new Map(Object.entries(obj));
+        for (let k of o.keys()) {
+          toArr.push({"k": k, "v": obj[k]})
+        }
+        newObj = {}
+        for (i in this.rankByKey(toArr, "v")) {
+          newObj[toArr[i].k] = toArr[i].v
+        }
+        return newObj
+      },
+      discoverProviderPlugins() {
+        if (this.report.provider == null) {
+          console.log("unable to discover plugins: report.provider is empty")
+          return
+        }
+        const pluginsObj = new Map(Object.entries(this.report.provider.plugins));
+        for (let plugin of pluginsObj.keys()) {
+          this.providerPlugins.push(plugin);
+        }
+      },
+    },
+    computed: {
+      archiveName() {
+        let archive = this.report.summary.tests.archive.split('/')
+        // get the file name (with path)
+        archive = archive[archive.length-1]
+        if (this.report.summary.tests.archiveDiff !== undefined) {
+          let diff = this.report.summary.tests.archiveDiff.split('/')
+          diff = diff[diff.length-1]
+          archive = archive + " (diff " + diff + ")"
+        }
+        return archive
+      },
+      platformType() {
+        let platformType = this.report.provider.infra.platformType
+        if (platformType == "External") {
+          if (this.report.provider.infra.platformName !== undefined) {
+            platformType += " ("+ this.report.provider.infra.platformName +")"
+          }
+        }
+        return platformType
+      },
+      pageHeadline() {
+        let openshift = "OpenShift[" + this.report.provider.version.openshift.desired +"]"
+        let k8s = "Kubernetes["+ this.report.provider.version.kubernetes +"]"
+        let platformType = "PlatformType["+ this.platformType +"]"
+        headline = "|> "+ openshift +" "+ k8s +" "+ platformType
+        headline += "<p>|> "+ this.archiveName +"</p>"
+        headline += '<hr/>'
+        return headline
+      },
+      errorCountersSuite() {
+        errorMap = {
+          counters: {},
+          tests: [],
+        }
+        if (this.report.provider == null) {
+          console.log("report.provider is empty")
+          return errorMap
+        }
+        this.discoverProviderPlugins()
+        for (let plugin of this.providerPlugins) {
+          const tests = new Map(Object.entries(this.report.provider.plugins[plugin].tests));
+          for (let key of tests.keys()) {
+            if (this.report.provider.plugins[plugin].tests[key].errorCounters == undefined) {
+              continue
+            }
+            // Object.assign(o, {"errors": this.report.provider.plugins[plugin].tests[key].errorCounters["total"] ?? 0});
+            const testErrors = new Map(Object.entries(this.report.provider.plugins[plugin].tests[key].errorCounters));
+            for (let kerror of testErrors.keys()) {
+              if (errorMap.counters[kerror] == undefined) {
+                errorMap.counters[kerror] = 0
+              }
+              errorMap.counters[kerror] += this.report.provider.plugins[plugin].tests[key].errorCounters[kerror]
+
+              var o = new Map();
+              Object.assign(o, {"Name": key});
+              Object.assign(o, {"ID": this.report.provider.plugins[plugin].tests[key].id});
+              Object.assign(o, {"Pattern": kerror});
+              Object.assign(o, {"Count": errorMap.counters[kerror]});
+              errorMap.tests.push(o);
+            }
+          }
+          // rank by error count
+          errorMap.counters = this.rankMapByValue(errorMap.counters)
+        }
+        return errorMap
+      },
+      errorCountersWorkload() {
+        counters = {
+          errors: {},
+          namespace: {},
+          logs: [],
+        }
+        if (this.report.provider == null) {
+          console.log("report.provider is empty to calculate workload error counter")
+          return counters
+        }
+        for (i in this.report.provider.mustGatherInfo.NamespaceErrors) {
+          let log = this.report.provider.mustGatherInfo.NamespaceErrors[i]
+          if (log.ErrorCounters == undefined) {
+              continue
+          }
+          const errorKeys = new Map(Object.entries(log.ErrorCounters));
+          for (let kerror of errorKeys.keys()) {
+            if (counters.errors[kerror] == undefined) {
+              counters.errors[kerror] = 0
+            }
+            if (counters.namespace[log.Namespace] == undefined) {
+              counters.namespace[log.Namespace] = 0
+            }
+            counters.errors[kerror] += log.ErrorCounters[kerror]
+            counters.namespace[log.Namespace] += log.ErrorCounters[kerror]
+            var o = new Map();
+            Object.assign(o, {"Name": log.Namespace+"/"+log.Pod});
+            Object.assign(o, {"Pattern": kerror});
+            Object.assign(o, {"Count": counters.errors[kerror]});
+            counters.logs.push(o);
+          }
+        }
+        counters.errors = this.rankMapByValue(counters.errors)
+        counters.namespace = this.rankMapByValue(counters.namespace)
+        return counters
+      },
+// Go template: forcing to embed the datasource to prevent CORS (not default)
+[[ if .Setup.Frontend.EmbedData ]]
+      report() {
+        return JSON.parse([[ .Raw ]])
+      },
+    }
+[[ else ]]
+// Go template: default data source
+    },
+    created(){
+      this.loadingMessage = '/opct-report.json'
+      this.fetchReport()
+    }
+[[ end ]]
+  })
+
+  /* main */
+  document.getElementById("tabDefault").click();
+  app_opct.changeMenu('summary')
+</script>
+
+</body>
+</html>

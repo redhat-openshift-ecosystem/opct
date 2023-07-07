@@ -2,9 +2,29 @@ package archive
 
 import (
 	"regexp"
-
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/openshift/ci"
 )
+
+// CommonErrorPatterns is a list of common error patterns to be used to
+// discover/calculate the error counter within logs in archives (must-gather,
+// conformance execution) by OPCT.
+// Source: https://github.com/openshift/release/blob/master/core-services/prow/02_config/_config.yaml#L84
+var CommonErrorPatterns = []string{
+	// `error:`,
+	`Failed to push image`,
+	`Failed`,
+	`timed out`,
+	`'ERROR:'`,
+	`ERRO\[`,
+	`^error:`,
+	`(^FAIL|FAIL: |Failure \[)\b`,
+	`panic(\.go)?:`,
+	`"level":"error"`,
+	`level=error`,
+	`level":"fatal"`,
+	`level=fatal`,
+	`│ Error:`,
+	`client connection lost`,
+}
 
 // ErrorCounter is a map to handle a generic error counter, indexed by error pattern.
 type ErrorCounter map[string]int
@@ -40,7 +60,7 @@ func NewErrorCounter(buf *string, pattern []string) ErrorCounter {
 // in a single containging all keys from both maps, and values accumulated
 // by key.
 func MergeErrorCounters(ec1, ec2 *ErrorCounter) *ErrorCounter {
-	new := make(ErrorCounter, len(ci.CommonErrorPatterns))
+	new := make(ErrorCounter, len(CommonErrorPatterns))
 	if ec1 == nil {
 		if ec2 == nil {
 			return &new

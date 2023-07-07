@@ -4,8 +4,12 @@ name: Documentation
 on:
   # Static pages are build only targeting the main branch
   push:
-    branches: ["main"]
-    paths: ['mkdocs.yml', 'docs/**', 'hack/docs-requirements.txt']
+    branches:
+      - "main"
+    paths:
+      - 'mkdocs.yml'
+      - 'docs/**'
+      - 'hack/docs-requirements.txt'
 
   workflow_dispatch:
 

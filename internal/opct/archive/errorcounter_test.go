@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/openshift/ci"
 	"k8s.io/utils/ptr"
 )
 
@@ -84,7 +83,7 @@ func TestNewErrorCounter(t *testing.T) {
 				buf: ptr.To(`this buffer has one error,
 					and another 'ERROR:', also crashs with 'panic.go:12:'.
 					Some messages of Failed to push image`),
-				pattern: ci.CommonErrorPatterns,
+				pattern: CommonErrorPatterns,
 			},
 			want: ErrorCounter{
 				`'ERROR:'`: 1, `Failed`: 1, `Failed to push image`: 1,
@@ -95,7 +94,7 @@ func TestNewErrorCounter(t *testing.T) {
 			name: "no counters",
 			args: args{
 				buf:     ptr.To(`this buffer has nothing to parse`),
-				pattern: ci.CommonErrorPatterns,
+				pattern: CommonErrorPatterns,
 			},
 			want: nil,
 		},
