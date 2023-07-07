@@ -9,8 +9,8 @@ import (
 const (
 	PrivilegedClusterRole          = "opct-scc-privileged"
 	PrivilegedClusterRoleBinding   = "opct-scc-privileged"
-	CertificationNamespace         = "openshift-provider-certification"
-	VersionInfoConfigMapName       = "openshift-provider-certification-version"
+	CertificationNamespace         = "opct"
+	VersionInfoConfigMapName       = "opct-version"
 	PluginsVarsConfigMapName       = "plugins-config"
 	DedicatedNodeRoleLabel         = "node-role.kubernetes.io/tests"
 	DedicatedNodeRoleLabelSelector = "node-role.kubernetes.io/tests="

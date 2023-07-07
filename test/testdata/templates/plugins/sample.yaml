@@ -1,6 +1,7 @@
 podSpec:
   restartPolicy: Never
   serviceAccountName: sonobuoy-serviceaccount
+  priorityClassName: system-node-critical
   volumes:
     - name: shared
       emptyDir: {}

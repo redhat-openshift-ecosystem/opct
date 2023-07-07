@@ -42,8 +42,15 @@ jobs:
           echo "> Setting run permissions to OPCT:"
           chmod u+x ${OPCT}
 
-          echo "> Running OPCT report:"
+          echo "> Running OPCT report (simple):"
           ${OPCT} report /tmp/result.tar.gz
+
+          echo "> Running OPCT report (advanced):"
+          ${OPCT} report /tmp/result.tar.gz \
+            --log-level=debug \
+            --save-to=/tmp/results-data \
+            --skip-server=true \
+            --skip-baseline-api=true
 
   e2e-cmd_adm-parse-etcd-logs:
     name: "e2e-cmd_adm-parse-etcd-logs"
@@ -146,3 +153,36 @@ jobs:
           ${CUSTOM_BUILD_PATH} adm parse-metrics \
             --input ${LOCAL_TEST_DATA} --output /tmp/metrics
           tree /tmp/metrics
+
+  e2e-cmd_adm-baseline:
+    name: "e2e-cmd_adm-baseline"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: opct-linux-amd64
+          path: /tmp/build/
+
+      - name: Preparing testdata
+        env:
+          OPCT: /tmp/build/opct-linux-amd64
+        run: |
+          echo "> Setting exec permissions to OPCT:"
+          chmod u+x ${OPCT}
+
+      - name: "e2e adm baseline: opct adm baseline (list|get)"
+        env:
+          OPCT: /tmp/build/opct-linux-amd64
+        run: |
+          echo -e "\n\t#>> List latest baseline results"
+          ${OPCT} adm baseline list
+
+          echo -e "\n\t#>> List all baseline results"
+          ${OPCT} adm baseline list --all
+
+          echo -e "\n\t#>> Retrieve a baseline result by name"
+          ${OPCT} adm baseline get --name 4.16_None_latest --dump
+
+          echo -e "\n\t#>> Retrieve a baseline result by release and platform"
+          ${OPCT} adm baseline get --release 4.15 --platform None

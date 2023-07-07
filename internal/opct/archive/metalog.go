@@ -12,6 +12,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// pluginNameXX are used to calculate the time spent in each plugin.
+const (
+	pluginName05 = "05-openshift-cluster-upgrade"
+	pluginName10 = "10-openshift-kube-conformance"
+	pluginName20 = "20-openshift-conformance-validated"
+	pluginName80 = "80-openshift-tests-replay"
+	pluginName99 = "99-openshift-artifacts-collector"
+)
+
+// MetaLogItem is the struct that holds the items from aggregator's meta log file.
 type MetaLogItem struct {
 	Level      string `json:"level,omitempty"`
 	Message    string `json:"msg,omitempty"`
@@ -88,14 +98,16 @@ func ParseMetaLogs(logs []string) []*RuntimeInfoItem {
 			pluginFinishedAt[logitem.PluginName] = logitem.Time
 			var delta string
 			switch logitem.PluginName {
-			case "05-openshift-cluster-upgrade":
+			case pluginName05:
 				delta = diffDate(pluginStartedAt[logitem.PluginName], logitem.Time)
-			case "10-openshift-kube-conformance":
-				delta = diffDate(pluginFinishedAt["05-openshift-cluster-upgrade"], logitem.Time)
-			case "20-openshift-conformance-validated":
-				delta = diffDate(pluginFinishedAt["10-openshift-kube-conformance"], logitem.Time)
-			case "99-openshift-artifacts-collector":
-				delta = diffDate(pluginFinishedAt["20-openshift-conformance-validated"], logitem.Time)
+			case pluginName10:
+				delta = diffDate(pluginFinishedAt[pluginName05], logitem.Time)
+			case pluginName20:
+				delta = diffDate(pluginFinishedAt[pluginName10], logitem.Time)
+			case pluginName80:
+				delta = diffDate(pluginFinishedAt[pluginName20], logitem.Time)
+			case pluginName99:
+				delta = diffDate(pluginFinishedAt[pluginName80], logitem.Time)
 			}
 			runtimeLogs = append(runtimeLogs, &RuntimeInfoItem{
 				Name:  fmt.Sprintf("plugin finished %s", logitem.PluginName),

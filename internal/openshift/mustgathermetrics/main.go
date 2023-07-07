@@ -9,10 +9,22 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/chart"
 	log "github.com/sirupsen/logrus"
 	"github.com/ulikunitz/xz"
 )
+
+type MustGatherChart struct {
+	Path               string
+	OriginalQuery      string
+	PlotLabel          string
+	PlotTitle          string
+	PlotSubTitle       string
+	CollectorAvailable bool
+	MetricData         *PrometheusResponse
+	DivId              string
+}
+
+type MustGatherCharts map[string]*MustGatherChart
 
 type MustGatherMetrics struct {
 	fileName        string
@@ -20,16 +32,104 @@ type MustGatherMetrics struct {
 	ReportPath      string
 	ReportChartFile string
 	ServePath       string
+	charts          MustGatherCharts
+	page            *ChartPagePlotly
 }
 
 func NewMustGatherMetrics(report, file, uri string, data *bytes.Buffer) (*MustGatherMetrics, error) {
-	return &MustGatherMetrics{
+	mgm := &MustGatherMetrics{
 		fileName:        filepath.Base(file),
 		data:            data,
 		ReportPath:      report,
-		ReportChartFile: "/metrics.html",
 		ServePath:       uri,
-	}, nil
+		ReportChartFile: "/metrics.html",
+	}
+
+	mgm.charts = make(map[string]*MustGatherChart, 0)
+	mgm.charts["query_range-etcd-disk-fsync-db-duration-p99.json.gz"] = &MustGatherChart{
+		Path:               "query_range-etcd-disk-fsync-db-duration-p99.json.gz",
+		OriginalQuery:      "",
+		PlotLabel:          "instance",
+		PlotTitle:          "etcd fsync DB p99",
+		PlotSubTitle:       "",
+		CollectorAvailable: true,
+		DivId:              "id1",
+	}
+	mgm.charts["query_range-api-kas-request-duration-p99.json.gz"] = &MustGatherChart{
+		Path:               "query_range-api-kas-request-duration-p99.json.gz",
+		OriginalQuery:      "",
+		PlotLabel:          "verb",
+		PlotTitle:          "Kube API request p99",
+		PlotSubTitle:       "",
+		CollectorAvailable: true,
+		DivId:              "id2",
+	}
+	mgm.charts["query_range-etcd-disk-fsync-wal-duration-p99.json.gz"] = &MustGatherChart{
+		Path:               "query_range-etcd-disk-fsync-wal-duration-p99.json.gz",
+		OriginalQuery:      "",
+		PlotLabel:          "instance",
+		PlotTitle:          "etcd fsync WAL p99",
+		PlotSubTitle:       "",
+		CollectorAvailable: true,
+		DivId:              "id0",
+	}
+	mgm.charts["query_range-etcd-peer-round-trip-time.json.gz"] = &MustGatherChart{
+		Path:               "query_range-etcd-peer-round-trip-time.json.gz",
+		OriginalQuery:      "",
+		PlotLabel:          "instance",
+		PlotTitle:          "etcd peer round trip",
+		PlotSubTitle:       "",
+		CollectorAvailable: true,
+		DivId:              "id3",
+	}
+
+	mgm.charts["query_range-etcd-total-leader-elections-day.json.gz"] = &MustGatherChart{
+		Path:               "query_range-etcd-total-leader-elections-day.json.gz",
+		OriginalQuery:      "",
+		PlotLabel:          "instance",
+		PlotTitle:          "etcd peer total leader election",
+		PlotSubTitle:       "",
+		CollectorAvailable: true,
+		DivId:              "id4",
+	}
+	mgm.charts["query_range-etcd-request-duration-p99.json.gz"] = &MustGatherChart{
+		Path:               "query_range-etcd-request-duration-p99.json.gz",
+		OriginalQuery:      "",
+		PlotLabel:          "operation",
+		PlotTitle:          "etcd req duration p99",
+		PlotSubTitle:       "",
+		CollectorAvailable: true,
+		DivId:              "id5",
+	}
+	mgm.charts["query_range-cluster-storage-iops.json.gz"] = &MustGatherChart{
+		Path:               "query_range-cluster-storage-iops.json.gz",
+		OriginalQuery:      "",
+		PlotLabel:          "namespace",
+		PlotTitle:          "Cluster storage IOPS",
+		PlotSubTitle:       "",
+		CollectorAvailable: false,
+		DivId:              "id6",
+	}
+	mgm.charts["query_range-cluster-storage-throughput.json.gz"] = &MustGatherChart{
+		Path:               "query_range-cluster-storage-throughput.json.gz",
+		OriginalQuery:      "",
+		PlotLabel:          "namespace",
+		PlotTitle:          "Cluster storage throughput",
+		PlotSubTitle:       "",
+		CollectorAvailable: false,
+		DivId:              "id7",
+	}
+	mgm.charts["query_range-cluster-cpu-usage.json.gz"] = &MustGatherChart{
+		Path:               "query_range-cluster-cpu-usage.json.gz",
+		OriginalQuery:      "",
+		PlotLabel:          "namespace",
+		PlotTitle:          "Cluster CPU",
+		PlotSubTitle:       "",
+		CollectorAvailable: false,
+		DivId:              "id8",
+	}
+	mgm.page = newMetricsPageWithPlotly(report, uri, mgm.charts)
+	return mgm, nil
 }
 
 func (mg *MustGatherMetrics) Process() error {
@@ -58,11 +158,10 @@ func (mg *MustGatherMetrics) read(buf *bytes.Buffer) (*tar.Reader, error) {
 func (mg *MustGatherMetrics) extract(tarball *tar.Reader) error {
 
 	keepReading := true
-	metricsPage := chart.NewMetricsPage()
+	metricsPage := newMetricsPage()
 	reportPath := mg.ReportPath + mg.ReportChartFile
-	page := chart.NewMetricsPageWithPlotly(mg.ReportPath, mg.ServePath)
 
-	// Walk through files in tarball file.
+	// Walk through files in tarball.
 	for keepReading {
 		header, err := tarball.Next()
 
@@ -71,14 +170,14 @@ func (mg *MustGatherMetrics) extract(tarball *tar.Reader) error {
 		// no more files
 		case err == io.EOF:
 
-			err := chart.SaveMetricsPageReport(metricsPage, reportPath)
+			err := SaveMetricsPageReport(metricsPage, reportPath)
 			if err != nil {
 				log.Errorf("error saving metrics to: %s\n", reportPath)
 				return err
 			}
 			// Ploty Page
 			log.Debugf("Generating Charts with Plotly\n")
-			err = page.RenderPage()
+			err = mg.page.RenderPage()
 			if err != nil {
 				log.Errorf("error rendering page: %v\n", err)
 				return err
@@ -103,7 +202,7 @@ func (mg *MustGatherMetrics) extract(tarball *tar.Reader) error {
 
 		metricFileName := filepath.Base(header.Name)
 
-		chart, ok := chart.ChartsAvailable[metricFileName]
+		chart, ok := mg.charts[metricFileName]
 		if !ok {
 			log.Debugf("Metrics/Extractor/Unsupported metric, ignoring metric data %s\n", header.Name)
 			continue

@@ -36,18 +36,20 @@ func loadPluginManifests(r *RunOptions) ([]*manifest.Manifest, error) {
 		return nil, err
 	}
 	for _, m := range pluginManifests {
-		log.Debugf("Loading certification plugin: %s", m)
+		log.Debugf("Loading plugin: %s", m)
 		pluginManifestTpl, err := efs.GetData().ReadFile(m)
 		if err != nil {
-			log.Errorf("Unable to read plugin manifest %s", m)
+			log.Errorf("error reading config for plugin %s: %v", m, err)
 			return nil, err
 		}
 		pluginManifest, err := ProcessManifestTemplates(r, pluginManifestTpl)
 		if err != nil {
+			log.Errorf("error processing configuration for plugin %s: %v", m, err)
 			return nil, err
 		}
 		asset, err := loader.LoadDefinition(pluginManifest)
 		if err != nil {
+			log.Errorf("error loading configuration for plugin %s: %v", m, err)
 			return nil, err
 		}
 		manifests = append(manifests, &asset)

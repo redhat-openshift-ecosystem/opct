@@ -146,7 +146,7 @@ make image-mirror-sonobuoy
 ```
 - Check the image in [quay.io/opct/sonobuoy](https://quay.io/repository/opct/sonobuoy?tab=tags)
 
-**Running the mirror targetting custom repository**
+**Running the mirror targeting custom repository**
 
 ```bash
 SONOBUOY_VERSION=v0.56.11 MIRROR_REPO=quay.io/mrbraga/sonobuoy make image-mirror-sonobuoy

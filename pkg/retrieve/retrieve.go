@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"time"
+	"strings"
+	"path/filepath"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -103,7 +105,13 @@ func retrieveResults(sclient sonobuoyclient.Interface, destinationDirectory stri
 
 	// Log the new files to stdout
 	for _, result := range results {
-		log.Infof("Results saved to %s", result)
+		// Rename the file prepending 'opct_' to the name.
+		newFile := fmt.Sprintf("%s/opct_%s", filepath.Dir(result), strings.Replace(filepath.Base(result), "sonobuoy_", "", 1))
+		log.Debugf("Renaming %s to %s", result, newFile)
+		if err := os.Rename(result, newFile); err != nil {
+			return fmt.Errorf("error renaming %s to %s: %w", result, newFile, err)
+		}
+		log.Infof("Results saved to %s", newFile)
 	}
 
 	return nil

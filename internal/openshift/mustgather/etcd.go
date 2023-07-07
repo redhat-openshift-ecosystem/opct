@@ -14,8 +14,12 @@ import (
 )
 
 const (
-	parserETCDLogsReqTTLMaxPastHour = 6
+	// parserETCDLogsReqTTLMaxPastHour is the maximum number of past hours to extract from must-gather.
+	// This is used to calculate the slow requests timers from etcd pod logs.
+	parserETCDLogsReqTTLMaxPastHour = 8
 
+	// BucketRangeName are group/bucket of time in milliseconds to aggregate
+	// values extracted from pod logs.
 	BucketRangeName200Ms   string = "200-300"
 	BucketRangeName300Ms   string = "300-400"
 	BucketRangeName400Ms   string = "400-500"
@@ -29,7 +33,8 @@ const (
 	BucketRangeNameAll     string = "all"
 )
 
-// ErrorEtcdLogs handle errors extracted/parsed from etcd pod logs.
+// ErrorEtcdLogs handle errors extracted/parsed from etcd pod logs, grouping by
+// bucket.
 type ErrorEtcdLogs struct {
 	ErrorCounters         archive.ErrorCounter
 	FilterRequestSlowAll  map[string]*BucketFilterStat
@@ -37,7 +42,7 @@ type ErrorEtcdLogs struct {
 	Buffer                []*string `json:"-"`
 }
 
-// common errors to create counters
+// EtcdLogErrorPatterns are common error patterns found in etcd logs.
 var EtcdLogErrorPatterns = []string{
 	`rejected connection`,
 	`waiting for ReadIndex response took too long, retrying`,
@@ -82,7 +87,7 @@ func NewErrorEtcdLogs(buf *string) *ErrorEtcdLogs {
 	return etcdLogs
 }
 
-// LogPayloadETCD parses the etcd log file to extract insights
+// logPayloadETCD parses the etcd log file to extract insights
 // {"level":"warn","ts":"2023-03-01T15:14:22.192Z",
 // "caller":"etcdserver/util.go:166",
 // "msg":"apply request took too long",
@@ -90,12 +95,12 @@ func NewErrorEtcdLogs(buf *string) *ErrorEtcdLogs {
 // "prefix":"read-only range ",
 // "request":"key:\"/kubernetes.io/configmaps/kube-system/kube-controller-manager\" ",
 // "response":"range_response_count:1 size:608"}
-type LogPayloadETCD struct {
+type logPayloadETCD struct {
 	Took      string `json:"took"`
 	Timestamp string `json:"ts"`
 }
 
-type BucketGroup struct {
+type bucketGroup struct {
 	Bukets1s    Buckets
 	Bukets500ms Buckets
 }
@@ -103,7 +108,7 @@ type BucketGroup struct {
 type FilterApplyTookTooLong struct {
 	Name    string
 	GroupBy string
-	Group   map[string]*BucketGroup
+	Group   map[string]*bucketGroup
 
 	// filter config
 	lineFilter     string
@@ -120,7 +125,7 @@ func NewFilterApplyTookTooLong(aggregator string) *FilterApplyTookTooLong {
 
 	filter.Name = "ApplyTookTooLong"
 	filter.GroupBy = aggregator
-	filter.Group = make(map[string]*BucketGroup)
+	filter.Group = make(map[string]*bucketGroup)
 
 	filter.lineFilter = "apply request took too long"
 	filter.reLineSplitter, _ = regexp.Compile(`^\d+-\d+-\d+T\d+:\d+:\d+.\d+Z `)
@@ -147,7 +152,7 @@ func (f *FilterApplyTookTooLong) ProcessLine(line string) *string {
 	}
 
 	// parse json
-	lineParsed := LogPayloadETCD{}
+	lineParsed := logPayloadETCD{}
 	if err := json.Unmarshal([]byte(split[1]), &lineParsed); err != nil {
 		log.Errorf("couldn't parse json: %v", err)
 	}
@@ -175,7 +180,7 @@ func (f *FilterApplyTookTooLong) ProcessLine(line string) *string {
 }
 
 func (f *FilterApplyTookTooLong) insertBucket(v float64, ts string) {
-	var group *BucketGroup
+	var group *bucketGroup
 	var aggrKey string
 
 	if f.GroupBy == "hour" {
@@ -204,7 +209,7 @@ func (f *FilterApplyTookTooLong) insertBucket(v float64, ts string) {
 	}
 
 	if _, ok := f.Group[aggrKey]; !ok {
-		f.Group[aggrKey] = &BucketGroup{}
+		f.Group[aggrKey] = &bucketGroup{}
 		group = f.Group[aggrKey]
 		group.Bukets1s = NewBuckets(buckets1s())
 		group.Bukets500ms = NewBuckets(buckets500ms())
