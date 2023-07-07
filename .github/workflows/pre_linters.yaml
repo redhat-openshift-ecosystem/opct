@@ -1,0 +1,90 @@
+---
+# pre-linter is a chain of jobs that must be called
+# by other workflows to ensure that the code is linted.
+name: linters
+
+on:
+  workflow_call: {}
+
+# golangci-lint-action requires those permissions to annotate issues in the PR.
+permissions:
+  # Required for analysis.
+  contents: read
+  # Used by `only-new-issues``.
+  pull-requests: read
+  # Allow access to checks to annotate code in the PR.
+  checks: write
+
+env:
+  GO_VERSION: 1.22
+  GOLANGCI_LINT_VERSION: v1.59
+  STATIC_CHECK_VERSION: 2023.1.7
+
+jobs:
+  # shell:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Shellcheck - hack
+  #       uses: azohra/shell-linter@latest
+  #       with:
+  #         path: "hack/*.sh"
+
+  yaml:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint YAML files
+        run: |
+          echo ">> Running YAML lint on data/templates/plugins/"
+          #yamllint .github/workflows/*.yaml
+          yamllint data/templates/plugins/*.yaml
+
+  go_lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+             go.sum
+
+      # https://github.com/golangci/golangci-lint-action
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          args: --timeout=10m
+          only-new-issues: true
+
+  go_static:
+    runs-on: ubuntu-latest
+    needs: go_lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: WillAbides/setup-go-faster@v1.14.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run static code analysis
+        uses: dominikh/staticcheck-action@v1.3.0
+        with:
+          version: "${{ env.STATIC_CHECK_VERSION }}"
+          install-go: false
+
+  go_vet:
+    runs-on: ubuntu-latest
+    needs: go_lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run go vet
+        run: make vet

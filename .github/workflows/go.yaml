@@ -1,56 +1,30 @@
-name: "OPCT"
-
+---
+name: test-build-release
 on:
   pull_request:
     branches:
       - main
       - release-*
   push:
+    branches:
+      - main
+      - release-*
     tags:
-      - '*'
+      - 'v*.*.*'
 
 env:
   GO_VERSION: 1.22
   GOLANGCI_LINT_VERSION: v1.59
-  STATIC_CHECK_VERSION: 2023.1.7
 
 jobs:
-  go-lint:
-    name: go-lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: false
-      # https://github.com/golangci/golangci-lint-action
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: ${{ env.GOLANGCI_LINT_VERSION }}
-          args: --timeout=10m
-
-  go-static:
-    name: "go-staticcheck"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: WillAbides/setup-go-faster@v1.14.0
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - name: Run static code analysis
-        uses: dominikh/staticcheck-action@v1.3.0
-        with:
-          version: "${{ env.STATIC_CHECK_VERSION }}"
-          install-go: false
+  # Pre jobs: Linter
+  linters:
+    name: linters
+    uses: ./.github/workflows/pre_linters.yaml
 
   go-test:
-    name: go-test
     runs-on: ubuntu-latest
-    needs:
-    - go-lint
-    - go-static
+    needs: linters
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -59,26 +33,9 @@ jobs:
       - name: Run unit tests
         run: make test
 
-  go-vet:
-    name: "go-vet"
-    runs-on: ubuntu-latest
-    needs:
-    - go-lint
-    - go-static
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - name: Run go vet
-        run: make vet
-
   build:
-    name: "build-artifact"
     runs-on: ubuntu-latest
-    needs:
-    - go-test
-    - go-vet
+    needs: go-test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -118,121 +75,111 @@ jobs:
           name: opct-darwin-arm64
           path: |
             build/opct-*
-  e2e-cmd_report:
-    name: "e2e-cmd_report"
-    runs-on: ubuntu-latest
-    needs:
-    - build
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: opct-linux-amd64
-          path: /tmp/build/
 
-      - name: Running report
-        env:
-          RESULT_ARTIFACT_URL: "https://openshift-provider-certification.s3.us-west-2.amazonaws.com"
-          RESULT_ARTIFACT_VERSION: "v0.4.0/default/4.15.0-20240228-HighlyAvailable-vsphere-None.tar.gz"
-          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
-        run: |
-          echo "> Downloading sample artifact: ${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
-          wget -qO /tmp/result.tar.gz "${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
+  e2e:
+    needs: build
+    uses: ./.github/workflows/e2e.yaml
 
-          echo "> Setting run permissions to OPCT:"
-          chmod u+x ${CUSTOM_BUILD_PATH}
+#
+# Release job creates container images for latest (main) or release tags.
+# When a tag is created, a new Github Release is created with the changelog.
+#
+  release:
+      if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+      runs-on: ubuntu-latest
+      needs: e2e
+      env:
+        PLATFORMS: linux/amd64
+        BUILD_EXPIRATION: never
+        PUSH: true
+        REPO_URL: https://quay.io/repository/opct/opct?tab=tags
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            submodules: recursive
 
-          echo "> Running OPCT report:"
-          ${CUSTOM_BUILD_PATH} report /tmp/result.tar.gz
+        - name: Set vars for tag
+          if: startsWith(github.ref, 'refs/tags/')
+          run: |-
+            echo "BUILD_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
-  e2e-cmd_adm-parse-etcd-logs:
-    name: "e2e-cmd_adm-parse-etcd-logs"
-    runs-on: ubuntu-latest
-    needs:
-    - build
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: opct-linux-amd64
-          path: /tmp/build/
+        - name: Set vars for main
+          if: github.ref == 'refs/heads/main'
+          run: |-
+            echo "BUILD_VERSION=latest" >> $GITHUB_ENV
 
-      - name: Preparing testdata
-        env:
-          RESULT_ARTIFACT_URL: "https://openshift-provider-certification.s3.us-west-2.amazonaws.com"
-          RESULT_ARTIFACT_VERSION: "testdata/must-gather-etcd-logs.tar.gz"
-          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
-          LOCAL_TEST_DATA: /tmp/must-gather.tar.gz
-          LOCAL_TEST_DATA_DIR: /tmp/must-gather
-        run: |
-          echo "> Downloading sample artifact: ${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
-          wget -qO ${LOCAL_TEST_DATA} "${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
+        - name: Set up QEMU
+          uses: docker/setup-qemu-action@v3
 
-          echo "> Setting run permissions to OPCT:"
-          chmod u+x ${CUSTOM_BUILD_PATH}
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@v3
 
-          echo "> Extracting testdata:"
-          mkdir ${LOCAL_TEST_DATA_DIR}
-          tar xfz ${LOCAL_TEST_DATA} -C ${LOCAL_TEST_DATA_DIR}
+        - name: Login to Docker Hub
+          uses: docker/login-action@v3
+          with:
+            registry: quay.io
+            username: ${{ secrets.QUAY_OPCT_USER }}
+            password: ${{ secrets.QUAY_OPCT_PASS }}
 
-      - name: "e2e stdin reader: cat <etcd pod logs> | opct adm parse-etcd-logs"
-        env:
-          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
-          LOCAL_TEST_DATA_DIR: /tmp/must-gather
-        run: |
-          cat ${LOCAL_TEST_DATA_DIR}/*/*/namespaces/openshift-etcd/pods/*/etcd/etcd/logs/*.log | \
-            ${CUSTOM_BUILD_PATH} adm parse-etcd-logs
+        - name: "Build and push: quay.io/opct/opct"
+          uses: docker/build-push-action@v6
+          with:
+            platforms: ${{ env.PLATFORMS }}
+            push: ${{ env.PUSH }}
+            provenance: false
+            labels: |
+              quay.expires-after=${BUILD_EXPIRATION}
+            build-args: |
+              QUAY_EXPIRATION=${BUILD_EXPIRATION}
+              RELEASE_TAG=${{ env.BUILD_VERSION }}
+            tags: quay.io/opct/opct:${{ env.BUILD_VERSION }}
+            file: ./hack/Containerfile
 
-      - name: "e2e must-gather dir: opct adm parse-etcd-logs <must-gather-dir>"
-        env:
-          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
-          LOCAL_TEST_DATA_DIR: /tmp/must-gather
-        run: |
-          ${CUSTOM_BUILD_PATH} adm parse-etcd-logs ${LOCAL_TEST_DATA_DIR}
+        - name: Install dependencies
+          if: startsWith(github.ref, 'refs/tags/')
+          run: |
+            sudo apt-get update
+            sudo apt-get install make git -y
 
-      - name: "e2e aggregate by hour: opct adm parse-etcd-logs --aggregator hour <must-gather-dir>"
-        env:
-          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
-          LOCAL_TEST_DATA_DIR: /tmp/must-gather
-        run: |
-          ${CUSTOM_BUILD_PATH} adm parse-etcd-logs --aggregator hour ${LOCAL_TEST_DATA_DIR}
+        - name: Build (all OS) for Github Release
+          if: startsWith(github.ref, 'refs/tags/')
+          run: |
+            make linux-amd64-container
+            make build-linux-amd64
+            make build-windows-amd64
+            make build-darwin-amd64
+            make build-darwin-arm64
 
-      - name: "e2e ignore error counters: opct adm parse-etcd-logs --skip-error-counter=true <must-gather-dir>"
-        env:
-          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
-          LOCAL_TEST_DATA_DIR: /tmp/must-gather
-        run: |
-          ${CUSTOM_BUILD_PATH} adm parse-etcd-logs --skip-error-counter=true ${LOCAL_TEST_DATA_DIR}
+        # https://github.com/mikepenz/release-changelog-builder-action#configuration
+        - name: Build Changelog when tag is pushed
+          if: startsWith(github.ref, 'refs/tags/')
+          id: github_release
+          uses: mikepenz/release-changelog-builder-action@v3.7.0
+          with:
+            configuration: ".github/workflows/changelog-configuration.json"
 
-  e2e-cmd_adm-parse-metrics:
-    name: "e2e-cmd_adm-parse-metrics"
-    runs-on: ubuntu-latest
-    needs:
-    - build
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: opct-linux-amd64
-          path: /tmp/build/
+        # https://github.com/softprops/action-gh-release
+        - name: Create Release on Github when tag is pushed
+          if: startsWith(github.ref, 'refs/tags/')
+          uses: softprops/action-gh-release@v0.1.15
+          env:
+            VERSION: ${{ steps.vars.outputs.tag }}
+            REPO: quay.io/opct/opct
+          with:
+              prerelease: true
+              files: |
+                build/opct-darwin-amd64
+                build/opct-darwin-amd64.sum
+                build/opct-darwin-arm64
+                build/opct-darwin-arm64.sum
+                build/opct-linux-amd64
+                build/opct-linux-amd64.sum
+                build/opct-windows-amd64.exe
+                build/opct-windows-amd64.exe.sum
+              body: |
+                ## Changelog
+                ${{steps.github_release.outputs.changelog}}
 
-      - name: Preparing testdata
-        env:
-          RESULT_ARTIFACT_URL: "https://openshift-provider-certification.s3.us-west-2.amazonaws.com"
-          RESULT_ARTIFACT_VERSION: "testdata/ci-external-aws-ccm_1757495441294888960-artifacts_must-gather-metrics.tar.xz"
-          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
-          LOCAL_TEST_DATA: /tmp/opct-metrics.tar.xz
-        run: |
-          echo "> Downloading sample artifact: ${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
-          wget -qO ${LOCAL_TEST_DATA} "${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
-
-          echo "> Setting run permissions to OPCT:"
-          chmod u+x ${CUSTOM_BUILD_PATH}
-
-      - name: "e2e parse metrics: opct adm parse-etcd-logs <must-gather-dir>"
-        env:
-          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
-          LOCAL_TEST_DATA: /tmp/opct-metrics.tar.xz
-        run: |
-          ${CUSTOM_BUILD_PATH} adm parse-metrics --input ${LOCAL_TEST_DATA} --output /tmp/metrics
-          tree /tmp/metrics
+                ## Images
+                - [quay.io/opct/opct:${{ env.VERSION }}](${{ env.REPO_URL }})

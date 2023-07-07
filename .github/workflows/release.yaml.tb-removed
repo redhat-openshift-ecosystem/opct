@@ -1,0 +1,91 @@
+---
+name: OPCT Release
+# on:
+#   push:
+#     tags:
+#       - '*'
+
+env:
+  CONTAINER_REPO: quay.io/opct/opct
+  RELEASE_TAG: ${{ github.ref_name }}
+  GO_VERSION: 1.22
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # Workaround step for act
+      - name: Install sudo package
+        if: env.ACT == 'true'
+        run: apt update && apt install sudo
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install make git -y
+
+      - name: Build (all OS)
+        run: |
+          make linux-amd64-container
+          make build-linux-amd64
+          make build-windows-amd64
+          make build-darwin-amd64
+          make build-darwin-arm64
+
+      - name: Build Container and Release to Quay
+        env:
+          QUAY_USER: ${{ secrets.QUAY_OPCT_USER }}
+          QUAY_PASS: ${{ secrets.QUAY_OPCT_PASS }}
+        run: |
+          echo "> Logging to Quay.io:"
+          podman login -u="${QUAY_USER}" -p="${QUAY_PASS}" quay.io
+
+          echo "> Build container image:"
+          podman build \
+            -t ${CONTAINER_REPO}:${RELEASE_TAG} \
+            -f hack/Containerfile .
+
+          echo "> Publish container image:"
+          podman push ${CONTAINER_REPO}:${RELEASE_TAG}
+
+      # https://github.com/mikepenz/release-changelog-builder-action#configuration
+      - name: Build Changelog
+        id: github_release
+        uses: mikepenz/release-changelog-builder-action@v3.7.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          configuration: ".github/workflows/changelog-configuration.json"
+
+      # https://github.com/softprops/action-gh-release
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CONTAINER_REPO: ${{ env.CONTAINER_REPO }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
+        with:
+          prerelease: true
+          files: |
+            build/opct-darwin-amd64
+            build/opct-darwin-amd64.sum
+            build/opct-darwin-arm64
+            build/opct-darwin-arm64.sum
+            build/opct-linux-amd64
+            build/opct-linux-amd64.sum
+            build/opct-windows-amd64.exe
+            build/opct-windows-amd64.exe.sum
+          body: |
+            ## Changelog
+            ${{steps.github_release.outputs.changelog}}
+
+            ## Container Images
+            - [${{ env.CONTAINER_REPO }}:${{ env.RELEASE_TAG }}](https://quay.io/repository/opct/opct?tab=tags)

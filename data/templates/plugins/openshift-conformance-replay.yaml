@@ -1,0 +1,118 @@
+---
+podSpec:
+  restartPolicy: Never
+  serviceAccountName: sonobuoy-serviceaccount
+  priorityClassName: system-node-critical
+  volumes:
+    - name: shared
+      emptyDir: {}
+  initContainers:
+    - name: sync
+      image: "{{ .PluginsImage }}"
+      imagePullPolicy: Always
+      command:
+        - "/bin/bash"
+        - "-c"
+        - "cp -vf ./entrypoint-tests.sh ./platform.sh /tmp/shared/"
+      volumeMounts:
+        - mountPath: /tmp/shared
+          name: shared
+    - name: login
+      image: "{{ .OpenshiftTestsImage }}"
+      imagePullPolicy: Always
+      command:
+        - "/bin/bash"
+        - "-c"
+        - |
+          /usr/bin/oc login "${KUBE_API_URL}" \
+            --token="$(cat "${SA_TOKEN_PATH}")" \
+            --certificate-authority="${SA_CA_PATH}";
+      env:
+        - name: KUBECONFIG
+          value: /tmp/shared/kubeconfig
+        - name: KUBE_API_URL
+          value: "https://172.30.0.1:443"
+        - name: SA_TOKEN_PATH
+          value: /var/run/secrets/kubernetes.io/serviceaccount/token
+        - name: SA_CA_PATH
+          value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      volumeMounts:
+        - mountPath: /tmp/shared
+          name: shared
+  containers:
+    - name: tests
+      image: "{{ .OpenshiftTestsImage }}"
+      imagePullPolicy: Always
+      volumeMounts:
+        - mountPath: /tmp/shared
+          name: shared
+      command: ["/bin/bash", "/tmp/shared/entrypoint-tests.sh"]
+      env:
+        - name: KUBECONFIG
+          value: /tmp/shared/kubeconfig
+        - name: PLUGIN_NAME
+          value: openshift-tests-replay
+        - name: DEFAULT_SUITE_NAME
+          value: all
+        - name: OT_RUN_COMMAND
+          value: run
+
+sonobuoy-config:
+  driver: Job
+  plugin-name: 80-openshift-tests-replay
+  result-format: junit
+  description: |
+    OPCT plugin to collect e2e failures from previous executions and
+    schedule a new execution running in serial mode with openshift-tests.
+  source-url: |
+    https://github.com/redhat-openshift-ecosystem/provider-certification-tool/\
+    blob/main/manifests/openshift-conformance-validated.yaml
+  skipCleanup: true
+spec:
+  name: plugin
+  image: "{{ .PluginsImage }}"
+  command:
+    - "/bin/sh"
+    - "-c"
+    - "/usr/bin/openshift-tests-plugin run --name ${PLUGIN_NAME}"
+  imagePullPolicy: Always
+  volumeMounts:
+    - mountPath: /tmp/sonobuoy/results
+      name: results
+    - mountPath: /tmp/shared
+      name: shared
+  env:
+    - name: KUBECONFIG
+      value: /tmp/shared/kubeconfig
+    - name: PLUGIN_NAME
+      value: openshift-tests-replay
+    - name: PLUGIN_ID
+      value: "80"
+    - name: ENV_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: ENV_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: ENV_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: RUN_MODE
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: run-mode
+    - name: DEV_MODE_COUNT
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: dev-count
+    - name: MIRROR_IMAGE_REPOSITORY
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: mirror-registry
+          optional: true

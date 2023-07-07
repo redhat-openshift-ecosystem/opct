@@ -1,54 +1,41 @@
+---
 podSpec:
   restartPolicy: Never
   serviceAccountName: sonobuoy-serviceaccount
+  priorityClassName: system-node-critical
   volumes:
     - name: shared
       emptyDir: {}
-  containers:
-    - name: report-progress
-      image: "{{ .PluginsImage }}"
-      imagePullPolicy: Always
-      priorityClassName: system-node-critical
-      command: ["./report-progress.sh"]
-      volumeMounts:
-      - mountPath: /tmp/sonobuoy/results
-        name: results
-      - mountPath: /tmp/shared
-        name: shared
-      env:
-        - name: PLUGIN_ID
-          value: "99"
-        - name: ENV_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: ENV_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: ENV_POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
 sonobuoy-config:
   driver: Job
   plugin-name: 99-openshift-artifacts-collector
   result-format: raw
-  description: The OpenShift Provider Certification Tool artifacts collector executed on the post-certification.
-  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-artifacts-collector.yaml
+  description: |
+    OPCT artifacts plugin collects the artifacts from the OpenShift Container
+    Platform post-validation.
+  source-url:
+    "https://github.com/redhat-openshift-ecosystem/provider-certification-tool/\
+    blob/main/manifests/openshift-artifacts-collector.yaml"
   skipCleanup: true
 spec:
   name: plugin
-  image: "{{ .PluginsImage }}"
+  image: "{{ .CollectorImage }}"
   imagePullPolicy: Always
+  command: ["/bin/bash", "/plugin/entrypoint-collector.sh"]
   volumeMounts:
-  - mountPath: /tmp/sonobuoy/results
-    name: results
-  - mountPath: /tmp/shared
-    name: shared
+    - mountPath: /tmp/sonobuoy/results
+      name: results
+    - mountPath: /tmp/shared
+      name: shared
   env:
     - name: PLUGIN_ID
       value: "99"
+    - name: PLUGIN_NAME
+      value: "openshift-artifacts-collector"
+    - name: PLUGIN_BLOCKED_BY
+      value: "80-openshift-tests-replay"
+    - name: IMAGE_OVERRIDE_MUST_GATHER
+      value: "{{ .MustGatherMonitoringImage }}"
     - name: ENV_NODE_NAME
       valueFrom:
         fieldRef:
@@ -77,4 +64,3 @@ spec:
           name: plugins-config
           key: mirror-registry
           optional: true
-

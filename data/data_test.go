@@ -24,6 +24,7 @@ func TestDataTemplatesPluginsManifests(t *testing.T) {
 				want := []string{
 					"templates/plugins/openshift-artifacts-collector.yaml",
 					"templates/plugins/openshift-cluster-upgrade.yaml",
+					"templates/plugins/openshift-conformance-replay.yaml",
 					"templates/plugins/openshift-conformance-validated.yaml",
 					"templates/plugins/openshift-kube-conformance.yaml",
 				}

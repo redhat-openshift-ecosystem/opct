@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/aggregation"
@@ -29,8 +30,8 @@ func Test_PrintStatus(t *testing.T) {
 		},
 		Status: "running",
 	}
-
-	ps := getPrintableRunningStatus(a)
+	now := time.Now()
+	ps := getPrintableRunningStatus(a, now)
 
 	tmpl, err := template.New("test").Parse(runningStatusTemplate)
 	if err != nil {

@@ -13,6 +13,7 @@ import (
 type PrintableStatus struct {
 	GlobalStatus   string
 	CurrentTime    string
+	ElapsedTime    string
 	PluginStatuses []PrintablePluginStatus
 }
 
@@ -24,13 +25,13 @@ type PrintablePluginStatus struct {
 	Message  string
 }
 
-var runningStatusTemplate = `{{.CurrentTime}}> Global Status: {{.GlobalStatus}}
+var runningStatusTemplate = `{{.CurrentTime}}|{{.ElapsedTime}}> Global Status: {{.GlobalStatus}}
 {{printf "%-34s | %-10s | %-10s | %-25s | %-50s" "JOB_NAME" "STATUS" "RESULTS" "PROGRESS" "MESSAGE"}}{{range $index, $pl := .PluginStatuses}}
 {{printf "%-34s | %-10s | %-10s | %-25s | %-50s" $pl.Name $pl.Status $pl.Result $pl.Progress $pl.Message}}{{end}}
 `
 
-func PrintRunningStatus(s *aggregation.Status) error {
-	ps := getPrintableRunningStatus(s)
+func PrintRunningStatus(s *aggregation.Status, start time.Time) error {
+	ps := getPrintableRunningStatus(s, start)
 	statusTemplate, err := template.New("statusTemplate").Parse(runningStatusTemplate)
 	if err != nil {
 		return err
@@ -40,10 +41,12 @@ func PrintRunningStatus(s *aggregation.Status) error {
 	return err
 }
 
-func getPrintableRunningStatus(s *aggregation.Status) PrintableStatus {
+func getPrintableRunningStatus(s *aggregation.Status, start time.Time) PrintableStatus {
+	now := time.Now()
 	ps := PrintableStatus{
 		GlobalStatus: s.Status,
-		CurrentTime:  time.Now().Format(time.RFC1123),
+		CurrentTime:  now.Format(time.RFC1123),
+		ElapsedTime:  now.Sub(start).String(),
 	}
 
 	for _, pl := range s.Plugins {
@@ -60,6 +63,9 @@ func getPrintableRunningStatus(s *aggregation.Status) PrintableStatus {
 			}
 		} else if pl.ResultStatus == "" {
 			message = "waiting for post-processor..."
+			if pl.Status != "" {
+				message = pl.Status
+			}
 		} else {
 			passCount := pl.ResultStatusCounts["passed"]
 			failedCount := pl.ResultStatusCounts["failed"]
