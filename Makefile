@@ -63,3 +63,15 @@ vet:
 .PHONY: clean
 clean:
 	rm -rvf ./openshift-provider-cert-* ./opct-*
+
+# For dependencies, see:
+# .github/workflows/static-website.yml
+# hack/docs-requirements.txt
+
+.PHONY: build-changelog
+build-changelog:
+	./hack/generate-changelog.sh
+
+.PHONY: build-docs
+build-docs: build-changelog
+	mkdocs build --site-dir ./site

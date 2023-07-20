@@ -34,7 +34,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3-pip graphviz
           pip3 install -r hack/docs-requirements.txt
-          mkdocs build --site-dir ./site
+          make build-docs
 
       - name: Setup Pages
         uses: actions/configure-pages@v3

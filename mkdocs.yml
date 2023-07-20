@@ -42,3 +42,4 @@ nav:
       - diagrams/index.md
       - diagrams/opct-sequence.md
       - "Reference Architecture": diagrams/ocp-architecture-reference.md
+  - CHANGELOG: CHANGELOG.md
