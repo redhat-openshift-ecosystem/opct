@@ -39,7 +39,7 @@ func NewCmdReport() *cobra.Command {
 		&data.archiveBase, "baseline", "b", "",
 		"Baseline result archive file. Example: -b file.tar.gz",
 	)
-	cmd.MarkFlagRequired("base")
+	_ = cmd.MarkFlagRequired("base")
 
 	cmd.Flags().StringVarP(
 		&data.saveTo, "save-to", "s", "",
