@@ -1,4 +1,4 @@
-name: "Go"
+name: "OPCT"
 
 on:
   pull_request:
@@ -10,8 +10,9 @@ on:
       - '*'
 
 jobs:
-  static:
-    name: "Run Continuous Integration"
+  # TODO: add go-lint
+  go-test:
+    name: "go-test"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -20,22 +21,39 @@ jobs:
         with:
           go-version: 1.19
 
-      - name: Verify bindata was generated
-        run: |
-          go install github.com/go-bindata/go-bindata/go-bindata@latest
-          set -xe
-          ./hack/update-generated-bindata.sh
-          set +ex
-          # bypassing CI check for pkg/assets/bindata.go due go-bindata issues with ioutils
-          # https://issues.redhat.com/browse/OPCT-199
-          git checkout pkg/assets/bindata.go
-          git diff --exit-code
-
       - name: Run unit tests
         run: make test
 
       - name: Run go vet
         run: make vet
+
+      - name: Run static code analysis
+        uses: dominikh/staticcheck-action@v1.3.0
+        with:
+          version: "2022.1.3"
+
+  go-vet:
+    name: "go-vet"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.19
+
+      - name: Run go vet
+        run: make vet
+
+  go-static:
+    name: "go-staticcheck"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.19
 
       - name: Run static code analysis
         uses: dominikh/staticcheck-action@v1.3.0

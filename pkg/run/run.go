@@ -1,11 +1,9 @@
 package run
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"text/template"
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -29,7 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/assets"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/client"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/status"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/wait"
@@ -348,33 +345,6 @@ func (r *RunOptions) createConfigMap(kclient kubernetes.Interface, sclient sonob
 	return nil
 }
 
-// processManifestTemplates processes go template variables in the manifest which map to variable in RunOptions
-func (r *RunOptions) processManifestTemplates(manifest *manifest.Manifest) error {
-
-	var templatedPtrs []*string
-
-	templatedPtrs = append(templatedPtrs, &manifest.Spec.Image)
-	for idx := range manifest.PodSpec.Containers {
-		templatedPtrs = append(templatedPtrs, &manifest.PodSpec.Containers[idx].Image)
-	}
-
-	for _, templatedPtr := range templatedPtrs {
-		imageTemplate, err := template.New("manifest").Parse(*templatedPtr)
-		if err != nil {
-			return errors.Wrapf(err, "unable to parse manifest %s", manifest.SonobuoyConfig.PluginName)
-		}
-		var imageBuffer bytes.Buffer
-		err = imageTemplate.Execute(&imageBuffer, r)
-		if err != nil {
-			return errors.Wrapf(err, "unable to update manifest %s", manifest.SonobuoyConfig.PluginName)
-		}
-		*templatedPtr = imageBuffer.String()
-		log.Debugf("manifest %s references image %s", manifest.SonobuoyConfig.PluginName, *templatedPtr)
-	}
-	return nil
-
-}
-
 // Run setup and provision the certification environment.
 func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.Interface) error {
 	var manifests []*manifest.Manifest
@@ -440,13 +410,10 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 	if r.plugins == nil || len(*r.plugins) == 0 {
 		// Use default built-in plugins
 		log.Debugf("Loading default certification plugins")
-		for _, m := range assets.AssetNames() {
-			log.Debugf("Loading certification plugin: %s", m)
-			asset, err := loader.LoadDefinition(assets.MustAsset(m))
-			if err != nil {
-				return err
-			}
-			manifests = append(manifests, &asset)
+		var err error
+		manifests, err = loadPluginManifests(r)
+		if err != nil {
+			return nil
 		}
 	} else {
 		// User provided their own plugins at command line
@@ -462,13 +429,6 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 
 	if len(manifests) == 0 {
 		return errors.New("No certification plugins to run")
-	}
-
-	for _, manifest := range manifests {
-		err := r.processManifestTemplates(manifest)
-		if err != nil {
-			return err
-		}
 	}
 
 	// Fill out the aggregator and worker configs

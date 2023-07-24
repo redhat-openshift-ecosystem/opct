@@ -16,13 +16,14 @@ unexport GOFLAGS
 .PHONY: all
 all: linux-amd64-container cross-build-windows-amd64 cross-build-darwin-amd64 cross-build-darwin-arm64
 
+.PHONY: update-go
+update-go:
+	go get -u
+	go mod tidy
+
 .PHONY: build
 build:
 	go build -o openshift-provider-cert $(GO_BUILD_FLAGS)
-
-.PHONY: generate
-update:
-	./hack/update-generated-bindata.sh
 
 .PHONY: verify-codegen
 verify-codegen:
