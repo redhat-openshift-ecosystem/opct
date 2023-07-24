@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/assets"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/destroy"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/report"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/retrieve"
@@ -60,7 +59,6 @@ func init() {
 	viper.BindPFlag("loglevel", rootCmd.PersistentFlags().Lookup("loglevel"))
 
 	// Link in child commands
-	rootCmd.AddCommand(assets.NewCmdAssets())
 	rootCmd.AddCommand(destroy.NewCmdDestroy())
 	rootCmd.AddCommand(retrieve.NewCmdRetrieve())
 	rootCmd.AddCommand(run.NewCmdRun())
