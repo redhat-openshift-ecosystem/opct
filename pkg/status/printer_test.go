@@ -38,5 +38,5 @@ func Test_PrintStatus(t *testing.T) {
 		return
 	}
 
-	tmpl.Execute(os.Stderr, ps)
+	_ = tmpl.Execute(os.Stderr, ps)
 }

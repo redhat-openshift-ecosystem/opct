@@ -50,13 +50,20 @@ func Execute() {
 	}
 }
 
+func initBindFlag(flag string) {
+	err := viper.BindPFlag(flag, rootCmd.PersistentFlags().Lookup(flag))
+	if err != nil {
+		log.Warnf("Unable to bind flag %s\n", flag)
+	}
+}
+
 func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().String("kubeconfig", "", "kubeconfig for target OpenShift cluster")
 	rootCmd.PersistentFlags().String("loglevel", "info", "logging level")
-	viper.BindPFlag("kubeconfig", rootCmd.PersistentFlags().Lookup("kubeconfig"))
-	viper.BindPFlag("loglevel", rootCmd.PersistentFlags().Lookup("loglevel"))
+	initBindFlag("kubeconfig")
+	initBindFlag("loglevel")
 
 	// Link in child commands
 	rootCmd.AddCommand(destroy.NewCmdDestroy())

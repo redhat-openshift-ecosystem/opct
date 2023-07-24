@@ -62,6 +62,13 @@ func newRunOptions() *RunOptions {
 	}
 }
 
+func hideOptionalFlags(cmd *cobra.Command, flag string) {
+	err := cmd.Flags().MarkHidden(flag)
+	if err != nil {
+		log.Debugf("Unable to hide flag %s: %v", flag, err)
+	}
+}
+
 func NewCmdRun() *cobra.Command {
 	var err error
 	var kclient kubernetes.Interface
@@ -97,7 +104,7 @@ func NewCmdRun() *cobra.Command {
 			log.Info("Jobs scheduled! Waiting for resources be created...")
 
 			// Wait for Sonobuoy to create
-			wait.WaitForRequiredResources(kclient)
+			err = wait.WaitForRequiredResources(kclient)
 			if err != nil {
 				log.WithError(err).Fatal("error waiting for sonobuoy pods to become ready")
 			}
@@ -138,10 +145,10 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().IntVar(&o.timeout, "timeout", defaultRunTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", defaultRunWatchFlag, "Keep watch status after running")
 
-	// Hide dedicated flag since this is for development only
-	cmd.Flags().MarkHidden("dedicated")
-	cmd.Flags().MarkHidden("dev-count")
-	cmd.Flags().MarkHidden("plugins-image")
+	// Hide optional flags
+	hideOptionalFlags(cmd, "dedicated")
+	hideOptionalFlags(cmd, "dev-count")
+	hideOptionalFlags(cmd, "plugins-image")
 
 	return cmd
 }
