@@ -36,6 +36,9 @@ nav:
     - "Troubleshooting": troubleshooting-guide.md
   - Support Guides:
     - Support Guide: support-guide.md
+  - Review:
+    - review/index.md
+    - OPCT Rules: review/rules.md
   - Developer Guides:
     - Development Guide: dev.md
     - Diagrams:
