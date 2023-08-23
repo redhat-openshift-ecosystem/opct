@@ -1,5 +1,8 @@
 # OPCT Review/Check Rules
 
+!!! warning "Preview Note"
+    This document is available only for development preview.
+
 The OPCT rules are used in the `report` command to evaluate the data collected by
 the OPCT execution. The HTML report will link directly to the rule ID on this page.
 
@@ -89,92 +92,6 @@ To check the error counter by e2e test using HTML report navigate to `Suite Erro
 
 To check the logs, navigate to the Plugin menu and check the logs `failure` and `systemOut`.
 
-___
-### OPCT-007 <a name="OPCT-007"></a>
-- **Name**: Workloads must report a lower number of errors in the logs
-- **Description**: Workloads collected are reporting a high number of errors.
-- **Action**: Check pod logs to isolate the issue.
-- **Troubleshooting**:
-
-To check the error counter by test using HTML report navigate to `Workload Errors` in the left menu. The table `Error Counters by Namespace` shows the namespace reporting a high number of errors, rank by the higher, you can start exploring the logs in that namespace.
-
-The table `Error Counters by Pod and Pattern` in `Workload Errors` menu also report the pods
-you also can use that information to isolate any issue in your environment.
-
-To explore the logs, you can extract the must-gather collected by plugin `99-openshift-artifacts-collector`:
-
-```sh
-# extract must-gather from the results
-tar xfz artifact.tar.gz \
-    plugins/99-openshift-artifacts-collector/results/global/artifacts_must-gather.tar.xz
-
-# extract must-gather
-mkdir must-gather && \
-    tar xfJ plugins/99-openshift-artifacts-collector/results/global/artifacts_must-gather.tar.xz \
-    -C must-gather
-
-# check workload logs with omc (example etcd)
-omc use must-gather
-omc logs -n openshift-etcd etcd-control-plane-0 -c etcd
-```
-___
-### OPCT-008 <a name="OPCT-008"></a>
-- **Name**: All nodes must be healthy
-- **Description**: All nodes in the cluster must be ready.
-- **Action**: Check the nodes and the reason it is not reporting as ready.
-- **Troubleshooting**:
-
-Check the unhealthy nodes in the cluster:
-```sh
-$ omc get nodes
-```
-
-Review the node and events:
-```sh
-$ omc describe node <node_name>
-```
-
-___
-### OPCT-009 <a name="OPCT-009"></a>
-- **Name**: Pods Healthy must report be higher than 98%
-- **Description**: Pods must report healthy.
-- **Action**: Check the failing pod, isolate if it is related with the environment and/or the validation tests.
-- **Troubleshooting**:
-
-Check the unhealthy pods:
-```sh
-$ ./opct report archive.tar.gz
-(...)
- Health summary:			  [A=True/P=True/D=True]	
- - Cluster Operators			: [33/0/0]
- - Node health				: 6/6  (100.00%)
- - Pods health				: 246/247  (99.00%)
-						
- Failed pods:
-  Namespace/PodName						Healthy	Ready	Reason		Message
-  openshift-kube-controller-manager/installer-6-control-plane-1	false	False	PodFailed	
-(...)
-```
-
-Explore the pods:
-```sh
-$ omc get pods -A |egrep -v '(Running|Completed)'
-```
-___
-<!-- 
-> Add new tests after "___" using the following template.
-___
-### OPCT-000 <a name="OPCT-000"></a>
-
-**Name**: Rule Name
-
-**Description**: Plugin description
-
-**Actions**:
-
-- action 1
-
--->
 ___
 ### OPCT-007 <a name="OPCT-007"></a>
 - **Name**: Workloads must report a lower number of errors in the logs
