@@ -86,5 +86,5 @@ done
 echo -e "\n\n > This page is generated automatically by CI/hack-generate-changelog.sh\n\n" >> "$chagelog_file"
 
 
-# TODO: create plugin change log
+# TODO: create plugin changelog
 #plugin_releases=("v0.1.1" "v0.2.2" "v0.3.0" "v0.4.0")
