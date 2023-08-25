@@ -96,7 +96,7 @@ jobs:
           make build-${OS_ARCH}
 
       - name: Save artifacts (OS=linux-amd64)
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: opct-linux-amd64
           path: |
@@ -110,7 +110,7 @@ jobs:
           make build-${OS_ARCH}
 
       - name: Save artifacts (OS=darwin-arm64)
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: opct-darwin-arm64
           path: |
