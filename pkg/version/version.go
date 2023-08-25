@@ -44,7 +44,6 @@ func NewCmdVersion() *cobra.Command {
 			fmt.Println(Version.String())
 			fmt.Println(Version.StringPlugins())
 			fmt.Printf("Sonobuoy: %s\n", buildinfo.Version)
-			// TODO: collect OpenShift and Kube versions too
 		},
 	}
 }

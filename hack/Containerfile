@@ -4,7 +4,7 @@ ARG RELEASE_TAG
 RUN apk add --no-cache --update make git
 WORKDIR /go/src/github.com/redhat-openshift-ecosystem/provider-certification-tool
 COPY . .
-RUN make linux-amd64 RELEASE_TAG=${RELEASE_TAG}
+RUN make build-linux-amd64 RELEASE_TAG=${RELEASE_TAG}
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.8-860
 LABEL io.k8s.display-name="OPCT" \
@@ -13,7 +13,7 @@ LABEL io.k8s.display-name="OPCT" \
       io.opct.os="linux" io.opct.arch="amd64"
 
 COPY --from=builder \
-      /go/src/github.com/redhat-openshift-ecosystem/provider-certification-tool/openshift-provider-cert-linux-amd64 \
+      /go/src/github.com/redhat-openshift-ecosystem/provider-certification-tool/build/opct-linux-amd64 \
       /usr/bin/
 
-CMD ["/usr/bin/openshift-provider-cert-linux-amd64"]
+CMD ["/usr/bin/opct-linux-amd64"]

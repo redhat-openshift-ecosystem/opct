@@ -66,3 +66,52 @@ jobs:
           go-version: '1.19'
       - name: Run go vet
         run: make vet
+
+  build:
+    name: "build-artifact"
+    runs-on: ubuntu-latest
+    needs:
+    - go-test
+    - go-vet
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.19
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make git -y
+
+      - name: Build (OS=linux-amd64)
+        env:
+          OS_ARCH: linux-amd64
+        run: |
+          make clean
+          make linux-amd64-container
+          make build-${OS_ARCH}
+
+      - name: Save artifacts (OS=linux-amd64)
+        uses: actions/upload-artifact@v2
+        with:
+          name: opct-linux-amd64
+          path: |
+            build/opct-*
+
+      - name: Build (OS=darwin-arm64)
+        env:
+          OS_ARCH: darwin-arm64
+        run: |
+          make clean
+          make build-${OS_ARCH}
+
+      - name: Save artifacts (OS=darwin-arm64)
+        uses: actions/upload-artifact@v2
+        with:
+          name: opct-darwin-arm64
+          path: |
+            build/opct-*

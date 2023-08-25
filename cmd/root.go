@@ -20,9 +20,9 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "openshift-provider-cert",
-	Short: "OpenShift Provider Compatibility Tool",
-	Long:  `OpenShift Provider Compatibility Tool is used to evaluate an OpenShift installation on a provider or hardware is in conformance`,
+	Use:   "opct",
+	Short: "OPCT",
+	Long:  `OpenShift/OKD Provider Compatibility Tool is used to validate an OpenShift installation on a provider or hardware using standard conformance suites`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		var err error
 
