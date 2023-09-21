@@ -3,4 +3,9 @@ opct-*
 kubeconfig
 .idea/
 
+# build files
 dist/
+
+# changelog is generated automaticaly by hack/generate-changelog.sh
+# available only in the rendered webpage (built by mkdocs).
+docs/CHANGELOG.md
