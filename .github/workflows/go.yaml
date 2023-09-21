@@ -1,4 +1,4 @@
-name: "Go"
+name: "OPCT"
 
 on:
   pull_request:
@@ -10,34 +10,108 @@ on:
       - '*'
 
 jobs:
-  static:
-    name: "Run Continuous Integration"
+  go-lint:
+    name: go-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Go
-        uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: 1.19
+          go-version: '1.19'
+          cache: false
+      # https://github.com/golangci/golangci-lint-action
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.53
+          args: --timeout=10m
 
-      - name: Verify bindata was generated
-        run: |
-          go install github.com/go-bindata/go-bindata/go-bindata@latest
-          set -xe
-          ./hack/update-generated-bindata.sh
-          set +ex
-          # bypassing CI check for pkg/assets/bindata.go due go-bindata issues with ioutils
-          # https://issues.redhat.com/browse/OPCT-199
-          git checkout pkg/assets/bindata.go
-          git diff --exit-code
-
-      - name: Run unit tests
-        run: make test
-
-      - name: Run go vet
-        run: make vet
-
+  go-static:
+    name: "go-staticcheck"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.19'
       - name: Run static code analysis
         uses: dominikh/staticcheck-action@v1.3.0
         with:
           version: "2022.1.3"
+
+  go-test:
+    name: go-test
+    runs-on: ubuntu-latest
+    needs:
+    - go-lint
+    - go-static
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.19'
+      - name: Run unit tests
+        run: make test
+
+  go-vet:
+    name: "go-vet"
+    runs-on: ubuntu-latest
+    needs:
+    - go-lint
+    - go-static
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.19'
+      - name: Run go vet
+        run: make vet
+
+  build:
+    name: "build-artifact"
+    runs-on: ubuntu-latest
+    needs:
+    - go-test
+    - go-vet
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.19
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make git -y
+
+      - name: Build (OS=linux-amd64)
+        env:
+          OS_ARCH: linux-amd64
+        run: |
+          make clean
+          make linux-amd64-container
+          make build-${OS_ARCH}
+
+      - name: Save artifacts (OS=linux-amd64)
+        uses: actions/upload-artifact@v3
+        with:
+          name: opct-linux-amd64
+          path: |
+            build/opct-*
+
+      - name: Build (OS=darwin-arm64)
+        env:
+          OS_ARCH: darwin-arm64
+        run: |
+          make clean
+          make build-${OS_ARCH}
+
+      - name: Save artifacts (OS=darwin-arm64)
+        uses: actions/upload-artifact@v3
+        with:
+          name: opct-darwin-arm64
+          path: |
+            build/opct-*

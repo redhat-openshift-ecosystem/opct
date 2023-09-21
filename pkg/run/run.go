@@ -1,11 +1,9 @@
 package run
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"text/template"
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -29,7 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/assets"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/client"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/status"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/wait"
@@ -65,6 +62,13 @@ func newRunOptions() *RunOptions {
 	}
 }
 
+func hideOptionalFlags(cmd *cobra.Command, flag string) {
+	err := cmd.Flags().MarkHidden(flag)
+	if err != nil {
+		log.Debugf("Unable to hide flag %s: %v", flag, err)
+	}
+}
+
 func NewCmdRun() *cobra.Command {
 	var err error
 	var kclient kubernetes.Interface
@@ -73,8 +77,8 @@ func NewCmdRun() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "run",
-		Short: "Run the suite of tests for provider certification",
-		Long:  `Launches the provider certification environment inside of an already running OpenShift cluster`,
+		Short: "Run the suite of tests for provider validation",
+		Long:  `Launches the provider validation environment inside of an already running OpenShift cluster`,
 		PreRun: func(cmd *cobra.Command, args []string) {
 			// Client setup
 			kclient, sclient, err = client.CreateClients()
@@ -89,7 +93,7 @@ func NewCmdRun() *cobra.Command {
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			log.Info("Running OpenShift Provider Certification Tool...")
+			log.Info("Running OPCT...")
 
 			// Fire off sonobuoy
 			err := o.Run(kclient, sclient)
@@ -100,7 +104,7 @@ func NewCmdRun() *cobra.Command {
 			log.Info("Jobs scheduled! Waiting for resources be created...")
 
 			// Wait for Sonobuoy to create
-			wait.WaitForRequiredResources(kclient)
+			err = wait.WaitForRequiredResources(kclient)
 			if err != nil {
 				log.WithError(err).Fatal("error waiting for sonobuoy pods to become ready")
 			}
@@ -141,10 +145,10 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().IntVar(&o.timeout, "timeout", defaultRunTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", defaultRunWatchFlag, "Keep watch status after running")
 
-	// Hide dedicated flag since this is for development only
-	cmd.Flags().MarkHidden("dedicated")
-	cmd.Flags().MarkHidden("dev-count")
-	cmd.Flags().MarkHidden("plugins-image")
+	// Hide optional flags
+	hideOptionalFlags(cmd, "dedicated")
+	hideOptionalFlags(cmd, "dev-count")
+	hideOptionalFlags(cmd, "plugins-image")
 
 	return cmd
 }
@@ -170,7 +174,7 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 		for _, err := range errs {
 			log.Warn(err)
 		}
-		return errors.New("All Cluster Operators must be available, not progressing, and not degraded before certification can run")
+		return errors.New("All Cluster Operators must be available, not progressing, and not degraded before validation can run")
 	}
 
 	// Get ConfigV1 client for Cluster Operators
@@ -185,7 +189,7 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 		return err
 	}
 	if !managed {
-		return errors.New("OpenShift Image Registry must deployed before certification can run")
+		return errors.New("OpenShift Image Registry must deployed before validation can run")
 	}
 
 	// TODO: checkOrCreate MachineConfigPool with:
@@ -348,33 +352,6 @@ func (r *RunOptions) createConfigMap(kclient kubernetes.Interface, sclient sonob
 	return nil
 }
 
-// processManifestTemplates processes go template variables in the manifest which map to variable in RunOptions
-func (r *RunOptions) processManifestTemplates(manifest *manifest.Manifest) error {
-
-	var templatedPtrs []*string
-
-	templatedPtrs = append(templatedPtrs, &manifest.Spec.Image)
-	for idx := range manifest.PodSpec.Containers {
-		templatedPtrs = append(templatedPtrs, &manifest.PodSpec.Containers[idx].Image)
-	}
-
-	for _, templatedPtr := range templatedPtrs {
-		imageTemplate, err := template.New("manifest").Parse(*templatedPtr)
-		if err != nil {
-			return errors.Wrapf(err, "unable to parse manifest %s", manifest.SonobuoyConfig.PluginName)
-		}
-		var imageBuffer bytes.Buffer
-		err = imageTemplate.Execute(&imageBuffer, r)
-		if err != nil {
-			return errors.Wrapf(err, "unable to update manifest %s", manifest.SonobuoyConfig.PluginName)
-		}
-		*templatedPtr = imageBuffer.String()
-		log.Debugf("manifest %s references image %s", manifest.SonobuoyConfig.PluginName, *templatedPtr)
-	}
-	return nil
-
-}
-
 // Run setup and provision the certification environment.
 func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.Interface) error {
 	var manifests []*manifest.Manifest
@@ -439,14 +416,11 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 
 	if r.plugins == nil || len(*r.plugins) == 0 {
 		// Use default built-in plugins
-		log.Debugf("Loading default certification plugins")
-		for _, m := range assets.AssetNames() {
-			log.Debugf("Loading certification plugin: %s", m)
-			asset, err := loader.LoadDefinition(assets.MustAsset(m))
-			if err != nil {
-				return err
-			}
-			manifests = append(manifests, &asset)
+		log.Debugf("Loading default plugins")
+		var err error
+		manifests, err = loadPluginManifests(r)
+		if err != nil {
+			return nil
 		}
 	} else {
 		// User provided their own plugins at command line
@@ -461,14 +435,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 	}
 
 	if len(manifests) == 0 {
-		return errors.New("No certification plugins to run")
-	}
-
-	for _, manifest := range manifests {
-		err := r.processManifestTemplates(manifest)
-		if err != nil {
-			return err
-		}
+		return errors.New("No validation plugins to run")
 	}
 
 	// Fill out the aggregator and worker configs

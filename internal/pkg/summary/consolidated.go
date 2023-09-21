@@ -530,7 +530,7 @@ func createSheet(sheet *excelize.File, sheeName string) error {
 
 	// create header
 	for k, v := range header {
-		sheet.SetCellValue(sheeName, k, v)
+		_ = sheet.SetCellValue(sheeName, k, v)
 	}
 
 	return nil
@@ -539,12 +539,12 @@ func createSheet(sheet *excelize.File, sheeName string) error {
 // populateGsheet fill each row per error item.
 func populateSheet(sheet *excelize.File, sheeName, suite string, list []string, rowN *int64) {
 	for idx, v := range list {
-		sheet.SetCellValue(sheeName, fmt.Sprintf("A%d", *rowN), suite)
-		sheet.SetCellValue(sheeName, fmt.Sprintf("B%d", *rowN), idx+1)
-		sheet.SetCellValue(sheeName, fmt.Sprintf("C%d", *rowN), sheeName)
-		sheet.SetCellValue(sheeName, fmt.Sprintf("D%d", *rowN), v)
-		sheet.SetCellValue(sheeName, fmt.Sprintf("E%d", *rowN), "TODO Review")
-		sheet.SetCellValue(sheeName, fmt.Sprintf("F%d", *rowN), "")
+		_ = sheet.SetCellValue(sheeName, fmt.Sprintf("A%d", *rowN), suite)
+		_ = sheet.SetCellValue(sheeName, fmt.Sprintf("B%d", *rowN), idx+1)
+		_ = sheet.SetCellValue(sheeName, fmt.Sprintf("C%d", *rowN), sheeName)
+		_ = sheet.SetCellValue(sheeName, fmt.Sprintf("D%d", *rowN), v)
+		_ = sheet.SetCellValue(sheeName, fmt.Sprintf("E%d", *rowN), "TODO Review")
+		_ = sheet.SetCellValue(sheeName, fmt.Sprintf("F%d", *rowN), "")
 		*(rowN) += 1
 	}
 }

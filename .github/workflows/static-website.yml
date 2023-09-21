@@ -1,4 +1,4 @@
-name: Deploy static content to Pages
+name: Documentation
 
 on:
   # Static pages are build only targeting the main branch

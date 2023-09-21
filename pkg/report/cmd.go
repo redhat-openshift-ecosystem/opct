@@ -39,7 +39,7 @@ func NewCmdReport() *cobra.Command {
 		&data.archiveBase, "baseline", "b", "",
 		"Baseline result archive file. Example: -b file.tar.gz",
 	)
-	cmd.MarkFlagRequired("base")
+	_ = cmd.MarkFlagRequired("base")
 
 	cmd.Flags().StringVarP(
 		&data.saveTo, "save-to", "s", "",
@@ -103,7 +103,7 @@ func processResult(input *Input) error {
 }
 
 func showAggregatedSummary(cs *summary.ConsolidatedSummary) error {
-	fmt.Printf("\n> OpenShift Provider Certification Summary <\n\n")
+	fmt.Printf("\n> OPCT Summary <\n\n")
 
 	// vars starting with p* represents the 'partner' artifact
 	// vars starting with b* represents 'baseline' artifact

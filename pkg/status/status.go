@@ -41,7 +41,7 @@ func NewCmdStatus() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "status",
-		Short: "Show the current status of the certification tool",
+		Short: "Show the current status of the validation tool",
 		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Client setup
@@ -91,7 +91,7 @@ func (s *StatusOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	if err != nil {
 		// If error is due to namespace not being found, return guidance.
 		if kerrors.IsNotFound(err) {
-			return errors.New("looks like there is no Certification environment running. use run command to start Certification process")
+			return errors.New("looks like there is no validation environment running. use run command to start the validation process")
 		}
 	}
 

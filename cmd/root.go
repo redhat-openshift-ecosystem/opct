@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/assets"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/destroy"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/report"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/retrieve"
@@ -21,9 +20,9 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "openshift-provider-cert",
-	Short: "OpenShift Provider Certification Tool",
-	Long:  `OpenShift Provider Certification Tool is used to evaluate an OpenShift installation on a provider or hardware is in conformance`,
+	Use:   "opct",
+	Short: "OPCT",
+	Long:  `OpenShift/OKD Provider Compatibility Tool is used to validate an OpenShift installation on a provider or hardware using standard conformance suites`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		var err error
 
@@ -51,16 +50,22 @@ func Execute() {
 	}
 }
 
+func initBindFlag(flag string) {
+	err := viper.BindPFlag(flag, rootCmd.PersistentFlags().Lookup(flag))
+	if err != nil {
+		log.Warnf("Unable to bind flag %s\n", flag)
+	}
+}
+
 func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().String("kubeconfig", "", "kubeconfig for target OpenShift cluster")
 	rootCmd.PersistentFlags().String("loglevel", "info", "logging level")
-	viper.BindPFlag("kubeconfig", rootCmd.PersistentFlags().Lookup("kubeconfig"))
-	viper.BindPFlag("loglevel", rootCmd.PersistentFlags().Lookup("loglevel"))
+	initBindFlag("kubeconfig")
+	initBindFlag("loglevel")
 
 	// Link in child commands
-	rootCmd.AddCommand(assets.NewCmdAssets())
 	rootCmd.AddCommand(destroy.NewCmdDestroy())
 	rootCmd.AddCommand(retrieve.NewCmdRetrieve())
 	rootCmd.AddCommand(run.NewCmdRun())
