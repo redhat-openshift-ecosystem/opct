@@ -21,8 +21,8 @@ func NewCmdRetrieve() *cobra.Command {
 	return &cobra.Command{
 		Use:   "retrieve",
 		Args:  cobra.MaximumNArgs(1),
-		Short: "Collect results from certification environment",
-		Long:  `Downloads the results archive from the certification environment`,
+		Short: "Collect results from validation environment",
+		Long:  `Downloads the results archive from the validation environment`,
 		Run: func(cmd *cobra.Command, args []string) {
 			destinationDirectory, err := os.Getwd()
 			if err != nil {
@@ -62,7 +62,7 @@ func NewCmdRetrieve() *cobra.Command {
 				return
 			}
 
-			log.Info("Use the results command to check the certification test summary or share the results archive with your Red Hat partner.")
+			log.Info("Use the results command to check the validation test summary or share the results archive with your Red Hat partner.")
 		},
 	}
 }
@@ -102,7 +102,7 @@ func retrieveResults(sclient sonobuoyclient.Interface, destinationDirectory stri
 	// Download results into target directory
 	results, err := writeResultsToDirectory(destinationDirectory, reader, ec)
 	if err != nil {
-		return errors.Wrap(err, "error retrieving certification results from sonobyuoy")
+		return errors.Wrap(err, "error retrieving results from sonobyuoy")
 	}
 
 	// Log the new files to stdout

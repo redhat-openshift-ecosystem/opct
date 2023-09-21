@@ -32,7 +32,12 @@ jobs:
           sudo apt-get install make git -y
 
       - name: Build (all OS)
-        run: make all
+        run: |
+          make linux-amd64-container
+          make build-linux-amd64
+          make build-windows-amd64
+          make build-darwin-amd64
+          make build-darwin-arm64
 
       - name: Build Container and Release to Quay
         env:
@@ -64,8 +69,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
-            openshift-provider-cert-*
-            opct-*
+            build/opct-*
           body: |
             ## Changelog
             ${{steps.github_release.outputs.changelog}}
