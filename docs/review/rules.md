@@ -163,6 +163,70 @@ Explore the pods:
 ```sh
 $ omc get pods -A |egrep -v '(Running|Completed)'
 ```
+
+### OPCT-010 <a name="OPCT-010"></a>
+- **Name**: etcd logs: slow requests: average should be under 500ms
+- **Description**: etcd logs are reporting slow requests with average above 500 milisseconds.
+- **Action**: Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.
+- **Troubleshooting**:
+
+1) Review the documentation for the required storage for etcd:
+
+- A) [Product Documentation](https://docs.openshift.com/container-platform/4.13/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-minimum-resource-requirements_installing-platform-agnostic)
+- B) [Red Hat Article: Understanding etcd and the tunables/conditions affecting performance](https://access.redhat.com/articles/7010406#effects-of-network-latency--jitter-on-etcd-4)
+- C) [Red Hat Article: How to Use 'fio' to Check Etcd Disk Performance in OCP](https://access.redhat.com/solutions/4885641)
+- D) [etcd-operator: baseline speed for standard hardware](https://github.com/openshift/cluster-etcd-operator/blob/f68835306c2d6670697a5fd98ba8c6ffe197ab02/pkg/hwspeedhelpers/hwhelper.go#L21-L34)
+
+2) Check the performance described in the article(B)
+
+3) Review the processed values from your environment
+
+!!! danger "Requirement"
+    It is required to run a conformance validation in a new cluster.
+
+    The validation tests parses the etcd logs from the entire cluster, including historical data, if you changed
+    the storage and didn't recreate the cluster, the results will include values containing slow requests from the
+    old storage, impacting in the current view.
+
+Run the report with debug flag `--loglevel=debug`:
+```text
+(...)
+DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010 Failed Acceptance criteria: want=[<500] got=[690.412] 
+DEBU[2023-09-25T12:52:05-03:00] Check OPCT-011 Failed Acceptance criteria: want=[<1000] got=[3091.49]
+```
+
+Extract the information from the logs using internal utility:
+
+```sh
+# Export the path of extracted must-gather. Example:
+export MUST_GATHER_PATH=${PWD}/must-gather.local.2905984348081335046
+
+# Extract the utility
+oc image extract quay.io/ocp-cert/tools:latest --file="/usr/bin/ocp-etcd-log-filters" &&\
+chmod u+x ocp-etcd-log-filters
+
+# Run the utility
+cat ${MUST_GATHER_PATH}/*/namespaces/openshift-etcd/pods/*/etcd/etcd/logs/current.log \
+    | ./ocp-etcd-log-filters
+```
+
+References:
+
+- [etcd: Hardware recommendations](https://etcd.io/docs/v3.5/op-guide/hardware/)
+- [OpenShift Docs: Planning your environment according to object maximums](https://docs.openshift.com/container-platform/4.11/scalability_and_performance/planning-your-environment-according-to-object-maximums.html)
+- [OpenShift KCS: Backend Performance Requirements for OpenShift etcd](https://access.redhat.com/solutions/4770281)
+- [IBM: Using Fio to Tell Whether Your Storage is Fast Enough for Etcd](https://www.ibm.com/cloud/blog/using-fio-to-tell-whether-your-storage-is-fast-enough-for-etcd)
+
+
+### OPCT-011 <a name="OPCT-011"></a>
+
+- **Name**: etcd logs: slow requests: maximum should be under 1000ms
+- **Description**: etcd logs are reporting slow requests with average above 1000 milisseconds.
+- **Action**: Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.
+- **Troubleshooting**:
+
+Same as [`Troubleshooting` section of OPCT-010](#OPCT-010)
+
 ___
 <!-- 
 > Add new tests after "___" using the following template.
