@@ -221,7 +221,7 @@ References:
 ### OPCT-011 <a name="OPCT-011"></a>
 
 - **Name**: etcd logs: slow requests: maximum should be under 1000ms
-- **Description**: etcd logs are reporting slow requests with average above 1000 milisseconds.
+- **Description**: etcd logs are reporting slow requests with maximum above 1000 milisseconds.
 - **Action**: Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.
 - **Troubleshooting**:
 
