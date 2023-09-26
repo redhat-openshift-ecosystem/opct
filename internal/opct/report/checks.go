@@ -33,6 +33,7 @@ type CheckSummary struct {
 func NewCheckSummary(re *Report) *CheckSummary {
 
 	baseURL := defaultBaseURL
+	msgDefaultNotMatch := "default value does not match the acceptance criteria"
 	// Developer environment:
 	// $ mkdocs serve
 	// $ export OPCT_DEV_BASE_URL_DOC="http://127.0.0.1:8000/provider-certification-tool"
@@ -44,18 +45,21 @@ func NewCheckSummary(re *Report) *CheckSummary {
 		Checks:  []*Check{},
 		baseURL: fmt.Sprintf("%s%s", baseURL, docsRulesPath),
 	}
+
 	// OpenShift / Infrastructure Object Check
 	checkSum.Checks = append(checkSum.Checks, &Check{
-		Name: "Platform Type should be None",
+		Name: "Platform Type should be None or External",
 		Test: func() CheckResult {
+			prefix := "Check OPCT-TBD Failed"
 			if re.Provider == nil || re.Provider.Infra == nil {
-				// return CheckRespCustomFail("unable to access Infrastructure object")
+				log.Debugf("%s: unable to read the infrastructure object", prefix)
 				return CheckResultFail
 			}
-			if re.Provider.Infra.PlatformType != "None" {
-				// return CheckRespCustomFail(fmt.Sprintf("PlatformType=%s", re.Provider.Infra.PlatformType))
+			// Acceptance Criterias
+			if re.Provider.Infra.PlatformType == "None" {
 				return CheckResultFail
 			}
+			log.Debugf("%s: %s", prefix, msgDefaultNotMatch)
 			return CheckResultPass
 		},
 	})
@@ -164,30 +168,23 @@ func NewCheckSummary(re *Report) *CheckSummary {
 		ID:   "OPCT-001",
 		Name: "Plugin Conformance Kubernetes [10-openshift-kube-conformance] must pass (after filters)",
 		Test: func() CheckResult {
+			prefix := "Check OPCT-001 Failed"
 			if _, ok := re.Provider.Plugins[plugin.PluginNameKubernetesConformance]; !ok {
+				log.Debugf("%s Runtime: processed plugin data not found: %v", prefix, re.Provider.Plugins[plugin.PluginNameKubernetesConformance])
 				return CheckResultFail
 			}
-			if len(re.Provider.Plugins[plugin.PluginNameKubernetesConformance].TestsFailedPrio) > 0 {
+			p := re.Provider.Plugins[plugin.PluginNameKubernetesConformance]
+			if p.Stat.Total == p.Stat.Failed {
+				log.Debugf("%s Runtime: Total and Failed counters are equals indicating execution failure", prefix)
+				return CheckResultFail
+			}
+			if len(p.TestsFailedPrio) > 0 {
+				log.Debugf("%s Acceptance criteria: TestsFailedPrio counter are greater than 0: %v", prefix, len(p.TestsFailedPrio))
 				return CheckResultFail
 			}
 			return CheckResultPass
 		},
 	})
-	// checkSum.Checks = append(checkSum.Checks, &Check{
-	// 	Name: "OpenShift Conformance plugin 20-openshift-conformance-validated",
-	// 	Test: func() CheckResult {
-	// 		if _, ok := re.Provider.Plugins[PluginNameOpenShiftConformance]; !ok {
-	// 			return CheckResultFail
-	// 		}
-	//      // "Acceptance" are relative, the baselines is observed to set
-	//      // an "accepted" value considering a healthy cluster in known provider/installation.
-	// 		plugin := re.Provider.Plugins[PluginNameOpenShiftConformance]
-	// 		if re.Provider.ClusterHealth.PodHealthTotal != 0 {
-	// 			return CheckResultFail
-	// 		}
-	// 		return CheckResultPass
-	// 	},
-	// })
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   "OPCT-004",
 		Name: "OpenShift Conformance [20-openshift-conformance-validated]: Failed tests must report less than 1.5%",
@@ -279,13 +276,21 @@ func NewCheckSummary(re *Report) *CheckSummary {
 		ID:   "OPCT-003",
 		Name: "Plugin Collector [99-openshift-artifacts-collector] must pass",
 		Test: func() CheckResult {
+			prefix := "Check OPCT-003 Failed"
 			if _, ok := re.Provider.Plugins[plugin.PluginNameArtifactsCollector]; !ok {
 				return CheckResultFail
 			}
-			if re.Provider.Plugins[plugin.PluginNameArtifactsCollector].Stat.Status != "passed" {
+			p := re.Provider.Plugins[plugin.PluginNameArtifactsCollector]
+			if p.Stat.Total == p.Stat.Failed {
+				log.Debugf("%s Runtime: Total and Failed counters are equals indicating execution failure", prefix)
 				return CheckResultFail
 			}
-			return CheckResultPass
+			// Acceptance check
+			if re.Provider.Plugins[plugin.PluginNameArtifactsCollector].Stat.Status == "passed" {
+				return CheckResultPass
+			}
+			log.Debugf("%s: default value does not match the acceptance criteria", prefix)
+			return CheckResultFail
 		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{

@@ -575,12 +575,7 @@ func (cs *ConsolidatedSummary) buildDocumentationForPlugin(pluginName string) er
 		docSourceBaseURL = fmt.Sprintf("https://raw.githubusercontent.com/cncf/k8s-conformance/master/docs/KubeConformance-%s.md", version)
 	case plugin.PluginNameOpenShiftConformance:
 		ps = cs.GetProvider().GetOpenShift().GetResultOCPValidated()
-		// v, err := cs.GetProvider().GetOpenShift().GetClusterVersionXY()
-		// if err != nil {
-		// 	return errors.Errorf("Error getting cluster version: %v", err)
-		// }
-		// version = v
-		// OCP tests does not have documentation
+		// OCP tests does not have documentation (TODO: check what can be used)
 		// https://docs.openshift.com/container-platform/4.13/welcome/index.html
 		// https://access.redhat.com/search/
 		docUserBaseURL = "https://github.com/openshift/origin/blob/master/test/extended/README.md"

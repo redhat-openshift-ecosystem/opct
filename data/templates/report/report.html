@@ -336,7 +336,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
             "Kubernetes:": this.report.provider.version.kubernetes
           },
           {
-            "PlatformType:": this.report.provider.infra.platformType,
+            "PlatformType:": this.platformType,
             "NetworkType:": this.report.provider.infra.networkType
           },
           {
@@ -951,10 +951,19 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         }
         return archive
       },
+      platformType() {
+        let platformType = this.report.provider.infra.platformType
+        if (platformType == "External") {
+          if (this.report.provider.infra.platformName !== undefined) {
+            platformType += " ("+ this.report.provider.infra.platformName +")"
+          }
+        }
+        return platformType
+      },
       pageHeadline() {
         let openshift = "OpenShift[" + this.report.provider.version.openshift.desired +"]"
         let k8s = "Kubernetes["+ this.report.provider.version.kubernetes +"]"
-        let platformType = "PlatformType["+ this.report.provider.infra.platformType +"]"
+        let platformType = "PlatformType["+ this.platformType +"]"
         headline = "|> "+ openshift +" "+ k8s +" "+ platformType
         headline += "<p>|> "+ this.archiveName +"</p>"
         headline += '<hr/>'

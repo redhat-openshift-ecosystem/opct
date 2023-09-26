@@ -97,6 +97,7 @@ type ReportVersion struct {
 type ReportInfra struct {
 	Name                 string `json:"name"`
 	PlatformType         string `json:"platformType"`
+	PlatformName         string `json:"platformName"`
 	Topology             string `json:"topology,omitempty"`
 	ControlPlaneTopology string `json:"controlPlaneTopology,omitempty"`
 	APIServerURL         string `json:"apiServerURL,omitempty"`
@@ -121,15 +122,12 @@ type ReportClusterHealth struct {
 }
 
 type ReportPlugin struct {
-	ID            string                   `json:"id"`
-	Title         string                   `json:"title"`
-	Name          string                   `json:"name"`
-	Definition    *plugin.PluginDefinition `json:"definition,omitempty"`
-	Stat          *ReportPluginStat        `json:"stat"`
-	ErrorCounters *archive.ErrorCounter    `json:"errorCounters,omitempty"`
-	// CountFilterSuite uint64               `json:"countFilterSuite"`
-	// CountFilterBase  uint64               `json:"countFilterBase"`
-	// CountFilterPrio  uint64               `json:"countFilterFilterPrio"`
+	ID              string                       `json:"id"`
+	Title           string                       `json:"title"`
+	Name            string                       `json:"name"`
+	Definition      *plugin.PluginDefinition     `json:"definition,omitempty"`
+	Stat            *ReportPluginStat            `json:"stat"`
+	ErrorCounters   *archive.ErrorCounter        `json:"errorCounters,omitempty"`
 	Suite           *summary.OpenshiftTestsSuite `json:"suite"`
 	TagsFailedPrio  string                       `json:"tagsFailuresPriority"`
 	TestsFailedPrio []*ReportTestFailure         `json:"testsFailuresPriority"`
@@ -174,6 +172,8 @@ type ReportRuntime struct {
 	OpctConfig   []*archive.RuntimeInfoItem `json:"opctConfig,omitempty"`
 }
 
+// Populate is a entrypoint to initialize, trigger the data source processors,
+// and finalize the report data structure used by frontend (HTML or CLI).
 func (re *Report) Populate(cs *summary.ConsolidatedSummary) error {
 	cs.Timers.Add("report-populate")
 	re.Summary = &ReportSummary{
@@ -221,6 +221,8 @@ func (re *Report) Populate(cs *summary.ConsolidatedSummary) error {
 	return nil
 }
 
+// populateSource reads the loaded data, creating a report data for each result
+// data source (provider and/or baseline).
 func (re *Report) populateSource(rs *summary.ResultSummary) error {
 
 	var reResult *ReportResult
@@ -247,9 +249,9 @@ func (re *Report) populateSource(rs *summary.ResultSummary) error {
 	if err != nil {
 		return err
 	}
-	partnerPlatformName := string(infra.Status.PlatformStatus.Type)
-	if partnerPlatformName == "External" {
-		partnerPlatformName = fmt.Sprintf("%s (%s)", partnerPlatformName, infra.Spec.PlatformSpec.External.PlatformName)
+	platformName := ""
+	if string(infra.Status.PlatformStatus.Type) == "External" {
+		platformName = infra.Spec.PlatformSpec.External.PlatformName
 	}
 	sdn, err := rs.GetOpenShift().GetClusterNetwork()
 	if err != nil {
@@ -257,7 +259,8 @@ func (re *Report) populateSource(rs *summary.ResultSummary) error {
 		return err
 	}
 	reResult.Infra = &ReportInfra{
-		PlatformType:         partnerPlatformName,
+		PlatformType:         string(infra.Status.PlatformStatus.Type),
+		PlatformName:         platformName,
 		Name:                 string(infra.Status.InfrastructureName),
 		Topology:             string(infra.Status.InfrastructureTopology),
 		ControlPlaneTopology: string(infra.Status.ControlPlaneTopology),
@@ -339,6 +342,7 @@ func (re *Report) populateSource(rs *summary.ResultSummary) error {
 	return nil
 }
 
+// populatePluginConformance reads the plugin data, processing and creating the report data.
 func (re *Report) populatePluginConformance(rs *summary.ResultSummary, reResult *ReportResult, pluginID string) error {
 
 	var pluginSum *plugin.OPCTPluginSummary
@@ -378,13 +382,9 @@ func (re *Report) populatePluginConformance(rs *summary.ResultSummary, reResult 
 			Failed:    pluginSum.Failed,
 			Timeout:   pluginSum.Timeout,
 			Skipped:   pluginSum.Skipped,
-			// FilterSuite:      int64(len(plugin.FailedFilterSuite)),
-			// FilterBaseline:   int64(len(plugin.FailedFilterBaseline)),
-			// FilterFailedPrio: int64(len(plugin.FailedFilterPrio)),
 		},
 		Suite: suite,
 		Tests: pluginSum.Tests,
-		// ErrorCounters: plugin.GetErrorCounters(),
 	}
 
 	// No more advanced fields to create for non-Conformance
@@ -474,47 +474,53 @@ func (re *Report) populatePluginConformance(rs *summary.ResultSummary, reResult 
 	return nil
 }
 
+// SaveResults persist the processed data to the result directory.
 func (re *Report) SaveResults(path string) error {
 	re.Summary.Runtime.Timers.Add("report-save/results")
 
 	// opct-report.json (data source)
 	reportData, err := json.MarshalIndent(re, "", " ")
-	check(err)
-	// optional, but used when not using http file server
-	re.Raw = string(reportData)
+	checkOrPanic(err)
+	// used when not using http file server
+	if re.Setup.Frontend.EmbedData {
+		re.Raw = string(reportData)
+	}
 
 	err = os.WriteFile(fmt.Sprintf("%s/%s", path, ReportFileNameIndexJSON), reportData, 0644)
-	check(err)
+	checkOrPanic(err)
 
-	// static files
+	// render the template files from frontend report pages.
 	for _, file := range []string{"report.html", "filter.html"} {
 		srcTemplate := fmt.Sprintf("%s/%s", ReportTemplateBasePath, file)
 		destFile := fmt.Sprintf("%s/opct-%s", path, file)
 
 		datS, err := vfs.GetData().ReadFile(srcTemplate)
-		check(err)
+		checkOrPanic(err)
 
+		// change go template delimiter to '[[]]' preventing conflict with
+		// javascript delimiter '{{}}'+
 		tmplS, err := template.New("report").Delims("[[", "]]").Parse(string(datS))
-		check(err)
+		checkOrPanic(err)
 
 		var fileBufferS bytes.Buffer
 		err = tmplS.Execute(&fileBufferS, re)
-		check(err)
+		checkOrPanic(err)
 
 		err = os.WriteFile(destFile, fileBufferS.Bytes(), 0644)
-		check(err)
+		checkOrPanic(err)
 	}
 
 	re.Summary.Runtime.Timers.Add("report-save/results")
 	return nil
 }
 
-func check(e error) {
+func checkOrPanic(e error) {
 	if e != nil {
 		panic(e)
 	}
 }
 
+// ShowJSON print the raw json in stdout.
 func (re *Report) ShowJSON() (string, error) {
 	val, err := json.MarshalIndent(re, "", "    ")
 	if err != nil {

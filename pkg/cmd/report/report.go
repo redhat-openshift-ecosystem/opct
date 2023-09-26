@@ -246,9 +246,16 @@ func showReportAggregatedSummary(re *report.Report) error {
 	}
 
 	fmt.Fprint(tbWriter, newLineWithTab)
+	joinPlatformType := func(infra *report.ReportInfra) string {
+		tp := infra.PlatformType
+		if tp == "External" {
+			tp = fmt.Sprintf("%s (%s)", tp, infra.PlatformName)
+		}
+		return tp
+	}
 	if baselineProcessed {
 		fmt.Fprintf(tbWriter, " Infrastructure:\t\t\n")
-		fmt.Fprintf(tbWriter, " - PlatformType\t: %s\t: %s\n", re.Provider.Infra.PlatformType, re.Baseline.Infra.PlatformType)
+		fmt.Fprintf(tbWriter, " - PlatformType\t: %s\t: %s\n", joinPlatformType(re.Provider.Infra), joinPlatformType(re.Baseline.Infra))
 		fmt.Fprintf(tbWriter, " - Name\t: %s\t: %s\n", re.Provider.Infra.Name, re.Baseline.Infra.Name)
 		fmt.Fprintf(tbWriter, " - Topology\t: %s\t: %s\n", re.Provider.Infra.Topology, re.Baseline.Infra.Topology)
 		fmt.Fprintf(tbWriter, " - ControlPlaneTopology\t: %s\t: %s\n", re.Provider.Infra.ControlPlaneTopology, re.Baseline.Infra.ControlPlaneTopology)
@@ -256,7 +263,7 @@ func showReportAggregatedSummary(re *report.Report) error {
 		fmt.Fprintf(tbWriter, " - API Server URL (internal)\t: %s\t: %s\n", re.Provider.Infra.APIServerInternalURL, re.Baseline.Infra.APIServerInternalURL)
 	} else {
 		fmt.Fprintf(tbWriter, " Infrastructure:\t\n")
-		fmt.Fprintf(tbWriter, " - PlatformType\t: %s\n", re.Provider.Infra.PlatformType)
+		fmt.Fprintf(tbWriter, " - PlatformType\t: %s\n", joinPlatformType(re.Provider.Infra))
 		fmt.Fprintf(tbWriter, " - Name\t: %s\n", re.Provider.Infra.Name)
 		fmt.Fprintf(tbWriter, " - ClusterID\t: %s\n", re.Provider.Version.OpenShift.ClusterID)
 		fmt.Fprintf(tbWriter, " - Topology\t: %s\n", re.Provider.Infra.Topology)

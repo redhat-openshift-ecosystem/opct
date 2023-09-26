@@ -8,19 +8,32 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type TestDocumentation struct {
-	UserBaseURL   *string
+	// UserBaseURL is a the User Facing base URL for the documentation.
+	UserBaseURL *string
+
+	// SourceBaseURL is the raw URL to be indexed.
 	SourceBaseURL *string
-	Raw           *string
-	Tests         map[string]*TestDocumentationItem
+
+	// Raw stores the data extracted from SourceBaseURL.
+	Raw *string
+
+	// Tests is the map indexed by test name, with URL fragment (page references) as a value.
+	// Example: for the e2e test '[sig-machinery] run instance', the following map will be created:
+	// map['[sig-machinery] run instance']='#sig-machinery--run-instance'
+	Tests map[string]*TestDocumentationItem
 }
 
+// TestDocumentationItem refers to items documented by
 type TestDocumentationItem struct {
-	Title    string
-	Name     string
-	PageLink string
+	Title string
+	Name  string
+	// URLFragment stores the discovered fragment parsed by the Documentation page,
+	// indexed by test name, used to mount the Documentation URL for failed tests.
+	URLFragment string
 }
 
 func NewTestDocumentation(user, source string) *TestDocumentation {
@@ -56,6 +69,9 @@ func (d *TestDocumentation) Load() error {
 	return nil
 }
 
+// BuildIndex reads the raw Document, discoverying the test name, and the URL
+// fragments. The parser is based in the Kubernetes Conformance documentation:
+// https://github.com/cncf/k8s-conformance/blob/master/docs/KubeConformance-1.27.md
 func (d *TestDocumentation) BuildIndex() error {
 	lines := strings.Split(*d.Raw, "\n")
 	d.Tests = make(map[string]*TestDocumentationItem, len(lines))
@@ -64,22 +80,29 @@ func (d *TestDocumentation) BuildIndex() error {
 		// Build index for Kubernetes Conformance tests, parsing the page for version:
 		// https://github.com/cncf/k8s-conformance/blob/master/docs/KubeConformance-1.27.md
 		if strings.HasPrefix(line, "- Defined in code as: ") {
-			testName := strings.Split(line, "Defined in code as: ")[1]
-			d.Tests[testName] = &TestDocumentationItem{
-				Title: lines[number-3],
-				Name:  testName,
+			testArr := strings.Split(line, "Defined in code as: ")
+			if len(testArr) < 2 {
+				log.Debugf("Error BuildIndex(): unable to build documentation index for line: %s", line)
 			}
-			// create links for each test section
+			testName := testArr[1]
+			d.Tests[testName] = &TestDocumentationItem{
+				Name: testName,
+				// The test reference/section are defined in the third line before the name definition.
+				Title: lines[number-3],
+			}
+
+			// create url fragment for each test section
 			reDoc := regexp.MustCompile(`^## \[(.*)\]`)
 			match := reDoc.FindStringSubmatch(lines[number-3])
 			if len(match) == 2 {
-				link := match[1]
+				fragment := match[1]
+				// mount the fragment removing undesired symbols.
 				for _, c := range []string{":", "-", ".", ",", "="} {
-					link = strings.Replace(link, c, "", -1)
+					fragment = strings.Replace(fragment, c, "", -1)
 				}
-				link = strings.Replace(link, " ", "-", -1)
-				link = strings.ToLower(link)
-				d.Tests[testName].PageLink = fmt.Sprintf("%s#%s", *d.UserBaseURL, link)
+				fragment = strings.Replace(fragment, " ", "-", -1)
+				fragment = strings.ToLower(fragment)
+				d.Tests[testName].URLFragment = fmt.Sprintf("%s#%s", *d.UserBaseURL, fragment)
 			}
 		}
 	}

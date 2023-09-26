@@ -45,6 +45,8 @@ type TestItem struct {
 	Documentation string `json:"documentation"`
 }
 
+// UpdateErrorCounter reads the failures and stdout looking for error patterns from
+// a specific test, accumulating the ErrorCounters structure.
 func (pi *TestItem) UpdateErrorCounter() {
 	total := 0
 	counters := make(archive.ErrorCounter, len(ci.CommonErrorPatterns)+1)
@@ -76,16 +78,22 @@ func (pi *TestItem) UpdateErrorCounter() {
 	pi.ErrorCounters["total"] = total
 }
 
+// LookupDocumentation extracts from the test name the expected part (removing '[Conformance]')
+// to link to the Documentation URL refereced by the Kubernetes Conformance markdown available
+// at https://github.com/cncf/k8s-conformance/blob/master/docs/KubeConformance-<version>.md .
+// The test documentation (TestDocumentation) should be indexed prior calling the LookupDocumentation.
 func (pi *TestItem) LookupDocumentation(d *TestDocumentation) {
 
-	// origin/openshift-tests appends 'labels' after '[Conformance]'in the
-	// plugin name, transforming it from the original name from upstream.
+	// origin/openshift-tests appends 'labels' after '[Conformance]' in the
+	// test name in the kubernetes/conformance, transforming it from the original name from upstream.
 	// nameIndex will try to recover the original name to lookup in the source docs.
 	nameIndex := fmt.Sprintf("%s[Conformance]", strings.Split(pi.Name, "[Conformance]")[0])
+
+	// check if the test name is indexed in the conformance documentation.
 	if _, ok := d.Tests[nameIndex]; ok {
-		pi.Documentation = d.Tests[nameIndex].PageLink
+		pi.Documentation = d.Tests[nameIndex].URLFragment
 		return
 	}
 	// When the test is not indexed, no documentation will be added.
-	// pi.DocsReference = *d.UserBaseURL
+	pi.Documentation = *d.UserBaseURL
 }
