@@ -57,10 +57,13 @@ func NewCheckSummary(re *Report) *CheckSummary {
 			}
 			// Acceptance Criterias
 			if re.Provider.Infra.PlatformType == "None" {
-				return CheckResultFail
+				return CheckResultPass
 			}
-			log.Debugf("%s: %s", prefix, msgDefaultNotMatch)
-			return CheckResultPass
+			if re.Provider.Infra.PlatformType == "External" {
+				return CheckResultPass
+			}
+			log.Debugf("%s (Platform Type): %s: got=[%s]", prefix, msgDefaultNotMatch, re.Provider.Infra.PlatformType)
+			return CheckResultFail
 		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
@@ -289,7 +292,7 @@ func NewCheckSummary(re *Report) *CheckSummary {
 			if re.Provider.Plugins[plugin.PluginNameArtifactsCollector].Stat.Status == "passed" {
 				return CheckResultPass
 			}
-			log.Debugf("%s: default value does not match the acceptance criteria", prefix)
+			log.Debugf("%s: %s", prefix, msgDefaultNotMatch)
 			return CheckResultFail
 		},
 	})
