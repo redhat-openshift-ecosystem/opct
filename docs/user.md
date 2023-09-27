@@ -60,6 +60,8 @@ The table below describes the OpenShift and OPCT versions supported for each rel
 
 | OPCT [version](releases) | OCP Supported versions | OPCT Execution mode |
 | -- | -- | -- |
+| v0.5.x | 4.11, 4.12, 4.13, 4.14 | regular, upgrade, disconnected |
+| v0.4.x | 4.10, 4.11, 4.12, 4.13 | regular, upgrade, disconnected |
 | v0.3.x | 4.9, 4.10, 4.11, 4.12 | regular, upgrade |
 | v0.2.x | 4.9, 4.10, 4.11 | regular |
 | v0.1.x | 4.9, 4.10, 4.11 | regular |
