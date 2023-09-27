@@ -171,7 +171,7 @@ If you find issues or changes that are needed to complete, please open a GitHub 
 
 1. Export default plugins to local filesystem:
 ```
-openshift-provider-cert assets /tmp
+$ ./opct assets /tmp
 INFO[2022-06-16T15:35:29-06:00] Asset openshift-conformance-validated.yaml saved to /tmp/openshift-conformance-validated.yaml 
 INFO[2022-06-16T15:35:29-06:00] Asset openshift-kube-conformance.yaml saved to /tmp/openshift-kube-conformance.yaml 
 ```
@@ -181,7 +181,7 @@ vi /tmp/openshift-kube-conformance.yaml
 ```
 3. Launch the tool with customized plugin:
 ```
-openshift-provider-cert run --plugin /tmp/openshift-kube-conformance.yaml --plugin /tmp/openshift-conformance-validated.yaml
+./opct run --plugin /tmp/openshift-kube-conformance.yaml --plugin /tmp/openshift-conformance-validated.yaml
 ```
 
 ## Project Documentation  <a name="dev-project-docs"></a>
