@@ -13,6 +13,8 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+  # - pymdownx.tabbed:
+  #     alternate_style: true 
 
 plugins:
   - diagrams:
@@ -28,23 +30,36 @@ theme:
   features:
     #- toc.integrate
     - navigation.top
+    - navigation.tabs
+    - navigation.top
 
 nav:
-  - User Guides:
-    - "User Guide": "user.md"
-    - "Installation Checklist": user-installation-checklist.md
-    - "Installation Review": user-installation-review.md
-    - "Disconnected Installations": user-installation-disconnected.md
-    - "Troubleshooting": troubleshooting-guide.md
-  - Support Guides:
-    - Support Guide: support-guide.md
+  - Home:
+    - README.md
+    - Getting Started: TODO.md
+    - Commands:
+      - run: TODO.md
+      - status: TODO.md
+      - retrieve: TODO.md
+      - report: TODO.md
+      - results: TODO.md
+      - destroy: TODO.md
+      - sonobuoy: TODO.md
   - Review:
-    - review/index.md
+    - Home: review/index.md
     - OPCT Rules: review/rules.md
-  - Developer Guides:
+    - "Installation Review": user-installation-review.md
+    - "Troubleshooting": troubleshooting-guide.md
+    - "Installation Checklist": user-installation-checklist.md
+    - Review Guide: support-guide.md
+  - Guides:
+    - "User Guide": "user.md"
+    - "Disconnected Installations": user-installation-disconnected.md
+  - Developement:
+    - Contribute: TODO.md
     - Development Guide: dev.md
     - Diagrams:
       - diagrams/index.md
       - diagrams/opct-sequence.md
       - "Reference Architecture": diagrams/ocp-architecture-reference.md
-  - CHANGELOG: CHANGELOG.md
+    - ChangeLog: CHANGELOG.md
