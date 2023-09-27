@@ -3,7 +3,7 @@ package get
 import (
 	"fmt"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/cmd/get/images"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/cmd/get/images"
 
 	"github.com/spf13/cobra"
 )
