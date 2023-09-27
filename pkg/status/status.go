@@ -20,24 +20,44 @@ import (
 )
 
 const (
-	StatusInterval   = time.Second * 10
-	StatusRetryLimit = 10
+	DefaultStatusIntervalSeconds = 10
+	StatusRetryLimit             = 10
 )
 
+// StatusOptions is the interface to store input options to
+// interface with Status command.
 type StatusOptions struct {
 	Latest              *aggregation.Status
 	watch               bool
 	shownPostProcessMsg bool
+	watchInterval       int
+	waitInterval        time.Duration
 }
 
-func NewStatusOptions(watch bool) *StatusOptions {
-	return &StatusOptions{
-		watch: watch,
+// StatusInput is the interface to input options when
+// creating status object.
+type StatusInput struct {
+	Watch           bool
+	IntervalSeconds int
+}
+
+func NewStatusOptions(in *StatusInput) *StatusOptions {
+	s := &StatusOptions{
+		watch:        in.Watch,
+		waitInterval: time.Second * DefaultStatusIntervalSeconds,
 	}
+	if in.IntervalSeconds != 0 {
+		s.waitInterval = time.Duration(in.IntervalSeconds) * time.Second
+	}
+	return s
+}
+
+func (s *StatusOptions) GetIntervalSeconds() time.Duration {
+	return s.waitInterval
 }
 
 func NewCmdStatus() *cobra.Command {
-	o := NewStatusOptions(false)
+	o := NewStatusOptions(&StatusInput{Watch: false})
 
 	cmd := &cobra.Command{
 		Use:   "status",
@@ -81,6 +101,10 @@ func NewCmdStatus() *cobra.Command {
 	}
 
 	cmd.PersistentFlags().BoolVarP(&o.watch, "watch", "w", false, "Keep watch status after running")
+	cmd.Flags().IntVarP(&o.watchInterval, "watch-interval", "", DefaultStatusIntervalSeconds, "Interval to watch the status and print in the stdout")
+	if o.watchInterval != DefaultStatusIntervalSeconds {
+		o.waitInterval = time.Duration(o.watchInterval) * time.Second
+	}
 
 	return cmd
 }
@@ -139,7 +163,7 @@ func (s *StatusOptions) GetStatus() string {
 // An error will not result in immediate failure and will be retried.
 func (s *StatusOptions) WaitForStatusReport(ctx context.Context, sclient sonobuoyclient.Interface) error {
 	tries := 1
-	err := wait2.PollImmediateUntilWithContext(ctx, StatusInterval, func(ctx context.Context) (done bool, err error) {
+	err := wait2.PollImmediateUntilWithContext(ctx, s.waitInterval, func(ctx context.Context) (done bool, err error) {
 		if tries == StatusRetryLimit {
 			return false, errors.New("retry limit reached checking for aggregator status")
 		}
@@ -152,7 +176,7 @@ func (s *StatusOptions) WaitForStatusReport(ctx context.Context, sclient sonobuo
 		}
 
 		tries++
-		log.Warnf("waiting %ds to retry", int(StatusInterval.Seconds()))
+		log.Warnf("waiting %ds to retry", int(s.waitInterval.Seconds()))
 		return false, nil
 	})
 	return err
@@ -165,7 +189,7 @@ func (s *StatusOptions) Print(cmd *cobra.Command, sclient sonobuoyclient.Interfa
 	}
 
 	tries := 1
-	return wait2.PollImmediateInfiniteWithContext(cmd.Context(), StatusInterval, func(ctx context.Context) (done bool, err error) {
+	return wait2.PollImmediateInfiniteWithContext(cmd.Context(), s.waitInterval, func(ctx context.Context) (done bool, err error) {
 		if tries == StatusRetryLimit {
 			// we hit back-to-back errors too many times.
 			return true, errors.New("retry limit reached checking status")

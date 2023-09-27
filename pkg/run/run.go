@@ -40,12 +40,13 @@ type RunOptions struct {
 	// PluginsImage
 	// defines the image containing plugins associated with the provider-certification-tool.
 	// this variable is referenced by plugin manifest templates to dynamically reference the plugins image.
-	PluginsImage string
-	timeout      int
-	watch        bool
-	devCount     string
-	mode         string
-	upgradeImage string
+	PluginsImage  string
+	timeout       int
+	watch         bool
+	watchInterval int
+	devCount      string
+	mode          string
+	upgradeImage  string
 }
 
 const (
@@ -110,9 +111,9 @@ func NewCmdRun() *cobra.Command {
 			}
 
 			// Sleep to give status time to appear
-			time.Sleep(status.StatusInterval)
+			s := status.NewStatusOptions(&status.StatusInput{Watch: o.watch, IntervalSeconds: o.watchInterval})
+			time.Sleep(s.GetIntervalSeconds())
 
-			s := status.NewStatusOptions(o.watch)
 			err = s.WaitForStatusReport(cmd.Context(), sclient)
 			if err != nil {
 				log.WithError(err).Fatal("error retrieving aggregator status")
@@ -144,6 +145,7 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().StringVar(&o.imageRepository, "image-repository", "", "Image repository containing required images test environment. Example: openshift-provider-cert-tool --mirror-repository mirror.repository.net/ocp-cert")
 	cmd.Flags().IntVar(&o.timeout, "timeout", defaultRunTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", defaultRunWatchFlag, "Keep watch status after running")
+	cmd.Flags().IntVarP(&o.watchInterval, "watch-interval", "", status.DefaultStatusIntervalSeconds, "Interval to watch the status and print in the stdout")
 
 	// Hide optional flags
 	hideOptionalFlags(cmd, "dedicated")
