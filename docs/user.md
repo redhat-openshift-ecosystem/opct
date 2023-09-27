@@ -56,7 +56,40 @@ More detail on each step can be found in the sections further below.
 
 A Red Hat OpenShift 4 cluster must be [installed](https://docs.openshift.com/container-platform/latest/installing/index.html) before validation can begin. The OpenShift cluster must be installed on your infrastructure as if it were a production environment. Ensure that each feature of your infrastructure you plan to support with OpenShift is configured in the cluster (e.g. Load Balancers, Storage, special hardware).
 
-The table below describes the OpenShift and OPCT versions supported for each release and features:
+OpenShift supports the following topologies:
+
+- Highly available OpenShift Container Platform cluster (**HA**): Three master nodes with any number of worker nodes.
+- A three-node OpenShift Container Platform cluster (**Compact**): A compact cluster that has three master nodes that are also worker nodes.
+- A single-node OpenShift Container Platform cluster (**SNO**): A node that is both a master and worker.
+
+OPCT is tested in the following topologies - uncovered topologies(flagged as TBD) is not supported by the tool in the validation process:
+
+| OCP Topology/ARCH | OPCT Initial version | OPCT Execution mode |
+| -- | -- | -- |
+| HA/amd64 | v0.1 | regular(v0.1+), upgrade(v0.3+), disconnect(v0.4+) |
+| Compact/amd64 | TBD([OPCT-193](https://issues.redhat.com/browse/OPCT-193)) | -- |
+| SNO/amd64 | TBD([OPCT-30](https://issues.redhat.com/browse/OPCT-30)) | -- |
+| HA/arm64 | TBD([OPCT-26](https://issues.redhat.com/browse/OPCT-26)) | -- |
+
+!!! info "Unsupported Topologies"
+    You must be able to run the tool in unsupported topologies when the required configuration is set,
+    although the report provided by the tool may not be calibrated or expected results to cover the
+    formal validation process when applying to Red Hat OpenShift programs for Partners.
+
+OpenShift Platform Type supported by OPCT:
+
+| Platform Type | OCP Supported versions |
+| -- | -- |
+| None | v0.1+ |
+| External | v0.5+(preview) |
+
+!!! info "Unsupported Platform Type"
+    You must be able to run the tool in other platform types when the required configuration is set,
+    although the reports may not be calibrated or with expected results to cover the
+    full execution, leading to failures of platform-specific e2e tests that requires special configuration
+    or credentials.
+
+The matrix below describes the OpenShift and OPCT versions supported for each release and features:
 
 | OPCT [version](releases) | OCP Supported versions | OPCT Execution mode |
 | -- | -- | -- |
