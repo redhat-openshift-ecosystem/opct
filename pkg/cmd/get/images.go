@@ -1,4 +1,4 @@
-package images
+package get
 
 import (
 	"fmt"
@@ -25,11 +25,7 @@ func init() {
 	imagesCmd.Flags().StringVar(&options.ToRepository, "to-repository", "", "Show images with format to mirror to repository. Example: registry.example.io:5000")
 }
 
-func GetCmdImages() *cobra.Command {
-	return imagesCmd
-}
-
-func GetImage(repo, name string) string {
+func generateImage(repo, name string) string {
 	if options.ToRepository == "" {
 		return fmt.Sprintf("%s/%s", repo, name)
 	} else {
@@ -44,11 +40,11 @@ func runGetImages(cmd *cobra.Command, args []string) {
 	images := []string{}
 
 	// Sonobuoy
-	images = append(images, GetImage("quay.io/ocp-cert", fmt.Sprintf("sonobuoy:%s", buildinfo.Version)))
+	images = append(images, generateImage("quay.io/ocp-cert", fmt.Sprintf("sonobuoy:%s", buildinfo.Version)))
 
 	// Plugins
-	images = append(images, GetImage("quay.io/ocp-cert", pkg.PluginsImage))
-	images = append(images, GetImage("quay.io/opct", "must-gather-monitoring:v0.1.0"))
+	images = append(images, generateImage("quay.io/ocp-cert", pkg.PluginsImage))
+	images = append(images, generateImage("quay.io/opct", "must-gather-monitoring:v0.1.0"))
 
 	// etcdfio
 	img_etcdfio := "quay.io/openshift-scale/etcd-perf:latest"

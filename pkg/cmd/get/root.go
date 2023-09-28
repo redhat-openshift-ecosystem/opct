@@ -3,8 +3,6 @@ package get
 import (
 	"fmt"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/cmd/get/images"
-
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +13,7 @@ var getCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(images.GetCmdImages())
+	getCmd.AddCommand(imagesCmd)
 }
 
 func NewCmdGet() *cobra.Command {
