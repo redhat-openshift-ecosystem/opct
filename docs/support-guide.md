@@ -45,7 +45,7 @@ The following conditions require new conformance assets:
 
 ### Install Tools <a name="setup-install"></a>
 
-- Download the [openshift-provider-cert](./user.md#install): OPCT
+- Download the [opct](./user.md#install): OPCT
 - Download the [`omg`](https://github.com/kxr/o-must-gather): tool to analyse Must-gather archive
 ```bash
 pip3 install o-must-gather --user
@@ -97,7 +97,7 @@ Compare the provider results with the baseline:
 > `--baseline` is optional. You must use a trusted baseline results to apply the filters. Otherwise leave it unset.
 
 ```bash
-./openshift-provider-cert-linux-amd64 report \
+./opct report \
     --baseline ./opct_baseline-ocp_4.11.4-platform_none-provider-date_uuid.tar.gz \
     ./<timestamp>_sonobuoy_<uuid>.tar.gz
 ```
@@ -107,7 +107,7 @@ Compare the provider results with the baseline:
 Compare the results and extract the files (option `--save-to`) to the local directory `./results-provider-processed`:
 
 ```bash
-./openshift-provider-cert-linux-amd64 report \
+./opct report \
     --baseline ./opct_baseline-ocp_4.11.4-platform_none-provider-date_uuid.tar.gz \
     --save-to ./results-provider-processed \
     ./<timestamp>_sonobuoy_<uuid>.tar.gz
@@ -120,7 +120,7 @@ This is the expected output:
 ```bash
 (...Header...)
 
-$ $CLI_PATH/openshift-provider-cert-linux-amd64-process0 report 4.12.1-20230131.tar.gz --save-to  ./results-provider-processed
+$ ./opct report 4.12.1-20230131.tar.gz --save-to  ./results-provider-processed
 INFO[2023-02-01T01:26:25-03:00] Processing Plugin 05-openshift-cluster-upgrade... 
 INFO[2023-02-01T01:26:25-03:00] Ignoring Plugin 05-openshift-cluster-upgrade 
 INFO[2023-02-01T01:26:25-03:00] Processing Plugin 10-openshift-kube-conformance... 
