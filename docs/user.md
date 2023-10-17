@@ -58,9 +58,9 @@ A Red Hat OpenShift 4 cluster must be [installed](https://docs.openshift.com/con
 
 OpenShift supports the following topologies:
 
-- Highly available OpenShift Container Platform cluster (**HA**): Three master nodes with any number of worker nodes.
-- A three-node OpenShift Container Platform cluster (**Compact**): A compact cluster that has three master nodes that are also worker nodes.
-- A single-node OpenShift Container Platform cluster (**SNO**): A node that is both a master and worker.
+- Highly available OpenShift Container Platform cluster (**HA**): Three control plane nodes with any number of compute nodes.
+- A three-node OpenShift Container Platform cluster (**Compact**): A compact cluster that has three control plane nodes that are also compute nodes.
+- A single-node OpenShift Container Platform cluster (**SNO**): A node that is both a control plane and compute.
 
 OPCT is tested in the following topologies - uncovered topologies(flagged as TBD) is not supported by the tool in the validation process:
 
