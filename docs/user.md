@@ -90,32 +90,15 @@ The `Dedicated Node` is a regular worker with additional label and taints to run
 
 The following requirements must be satisfied:
 
-1. Choose one node with at least 8GiB of RAM and 4 vCPU
+1. Choose one node with at least 8GiB of RAM and 4 CPU
 2. Label node with `node-role.kubernetes.io/tests=""` (conformance-related pods will schedule to dedicated node)
 3. Taint node with `node-role.kubernetes.io/tests="":NoSchedule` (prevent other pods from running on dedicated node)
 
-There are two options to accomplish this type of setup:
-
-##### Option A: Command Line
+Example setting up the dedicated node:
 
 ```shell
 oc label node <node_name> node-role.kubernetes.io/tests=""
 oc adm taint node <node_name> node-role.kubernetes.io/tests="":NoSchedule
-```
-
-##### Option B: Machine Set
-
-If you have support for OpenShift's Machine API then you can create a new `MachineSet` to configure the labels and taints. See [OpenShift documentation](https://docs.openshift.com/container-platform/latest/machine_management/creating-infrastructure-machinesets.html#binding-infra-node-workloads-using-taints-tolerations_creating-infrastructure-machinesets) on how to configure a new `MachineSet`. Note that at the time of conformance testing, OpenShift's product documentation may not mention your infrastructure provider yet!
-
-Here is a `MachineSet` YAML snippet on how to configure the label and taint as well:
-
-```yaml
-      metadata:
-        labels:
-          node-role.kubernetes.io/tests: ""
-      taints:
-        - key: node-role.kubernetes.io/tests
-          effect: NoSchedule
 ```
 
 #### Setup MachineConfigPool for upgrade tests <a name="standard-env-setup-mcp"></a>
