@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
 
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/cmd/get"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/destroy"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/report"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/retrieve"
@@ -72,6 +73,7 @@ func init() {
 	rootCmd.AddCommand(status.NewCmdStatus())
 	rootCmd.AddCommand(version.NewCmdVersion())
 	rootCmd.AddCommand(report.NewCmdReport())
+	rootCmd.AddCommand(get.NewCmdGet())
 
 	// Link in child commands direct from Sonobuoy
 	rootCmd.AddCommand(app.NewSonobuoyCommand())
