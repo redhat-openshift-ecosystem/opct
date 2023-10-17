@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -357,11 +358,27 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 	var manifests []*manifest.Manifest
 
 	imageRepository := pkg.DefaultToolsRepository
-	if len(r.imageRepository) > 0 {
+	defaultSonobuoyImage := fmt.Sprintf("%s/sonobuoy:%s", pkg.DefaultToolsRepository, buildinfo.Version)
+	overrideSonobuoyImageSet := r.sonobuoyImage != defaultSonobuoyImage
+	if r.imageRepository != "" {
+		// sonobuoy-image override is used in dev environment to
+		// test custom aggregator/worker image. Not allowed to be used in
+		// production environment validated by OPCT, for that reason the instruction is to
+		// mirror the sonobuoy image to /sonobuoy:version when deploying in
+		// disconnected environment.
+		if overrideSonobuoyImageSet {
+			log.Errorf("The image override --sonobuoy-image cannot be used with --image-repository")
+			os.Exit(1)
+		}
 		imageRepository = r.imageRepository
 		log.Infof("Mirror registry is configured %s ", r.imageRepository)
 	}
-	r.sonobuoyImage = fmt.Sprintf("%s/sonobuoy:%s", imageRepository, buildinfo.Version)
+	// the flag --sonobuoy-image should not be used in default validation.
+	if overrideSonobuoyImageSet {
+		log.Warn("Flag --sonobuoy-image is not supported in official validation process, unset it if you are submitting the results to Red Hat.")
+	} else {
+		r.sonobuoyImage = fmt.Sprintf("%s/sonobuoy:%s", imageRepository, buildinfo.Version)
+	}
 	r.PluginsImage = fmt.Sprintf("%s/%s", imageRepository, r.PluginsImage)
 
 	// Let Sonobuoy do some preflight checks before we run
