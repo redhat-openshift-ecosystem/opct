@@ -137,7 +137,7 @@ The Sonobuoy image must follow the same of OPCT CLI (sonobuoy library defined in
 
 **Running the mirror**
 
-The mirror steps must be executed every time the Sonobuoy package is update on CLI, the following steps descripts how to start the mirror process:
+The mirror steps must be executed every time the Sonobuoy package is update on CLI, the following steps describes how to start the mirror process:
 
 - Update the version `SONOBUOY_VERSION` in [`hack/image-mirror-sonobuoy/mirror.sh`][image-mirror-sonobuoy]
 - Run mirror script
@@ -154,7 +154,7 @@ SONOBUOY_VERSION=v0.56.11 MIRROR_REPO=quay.io/mrbraga/sonobuoy make image-mirror
 
 **Adding new Architecture**
 
-If you are looking to test new platform, you must add it when creating the manifest in [`hack/image-mirror-sonobuoy/mirror.sh`][image-mirror-sonobuoy]:
+If you are looking to test a new platform, you must add it when creating the manifest in [`hack/image-mirror-sonobuoy/mirror.sh`][image-mirror-sonobuoy]:
 
 ```bash
 BUILD_PLATFORMS+=( ["windows-amd64"]="windows/amd64" )
