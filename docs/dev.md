@@ -8,6 +8,7 @@ Table of Contents:
 - [Development Notes](#dev-notes)
     - [Command Line Interface](#dev-cli)
     - [Integration with Sonobuoy CLI](#dev-integration-cli)
+    - [Mirror sonobuoy images](#dev-image-mirror-sonobuoy)
 - [Sonobuoy Plugins](#dev-sonobuoy-plugins)
 - [Diagrams](#dev-diagrams)
 - [CLI Result filters](#dev-diagram-filters)
@@ -126,6 +127,49 @@ reader, ec, err := config.SonobuoyClient.RetrieveResults(&client.RetrieveConfig{
     Path:      config2.AggregatorResultsPath,
 })
 ```
+
+#### Sonobuoy image mirroring <a name="dev-image-mirror-sonobuoy"></a>
+
+The Sonobuoy images for Aggregator server and worker are mirrored to quay.io to prevent
+issues with docker hub network throttling.
+
+The Sonobuoy image must follow the same of OPCT CLI (sonobuoy library defined in go.mod).
+
+**Running the mirror**
+
+The mirror steps must be executed every time the Sonobuoy package is update on CLI, the following steps describes how to start the mirror process:
+
+- Update the version `SONOBUOY_VERSION` in [`hack/image-mirror-sonobuoy/mirror.sh`][image-mirror-sonobuoy]
+- Run mirror script
+```bash
+make image-mirror-sonobuoy
+```
+- Check the image in [quay.io/opct/sonobuoy](https://quay.io/repository/opct/sonobuoy?tab=tags)
+
+**Running the mirror targetting custom repository**
+
+```bash
+SONOBUOY_VERSION=v0.56.11 MIRROR_REPO=quay.io/mrbraga/sonobuoy make image-mirror-sonobuoy
+```
+
+**Adding new Architecture**
+
+If you are looking to test a new platform, you must add it when creating the manifest in [`hack/image-mirror-sonobuoy/mirror.sh`][image-mirror-sonobuoy]:
+
+```bash
+BUILD_PLATFORMS+=( ["windows-amd64"]="windows/amd64" )
+```
+
+**Testing custom sonobuoy images in unsupported architectures**
+
+```bash
+~/opct/bin/opct-devel run -w \
+    --sonobuoy-image quay.io/mrbraga/sonobuoy:v0.56.12-linux-arm64 \
+    --plugins-image openshift-tests-provider-cert:v0.5.0-alpha.3
+```
+
+[image-mirror-sonobuoy]: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/tree/main/hack/image-mirror-sonobuoy/mirror.sh
+
 
 ## Sonobuoy Plugins <a name="dev-sonobuoy-plugins"></a>
 
