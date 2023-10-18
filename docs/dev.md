@@ -130,8 +130,8 @@ reader, ec, err := config.SonobuoyClient.RetrieveResults(&client.RetrieveConfig{
 
 #### Sonobuoy image mirroring <a name="dev-image-mirror-sonobuoy"></a>
 
-The Sonobuoy images for Aggregator server and worker is mirrored to quay.io to prevent
-issues with docker hub network throtling.
+The Sonobuoy images for Aggregator server and worker are mirrored to quay.io to prevent
+issues with docker hub network throttling.
 
 The Sonobuoy image must follow the same of OPCT CLI (sonobuoy library defined in go.mod).
 
