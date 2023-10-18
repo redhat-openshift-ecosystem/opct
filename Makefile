@@ -57,6 +57,10 @@ build-darwin-arm64: build
 linux-amd64-container: build-linux-amd64
 	podman build -t $(IMG):latest -f hack/Containerfile --build-arg=RELEASE_TAG=$(RELEASE_TAG) .
 
+.PHONY: image-mirror-sonobuoy
+image-mirror-sonobuoy:
+	./hack/image-mirror-sonobuoy/mirror.sh
+
 # Utils dev
 .PHONY: update-go
 update-go:
