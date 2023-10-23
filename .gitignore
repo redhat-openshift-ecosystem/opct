@@ -6,6 +6,7 @@ kubeconfig
 # build files
 dist/
 build/
+.venv/
 
 # changelog is generated automaticaly by hack/generate-changelog.sh
 # available only in the rendered webpage (built by mkdocs).
