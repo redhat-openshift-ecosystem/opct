@@ -87,6 +87,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y make git -y
 
+      # linux-amd64 and darwin-arm64 is built sepparately to
+      # be uploading individualy in Github CI build, preventing
+      # automatically packaging when upload the artifact.
       - name: Build (OS=linux-amd64)
         env:
           OS_ARCH: linux-amd64
