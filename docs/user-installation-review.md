@@ -2,7 +2,7 @@
 
 > Note: this document is in constant update and provides a **guidance** to review the installed environment. It's always encorajed to review the product documentation first: [docs.openshift.com](https://docs.openshift.com/).
 
-This document complements the [official page of "Installing a cluster on any platform"](https://docs.openshift.com/container-platform/4.11/installing/installing_platform_agnostic/installing-platform-agnostic.html) to review specific configurations and components after the cluster has been installed.
+This document complements the [official page of "Installing a cluster on any platform"](https://docs.openshift.com/container-platform/latest/installing/installing_platform_agnostic/installing-platform-agnostic.html) to review specific configurations and components after the cluster has been installed.
 
 This document is also a helper for ["OPCT - Installation Checklist"](./user-installation-checklist.md) user document.
 
@@ -25,7 +25,7 @@ This document is also a helper for ["OPCT - Installation Checklist"](./user-inst
 
 ## Load Balancers <a name="loadbalancers"></a>
 
-Review the Load Balancer requirements: [Load balancing requirements for user-provisioned infrastructure](https://docs.openshift.com/container-platform/4.11/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-load-balancing-user-infra_installing-platform-agnostic)
+Review the Load Balancer requirements: [Load balancing requirements for user-provisioned infrastructure](https://docs.openshift.com/container-platform/latest/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-load-balancing-user-infra_installing-platform-agnostic)
 
 ### Review the Load Balancer size <a name="loadbalancers-size"></a>
 
@@ -45,20 +45,25 @@ The basic OpenShift Installations with support of external Load Balancers deploy
 
 The DNS or IP address for the private Load Balancer must point to the DNS record `api-int.<cluster>.<domain>`, which will be accessed for internal services.
 
-Reference: [User-provisioned DNS requirements](https://docs.openshift.com/container-platform/4.11/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-dns-user-infra_installing-platform-agnostic)
+Reference: [User-provisioned DNS requirements](https://docs.openshift.com/container-platform/latest/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-dns-user-infra_installing-platform-agnostic)
 
 ### Review Health Check configurations <a name="loadbalancers-healthcheck"></a>
 
 The kube-apiserver has a graceful termination engine that requires the Load Balancer health check probe to the HTTP path.
 
+Please review the section ["Example load balancer configuration for user-provisioned clusters"](https://docs.openshift.com/container-platform/latest/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-load-balancing-user-infra-example_installing-platform-agnostic) for haproxy as a example for API.
+
+<!-- 
+> The following guidance is didact but take the risk of missmatch from product documentation updates. Letting the documentation provides pratical examples.
+
 | Service | Protocol | Port | Path | Threshold | Interval | Timeout |
 | -- | -- | -- | -- | -- | -- | -- |
-| Kubernetes API Server | HTTPS* | 6443 | /readyz | 2  | 10 | 10 |
-| Machine Config Server | HTTPS* | 22623 | /healthz | 2  | 10 | 10 |
-| Ingress | TCP | 80 | - | 2  | 10 | 10 |
-| Ingress | TCP | 443 | - | 2  | 10 | 10 |
+| Kubernetes API Server | HTTPS* | 6443 | /readyz | 3  | 10 | 10 |
+| Machine Config Server | HTTPS* | 22623 | /healthz | 3  | 10 | 10 |
+| Ingress | TCP | 80 | - | 3  | 10 | 10 |
+| Ingress | TCP | 443 | - | 3  | 10 | 10 |
 
-<!-- > Note/Question: Not sure if we need to keep the HTTP (non-SSL on the doc). In the past, I talked with the KAS team and he had plans to remove that option, but due to the limitation of a few cloud providers, it will not. Some providers that still use this: [Alibaba](https://github.com/openshift/installer/blob/master/data/data/alibabacloud/cluster/vpc/slb.tf#L31), [GCP Public](https://github.com/openshift/installer/blob/master/data/data/gcp/cluster/network/lb-public.tf#L20-L21)
+> Note/Question: Not sure if we need to keep the HTTP (non-SSL on the doc). In the past, I talked with the KAS team and he had plans to remove that option, but due to the limitation of a few cloud providers, it will not. Some providers that still use this: [Alibaba](https://github.com/openshift/installer/blob/master/data/data/alibabacloud/cluster/vpc/slb.tf#L31), [GCP Public](https://github.com/openshift/installer/blob/master/data/data/gcp/cluster/network/lb-public.tf#L20-L21)
 *It's required to health check support HTTP protocol. If the Load Balancer used does not support SSL, alternatively and not preferably you can use HTTP - but never TCP:
 
 | Service | Protocol | Port | Path | Threshold | Interval | Timeout |
