@@ -54,14 +54,16 @@ The kube-apiserver has a graceful termination engine that requires the Load Bala
 Please review the section ["Example load balancer configuration for user-provisioned clusters"](https://docs.openshift.com/container-platform/latest/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-load-balancing-user-infra-example_installing-platform-agnostic) for haproxy as a example for API.
 
 <!-- 
-> The following guidance is didact but take the risk of missmatch from product documentation updates. Letting the documentation provides pratical examples.
+> The following guidance is a didact table for a general overview but take the risk of missmatch from product documentation updates. Letting the documentation references is preferred, but sometimes consolidating the information is preferred for reviewers (this guide is designed for OPCT result reviewers).
+
+> Note: AWS uses 2 as a health/unhealthy threshold, haproxy example shows 3 checks for on-prem LB deployments.
 
 | Service | Protocol | Port | Path | Threshold | Interval | Timeout |
 | -- | -- | -- | -- | -- | -- | -- |
-| Kubernetes API Server | HTTPS* | 6443 | /readyz | 3  | 10 | 10 |
-| Machine Config Server | HTTPS* | 22623 | /healthz | 3  | 10 | 10 |
-| Ingress | TCP | 80 | - | 3  | 10 | 10 |
-| Ingress | TCP | 443 | - | 3  | 10 | 10 |
+| Kubernetes API Server | HTTPS* | 6443 | /readyz | 2  | 10 | 10 |
+| Machine Config Server | HTTPS* | 22623 | /healthz | 2  | 10 | 10 |
+| Ingress | TCP | 80 | - | 2  | 10 | 10 |
+| Ingress | TCP | 443 | - | 2  | 10 | 10 |
 
 > Note/Question: Not sure if we need to keep the HTTP (non-SSL on the doc). In the past, I talked with the KAS team and he had plans to remove that option, but due to the limitation of a few cloud providers, it will not. Some providers that still use this: [Alibaba](https://github.com/openshift/installer/blob/master/data/data/alibabacloud/cluster/vpc/slb.tf#L31), [GCP Public](https://github.com/openshift/installer/blob/master/data/data/gcp/cluster/network/lb-public.tf#L20-L21)
 *It's required to health check support HTTP protocol. If the Load Balancer used does not support SSL, alternatively and not preferably you can use HTTP - but never TCP:
