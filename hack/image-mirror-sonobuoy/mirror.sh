@@ -6,7 +6,7 @@ set -o pipefail
 set -o nounset
 set -o errexit
 
-export SONOBUOY_VERSION=${SONOBUOY_VERSION:-v0.56.10}
+export SONOBUOY_VERSION=${SONOBUOY_VERSION:-v0.57.1}
 export SONOBUOY_REPO=docker.io/sonobuoy/sonobuoy
 export MIRROR_REPO=${MIRROR_REPO:-quay.io/opct/sonobuoy}
 export PLATFORM_IMAGES=""
@@ -32,4 +32,4 @@ done
 
 podman manifest create ${MIRROR_REPO}:${SONOBUOY_VERSION} ${PLATFORM_IMAGES}
 podman manifest push ${MIRROR_REPO}:${SONOBUOY_VERSION} docker://${MIRROR_REPO}:${SONOBUOY_VERSION}
-    
+
