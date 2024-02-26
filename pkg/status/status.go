@@ -163,7 +163,8 @@ func (s *StatusOptions) GetStatus() string {
 // An error will not result in immediate failure and will be retried.
 func (s *StatusOptions) WaitForStatusReport(ctx context.Context, sclient sonobuoyclient.Interface) error {
 	tries := 1
-	err := wait2.PollImmediateUntilWithContext(ctx, s.waitInterval, func(ctx context.Context) (done bool, err error) {
+
+	err := wait2.PollUntilContextCancel(ctx, s.waitInterval, true, func(ctx context.Context) (done bool, err error) {
 		if tries == StatusRetryLimit {
 			return false, errors.New("retry limit reached checking for aggregator status")
 		}
@@ -189,7 +190,7 @@ func (s *StatusOptions) Print(cmd *cobra.Command, sclient sonobuoyclient.Interfa
 	}
 
 	tries := 1
-	return wait2.PollImmediateInfiniteWithContext(cmd.Context(), s.waitInterval, func(ctx context.Context) (done bool, err error) {
+	return wait2.PollUntilContextCancel(cmd.Context(), s.waitInterval, true, func(ctx context.Context) (done bool, err error) {
 		if tries == StatusRetryLimit {
 			// we hit back-to-back errors too many times.
 			return true, errors.New("retry limit reached checking status")
