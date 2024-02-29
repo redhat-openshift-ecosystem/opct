@@ -3,7 +3,7 @@ package pkg
 const (
 	PrivilegedClusterRole          = "opct-scc-privileged"
 	PrivilegedClusterRoleBinding   = "opct-scc-privileged"
-	CertificationNamespace         = "openshift-provider-certification"
+	CertificationNamespace         = "opct"
 	VersionInfoConfigMapName       = "openshift-provider-certification-version"
 	PluginsVarsConfigMapName       = "plugins-config"
 	DedicatedNodeRoleLabel         = "node-role.kubernetes.io/tests"
