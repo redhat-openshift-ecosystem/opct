@@ -115,3 +115,30 @@ jobs:
           name: opct-darwin-arm64
           path: |
             build/opct-*
+
+  cmd-report:
+    name: "run-report"
+    runs-on: ubuntu-latest
+    needs:
+    - build
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: opct-linux-amd64
+          path: /tmp/build/
+
+      - name: Running report
+        env:
+          RESULT_ARTIFACT_URL: "https://openshift-provider-certification.s3.us-west-2.amazonaws.com"
+          RESULT_ARTIFACT_VERSION: "v0.4.0/default/4.15.0-20240228-HighlyAvailable-vsphere-None.tar.gz"
+          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
+        run: |
+          echo "> Downloading sample artifact: ${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
+          wget -qO /tmp/result.tar.gz "${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
+
+          echo "> Setting run permissions to OPCT:"
+          chmod u+x ${CUSTOM_BUILD_PATH}
+          
+          echo "> Running OPCT report:"
+          ${CUSTOM_BUILD_PATH} report /tmp/result.tar.gz
