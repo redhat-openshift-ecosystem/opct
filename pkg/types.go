@@ -13,7 +13,7 @@ const (
 	SonobuoyLabelComponentName     = "component"
 	SonobuoyLabelComponentValue    = "sonobuoy"
 	DefaultToolsRepository         = "quay.io/ocp-cert"
-	PluginsImage                   = "openshift-tests-provider-cert:v0.5.0-alpha.1"
+	PluginsImage                   = "openshift-tests-provider-cert:v0.5.0-alpha.4"
 )
 
 var (

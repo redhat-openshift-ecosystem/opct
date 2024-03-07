@@ -1,0 +1,80 @@
+podSpec:
+  restartPolicy: Never
+  serviceAccountName: sonobuoy-serviceaccount
+  volumes:
+    - name: shared
+      emptyDir: {}
+  containers:
+    - name: report-progress
+      image: "{{ .PluginsImage }}"
+      imagePullPolicy: Always
+      priorityClassName: system-node-critical
+      command: ["./report-progress.sh"]
+      volumeMounts:
+      - mountPath: /tmp/sonobuoy/results
+        name: results
+      - mountPath: /tmp/shared
+        name: shared
+      env:
+        - name: PLUGIN_ID
+          value: "80"
+        - name: ENV_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: ENV_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ENV_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+sonobuoy-config:
+  driver: Job
+  plugin-name: 80-openshift-tests-replay
+  result-format: junit
+  description: The end-to-end tests maintained by OpenShift to certify the Provider running the OpenShift Container Platform.
+  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-conformance-validated.yaml
+  skipCleanup: true
+spec:
+  name: plugin
+  image: "{{ .PluginsImage }}"
+  imagePullPolicy: Always
+  priorityClassName: system-node-critical
+  volumeMounts:
+  - mountPath: /tmp/sonobuoy/results
+    name: results
+  - mountPath: /tmp/shared
+    name: shared
+  env:
+    - name: PLUGIN_ID
+      value: "80"
+    - name: ENV_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: ENV_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: ENV_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: RUN_MODE
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: run-mode
+    - name: DEV_MODE_COUNT
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: dev-count
+    - name: MIRROR_IMAGE_REPOSITORY
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: mirror-registry
+          optional: true
