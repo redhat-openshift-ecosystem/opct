@@ -3,8 +3,8 @@ package pkg
 const (
 	PrivilegedClusterRole          = "opct-scc-privileged"
 	PrivilegedClusterRoleBinding   = "opct-scc-privileged"
-	CertificationNamespace         = "openshift-provider-certification"
-	VersionInfoConfigMapName       = "openshift-provider-certification-version"
+	CertificationNamespace         = "opct"
+	VersionInfoConfigMapName       = "opct-version"
 	PluginsVarsConfigMapName       = "plugins-config"
 	DedicatedNodeRoleLabel         = "node-role.kubernetes.io/tests"
 	DedicatedNodeRoleLabelSelector = "node-role.kubernetes.io/tests="
@@ -12,8 +12,8 @@ const (
 	SonobuoyLabelNamespaceName     = "namespace"
 	SonobuoyLabelComponentName     = "component"
 	SonobuoyLabelComponentValue    = "sonobuoy"
-	DefaultToolsRepository         = "quay.io/ocp-cert"
-	PluginsImage                   = "openshift-tests-provider-cert:v0.5.0-alpha.4"
+	DefaultToolsRepository         = "quay.io/opct"
+	PluginsImage                   = "plugin-openshift-tests:v0.5.0-alpha.4"
 )
 
 var (
