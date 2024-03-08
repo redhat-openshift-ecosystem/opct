@@ -1,6 +1,7 @@
 podSpec:
   restartPolicy: Never
   serviceAccountName: sonobuoy-serviceaccount
+  priorityClassName: system-node-critical
   volumes:
     - name: shared
       emptyDir: {}
@@ -8,7 +9,6 @@ podSpec:
     - name: report-progress
       image: "{{ .PluginsImage }}"
       imagePullPolicy: Always
-      priorityClassName: system-node-critical
       command: ["./report-progress.sh"]
       volumeMounts:
       - mountPath: /tmp/sonobuoy/results

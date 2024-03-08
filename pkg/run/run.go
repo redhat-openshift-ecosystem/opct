@@ -21,10 +21,12 @@ import (
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/loader"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/manifest"
 	v1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
@@ -34,8 +36,8 @@ import (
 )
 
 type RunOptions struct {
-	plugins         *[]string
-	dedicated       bool
+	plugins *[]string
+
 	sonobuoyImage   string
 	imageRepository string
 	// PluginsImage
@@ -48,13 +50,20 @@ type RunOptions struct {
 	devCount      string
 	mode          string
 	upgradeImage  string
+
+	// Dedicated node
+	dedicated      bool
+	dedicatedTaint bool
+	nodeSelector   string
+	nodeTaint      string
 }
 
 const (
 	defaultRunTimeoutSeconds = 21600
 	defaultRunMode           = "regular"
 	defaultUpgradeImage      = ""
-	defaultDedicatedFlag     = true
+	defaultDedicatedFlag     = false
+	defaultDedicatedTaint    = false
 	defaultRunWatchFlag      = false
 )
 
@@ -90,6 +99,11 @@ func NewCmdRun() *cobra.Command {
 
 			// Pre-checks and setup
 			err = o.PreRunCheck(kclient)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			err = o.PreRunSetup(kclient)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -136,8 +150,6 @@ func NewCmdRun() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&o.dedicated, "dedicated", defaultDedicatedFlag, "Setup plugins to run in dedicated test environment.")
-	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
 	cmd.Flags().StringVar(&o.mode, "mode", defaultRunMode, "Run mode: Availble: regular, upgrade")
 	cmd.Flags().StringVar(&o.upgradeImage, "upgrade-to-image", defaultUpgradeImage, "Target OpenShift Release Image. Example: oc adm release info 4.11.18 -o jsonpath={.image}")
 	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times. (default plugins can be reviewed with assets subcommand)")
@@ -147,6 +159,15 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().IntVar(&o.timeout, "timeout", defaultRunTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", defaultRunWatchFlag, "Keep watch status after running")
 	cmd.Flags().IntVarP(&o.watchInterval, "watch-interval", "", status.DefaultStatusIntervalSeconds, "Interval to watch the status and print in the stdout")
+
+	// Development flags
+	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
+
+	// Advanced flags
+	cmd.Flags().BoolVar(&o.dedicated, "dedicated", defaultDedicatedFlag, "Enable to schedule test environment in dedicated node.")
+	cmd.Flags().BoolVar(&o.dedicatedTaint, "dedicated-taint", defaultDedicatedTaint, "Enable taint in the dedicated node. This option will create tolerations to schedule the test environment in dedicated nodes with NoSchedule taints.")
+	cmd.Flags().StringVar(&o.nodeSelector, "select-node-label", pkg.DedicatedNodeRoleLabelSelector, "Node label selector to schedule test environment. Requires --dedicated=true.")
+	cmd.Flags().StringVar(&o.nodeTaint, "select-node-taint", pkg.DedicatedNodeRoleLabel, "Node taint key to schedule the test environment. Requires --dedicated=true.")
 
 	// Hide optional flags
 	hideOptionalFlags(cmd, "dedicated")
@@ -159,7 +180,6 @@ func NewCmdRun() *cobra.Command {
 // PreRunCheck performs some checks before kicking off Sonobuoy
 func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	coreClient := kclient.CoreV1()
-	rbacClient := kclient.RbacV1()
 
 	// Get ConfigV1 client for Cluster Operators
 	restConfig, err := client.CreateRestConfig()
@@ -214,18 +234,27 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 		return errors.New(fmt.Sprintf("%s namespace already exists", pkg.CertificationNamespace))
 	}
 
+	// All good
+	return nil
+}
+
+// PreRunSetup performs setup required by OPCT environment.
+func (r *RunOptions) PreRunSetup(kclient kubernetes.Interface) error {
+	coreClient := kclient.CoreV1()
+	rbacClient := kclient.RbacV1()
+
 	namespace := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   pkg.CertificationNamespace,
-			Labels: pkg.SonobuoyDefaultLabels,
+			Name:        pkg.CertificationNamespace,
+			Labels:      pkg.SonobuoyDefaultLabels,
+			Annotations: make(map[string]string),
 		},
 	}
 
 	if r.dedicated {
-
 		log.Info("Ensuring proper node label for dedicated mode exists")
 		nodes, err := coreClient.Nodes().List(context.TODO(), metav1.ListOptions{
-			LabelSelector: pkg.DedicatedNodeRoleLabelSelector,
+			LabelSelector: r.nodeSelector,
 		})
 		if err != nil {
 			return errors.Wrap(err, "error getting the Node list")
@@ -234,23 +263,25 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 			return errors.New("No nodes with role required for dedicated mode (node-role.kubernetes.io/tests)")
 		}
 
-		tolerations, err := json.Marshal([]v1.Toleration{{
-			Key:      pkg.DedicatedNodeRoleLabel,
-			Operator: v1.TolerationOpExists,
-			Value:    "",
-			Effect:   v1.TaintEffectNoSchedule,
-		}})
-		if err != nil {
-			return errors.Wrap(err, "error creating namespace Tolerations")
+		namespace.Annotations = map[string]string{
+			"openshift.io/node-selector": pkg.DedicatedNodeRoleLabelSelector,
 		}
 
-		namespace.Annotations = map[string]string{
-			"scheduler.alpha.kubernetes.io/defaultTolerations": string(tolerations),
-			"openshift.io/node-selector":                       pkg.DedicatedNodeRoleLabelSelector,
+		if r.dedicatedTaint {
+			tolerations, err := json.Marshal([]v1.Toleration{{
+				Key:      r.nodeTaint,
+				Operator: v1.TolerationOpExists,
+				Value:    "",
+				Effect:   v1.TaintEffectNoSchedule,
+			}})
+			if err != nil {
+				return errors.Wrap(err, "error creating namespace Tolerations")
+			}
+			namespace.Annotations["scheduler.alpha.kubernetes.io/defaultTolerations"] = string(tolerations)
 		}
 	}
 
-	_, err = kclient.CoreV1().Namespaces().Create(context.TODO(), namespace, metav1.CreateOptions{})
+	_, err := kclient.CoreV1().Namespaces().Create(context.TODO(), namespace, metav1.CreateOptions{})
 	if err != nil {
 		return errors.Wrap(err, "error creating Namespace")
 	}
@@ -342,7 +373,28 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	}
 	log.Infof("Created %s ClusterRoleBinding", pkg.PrivilegedClusterRoleBinding)
 
-	// All good
+	pdbName := "opct-server"
+	_, err = kclient.PolicyV1().PodDisruptionBudgets(pkg.CertificationNamespace).Create(context.TODO(), &policyv1.PodDisruptionBudget{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pdbName,
+			Namespace: pkg.CertificationNamespace,
+			Labels:    pkg.SonobuoyDefaultLabels,
+		},
+		Spec: policyv1.PodDisruptionBudgetSpec{
+			MinAvailable: &intstr.IntOrString{IntVal: 1},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"component":          "sonobuoy",
+					"sonobuoy-component": "aggregator",
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "error creating PodDisruptionBudget %s", pdbName)
+	}
+	log.Infof("Created %s PodDisruptionBudgets", pkg.PrivilegedClusterRoleBinding)
+
 	return nil
 }
 
