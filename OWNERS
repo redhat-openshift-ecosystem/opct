@@ -1,11 +1,13 @@
 reviewers:
- - dhellmann
- - mtulio
- - rvanderp3
- - faermanj
+- dhellmann
+- mtulio
+- rvanderp3
+- faermanj
+- jcpowermac
 
 approvers:
- - dhellmann
- - mtulio
- - rvanderp3
- - faermanj
+- dhellmann
+- mtulio
+- rvanderp3
+- faermanj
+- jcpowermac
