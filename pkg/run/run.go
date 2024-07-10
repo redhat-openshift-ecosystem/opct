@@ -11,6 +11,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	coclient "github.com/openshift/client-go/config/clientset/versioned"
 	irclient "github.com/openshift/client-go/imageregistry/clientset/versioned"
+	mcfgclientset "github.com/openshift/client-go/machineconfiguration/clientset/versioned"
 	"github.com/pkg/errors"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version"
 	log "github.com/sirupsen/logrus"
@@ -89,9 +90,14 @@ func NewCmdRun() *cobra.Command {
 			}
 
 			// Pre-checks and setup
-			err = o.PreRunCheck(kclient)
-			if err != nil {
+			if err = o.PreRunCheck(kclient); err != nil {
 				log.Fatal(err)
+				os.Exit(1)
+			}
+
+			if err = o.PreRunSetup(kclient); err != nil {
+				log.Fatal(err)
+				os.Exit(1)
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
@@ -159,7 +165,6 @@ func NewCmdRun() *cobra.Command {
 // PreRunCheck performs some checks before kicking off Sonobuoy
 func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	coreClient := kclient.CoreV1()
-	rbacClient := kclient.RbacV1()
 
 	// Get ConfigV1 client for Cluster Operators
 	restConfig, err := client.CreateRestConfig()
@@ -195,12 +200,34 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 		return errors.New("OpenShift Image Registry must deployed before validation can run")
 	}
 
-	// TODO: checkOrCreate MachineConfigPool with:
-	// - node selectors: node-role.kubernetes.io/tests=''
-	// - paused: true
-	// https://issues.redhat.com/browse/OPCT-35
+	if r.dedicated {
+		log.Info("Ensuring required node label and taints exists")
+		nodes, err := coreClient.Nodes().List(context.TODO(), metav1.ListOptions{
+			LabelSelector: pkg.DedicatedNodeRoleLabelSelector,
+		})
+		if err != nil {
+			return errors.Wrap(err, "error getting the Node list")
+		}
+		if len(nodes.Items) == 0 {
+			return fmt.Errorf("missing dedicated node. Set the label 'node-role.kubernetes.io/tests=\"\"' to a node and try again")
+		}
+		if len(nodes.Items) > 2 {
+			return fmt.Errorf("too many nodes with label %q. Set the label to only one node and try again", pkg.DedicatedNodeRoleLabelSelector)
+		}
+		node := nodes.Items[0]
+		found := false
+		for _, taint := range node.Spec.Taints {
+			if taint.Key == pkg.DedicatedNodeRoleLabel {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("missing taint \"%s='':NoSchedule\" in the dedicated node %q. Set the taint and try again", pkg.DedicatedNodeRoleLabel, node.Name)
+		}
+	}
 
-	// Check if sonobuoy namespace already exists
+	// Check if namespace already exists
 	p, err := coreClient.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
 	if err != nil {
 		// If error is due to namespace not being found, we continue.
@@ -209,10 +236,75 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 		}
 	}
 
-	// sonobuoy namespace exists so return error
 	if p.Name != "" {
-		return errors.New(fmt.Sprintf("%s namespace already exists", pkg.CertificationNamespace))
+		return errors.New(fmt.Sprintf("%s namespace already exists. You must run 'destroy' to clean the environment and try again.", pkg.CertificationNamespace))
 	}
+
+	// Check if MachineConfigPool exists when upgrade mode is set.:
+	// - node selectors: node-role.kubernetes.io/tests=''
+	// - paused: true
+	// Check MachineConfigPool when upgrade.
+	if r.mode == "upgrade" {
+		mcpName := "opct"
+		machineConfigClient, err := mcfgclientset.NewForConfig(restConfig)
+		if err != nil {
+			return err
+		}
+		poolList, err := machineConfigClient.MachineconfigurationV1().MachineConfigPools().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("getting MachineConfigPools failed: %w", err)
+		}
+		// Should we need to create it when not found?
+		mcpCreateInstructions := func() {
+			log.Println("MachineConfigPool not found, create it with the following instructions:")
+			fmt.Println(`$ cat << EOF  | oc apply -f -
+---
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfigPool
+metadata:
+name: opct
+spec:
+machineConfigSelector:
+matchExpressions:
+  - key: machineconfiguration.openshift.io/role,
+	operator: In,
+	values: [worker,opct]
+nodeSelector:
+matchLabels:
+  node-role.kubernetes.io/tests: ""
+paused: true
+EOF`)
+		}
+		if len(poolList.Items) == 0 {
+			fmt.Println()
+			return fmt.Errorf("MachineConfigPool %q not found, create it and try again", mcpName)
+		}
+		isFound := false
+		isPaused := false
+		for _, pool := range poolList.Items {
+			if pool.Name == mcpName {
+				isFound = true
+				if !pool.Spec.Paused {
+					log.Errorf("MachineConfigPool %q is not paused", mcpName)
+				}
+				isPaused = true
+			}
+		}
+		if !isFound {
+			mcpCreateInstructions()
+			return fmt.Errorf("MachineConfigPool %q not found, create it and try again", mcpName)
+		}
+		if !isPaused {
+			return fmt.Errorf("MachineConfigPool %q is not paused, set `spec.pause=true` and try again", mcpName)
+		}
+	}
+
+	return nil
+}
+
+// PreRunSetup performs setup required by OPCT environment.
+func (r *RunOptions) PreRunSetup(kclient kubernetes.Interface) error {
+	rbacClient := kclient.RbacV1()
 
 	namespace := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -222,18 +314,6 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	}
 
 	if r.dedicated {
-
-		log.Info("Ensuring proper node label for dedicated mode exists")
-		nodes, err := coreClient.Nodes().List(context.TODO(), metav1.ListOptions{
-			LabelSelector: pkg.DedicatedNodeRoleLabelSelector,
-		})
-		if err != nil {
-			return errors.Wrap(err, "error getting the Node list")
-		}
-		if nodes.Items != nil && len(nodes.Items) == 0 {
-			return errors.New("No nodes with role required for dedicated mode (node-role.kubernetes.io/tests)")
-		}
-
 		tolerations, err := json.Marshal([]v1.Toleration{{
 			Key:      pkg.DedicatedNodeRoleLabel,
 			Operator: v1.TolerationOpExists,
@@ -250,7 +330,7 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 		}
 	}
 
-	_, err = kclient.CoreV1().Namespaces().Create(context.TODO(), namespace, metav1.CreateOptions{})
+	_, err := kclient.CoreV1().Namespaces().Create(context.TODO(), namespace, metav1.CreateOptions{})
 	if err != nil {
 		return errors.Wrap(err, "error creating Namespace")
 	}
@@ -342,7 +422,6 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	}
 	log.Infof("Created %s ClusterRoleBinding", pkg.PrivilegedClusterRoleBinding)
 
-	// All good
 	return nil
 }
 
