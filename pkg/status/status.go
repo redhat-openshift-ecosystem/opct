@@ -63,40 +63,41 @@ func NewCmdStatus() *cobra.Command {
 		Use:   "status",
 		Short: "Show the current status of the validation tool",
 		Long:  ``,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			// Client setup
 			kclient, sclient, err := client.CreateClients()
 			if err != nil {
-				log.Error(err)
-				return
+				log.WithError(err).Errorf("status finished with errors: %v", err)
+				return err
 			}
 
 			// Pre-checks and setup
 			err = o.PreRunCheck(kclient)
 			if err != nil {
 				log.WithError(err).Error("error running pre-checks")
-				return
+				return err
 			}
 
 			// Wait for Sonobuoy to create
 			err = wait.WaitForRequiredResources(kclient)
 			if err != nil {
 				log.WithError(err).Error("error waiting for sonobuoy pods to become ready")
-				return
+				return err
 			}
 
 			// Wait for Sononbuoy to start reporting status
 			err = o.WaitForStatusReport(cmd.Context(), sclient)
 			if err != nil {
 				log.WithError(err).Error("error retrieving current aggregator status")
-				return
+				return err
 			}
 
 			err = o.Print(cmd, sclient)
 			if err != nil {
 				log.WithError(err).Error("error printing status")
-				return
+				return err
 			}
+			return nil
 		},
 	}
 

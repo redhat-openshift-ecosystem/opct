@@ -34,14 +34,14 @@ func NewCmdDestroy() *cobra.Command {
 		Aliases: []string{"delete"},
 		Short:   "Destroy current validation environment",
 		Long:    `Destroys resources used for conformance testing inside of the target OpenShift cluster. This will not destroy OpenShift cluster.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			log.Info("Starting the destroy flow...")
 
 			// Client setup
 			kclient, sclient, err := client.CreateClients()
 			if err != nil {
 				log.Error(err)
-				return
+				return err
 			}
 
 			err = o.DeleteSonobuoyEnv(sclient)
@@ -62,6 +62,7 @@ func NewCmdDestroy() *cobra.Command {
 			}
 
 			log.Info("Destroy done!")
+			return nil
 		},
 	}
 

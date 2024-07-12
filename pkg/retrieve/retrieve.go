@@ -1,6 +1,7 @@
 package retrieve
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -23,46 +24,41 @@ func NewCmdRetrieve() *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		Short: "Collect results from validation environment",
 		Long:  `Downloads the results archive from the validation environment`,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			destinationDirectory, err := os.Getwd()
 			if err != nil {
-				log.Error(err)
-				return
+				return fmt.Errorf("retrieve finished with errors: %v", err)
 			}
 			if len(args) == 1 {
 				destinationDirectory = args[0]
 				finfo, err := os.Stat(destinationDirectory)
 				if err != nil {
-					log.Error(err)
-					return
+					return fmt.Errorf("retrieve finished with errors: %v", err)
 				}
 				if !finfo.IsDir() {
-					log.Error("Retrieval destination must be directory")
-					return
+					return fmt.Errorf("retrieve finished with errors: %v", err)
 				}
 			}
 
 			kclient, sclient, err := client.CreateClients()
 			if err != nil {
-				log.Error(err)
-				return
+				return fmt.Errorf("retrieve finished with errors: %v", err)
 			}
 
 			s := status.NewStatusOptions(&status.StatusInput{Watch: false})
 			err = s.PreRunCheck(kclient)
 			if err != nil {
-				log.Error(err)
-				return
+				return fmt.Errorf("retrieve finished with errors: %v", err)
 			}
 
 			log.Info("Collecting results...")
 
 			if err := retrieveResultsRetry(sclient, destinationDirectory); err != nil {
-				log.Error(err)
-				return
+				return fmt.Errorf("retrieve finished with errors: %v", err)
 			}
 
 			log.Info("Use the results command to check the validation test summary or share the results archive with your Red Hat partner.")
+			return nil
 		},
 	}
 }
