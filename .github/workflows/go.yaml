@@ -9,35 +9,40 @@ on:
     tags:
       - '*'
 
+env:
+  GO_VERSION: 1.22
+  GOLANGCI_LINT_VERSION: v1.59
+  STATIC_CHECK_VERSION: 2023.1.7
+
 jobs:
   go-lint:
     name: go-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: ${{ env.GO_VERSION }}
           cache: false
       # https://github.com/golangci/golangci-lint-action
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.55.2
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
           args: --timeout=10m
 
   go-static:
     name: "go-staticcheck"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: WillAbides/setup-go-faster@v1.14.0
         with:
-          go-version: '1.22'
+          go-version: ${{ env.GO_VERSION }}
       - name: Run static code analysis
         uses: dominikh/staticcheck-action@v1.3.0
         with:
-          version: "2023.1.7"
+          version: "${{ env.STATIC_CHECK_VERSION }}"
           install-go: false
 
   go-test:
@@ -47,10 +52,10 @@ jobs:
     - go-lint
     - go-static
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: ${{ env.GO_VERSION }}
       - name: Run unit tests
         run: make test
 
@@ -61,10 +66,10 @@ jobs:
     - go-lint
     - go-static
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: ${{ env.GO_VERSION }}
       - name: Run go vet
         run: make vet
 
@@ -75,13 +80,10 @@ jobs:
     - go-test
     - go-vet
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: 1.22
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Install dependencies
         run: |
@@ -97,7 +99,7 @@ jobs:
           make build-${OS_ARCH}
 
       - name: Save artifacts (OS=linux-amd64)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: opct-linux-amd64
           path: |
@@ -111,19 +113,19 @@ jobs:
           make build-${OS_ARCH}
 
       - name: Save artifacts (OS=darwin-arm64)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: opct-darwin-arm64
           path: |
             build/opct-*
-  cmd-report:
-    name: "run-report"
+  e2e-cmd_report:
+    name: "e2e-cmd_report"
     runs-on: ubuntu-latest
     needs:
     - build
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: opct-linux-amd64
           path: /tmp/build/
@@ -142,3 +144,95 @@ jobs:
 
           echo "> Running OPCT report:"
           ${CUSTOM_BUILD_PATH} report /tmp/result.tar.gz
+
+  e2e-cmd_adm-parse-etcd-logs:
+    name: "e2e-cmd_adm-parse-etcd-logs"
+    runs-on: ubuntu-latest
+    needs:
+    - build
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: opct-linux-amd64
+          path: /tmp/build/
+
+      - name: Preparing testdata
+        env:
+          RESULT_ARTIFACT_URL: "https://openshift-provider-certification.s3.us-west-2.amazonaws.com"
+          RESULT_ARTIFACT_VERSION: "testdata/must-gather-etcd-logs.tar.gz"
+          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
+          LOCAL_TEST_DATA: /tmp/must-gather.tar.gz
+          LOCAL_TEST_DATA_DIR: /tmp/must-gather
+        run: |
+          echo "> Downloading sample artifact: ${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
+          wget -qO ${LOCAL_TEST_DATA} "${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
+
+          echo "> Setting run permissions to OPCT:"
+          chmod u+x ${CUSTOM_BUILD_PATH}
+
+          echo "> Extracting testdata:"
+          mkdir ${LOCAL_TEST_DATA_DIR}
+          tar xfz ${LOCAL_TEST_DATA} -C ${LOCAL_TEST_DATA_DIR}
+
+      - name: "e2e stdin reader: cat <etcd pod logs> | opct adm parse-etcd-logs"
+        env:
+          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
+          LOCAL_TEST_DATA_DIR: /tmp/must-gather
+        run: |
+          cat ${LOCAL_TEST_DATA_DIR}/*/*/namespaces/openshift-etcd/pods/*/etcd/etcd/logs/*.log | \
+            ${CUSTOM_BUILD_PATH} adm parse-etcd-logs
+
+      - name: "e2e must-gather dir: opct adm parse-etcd-logs <must-gather-dir>"
+        env:
+          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
+          LOCAL_TEST_DATA_DIR: /tmp/must-gather
+        run: |
+          ${CUSTOM_BUILD_PATH} adm parse-etcd-logs ${LOCAL_TEST_DATA_DIR}
+
+      - name: "e2e aggregate by hour: opct adm parse-etcd-logs --aggregator hour <must-gather-dir>"
+        env:
+          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
+          LOCAL_TEST_DATA_DIR: /tmp/must-gather
+        run: |
+          ${CUSTOM_BUILD_PATH} adm parse-etcd-logs --aggregator hour ${LOCAL_TEST_DATA_DIR}
+
+      - name: "e2e ignore error counters: opct adm parse-etcd-logs --skip-error-counter=true <must-gather-dir>"
+        env:
+          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
+          LOCAL_TEST_DATA_DIR: /tmp/must-gather
+        run: |
+          ${CUSTOM_BUILD_PATH} adm parse-etcd-logs --skip-error-counter=true ${LOCAL_TEST_DATA_DIR}
+
+  e2e-cmd_adm-parse-metrics:
+    name: "e2e-cmd_adm-parse-metrics"
+    runs-on: ubuntu-latest
+    needs:
+    - build
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: opct-linux-amd64
+          path: /tmp/build/
+
+      - name: Preparing testdata
+        env:
+          RESULT_ARTIFACT_URL: "https://openshift-provider-certification.s3.us-west-2.amazonaws.com"
+          RESULT_ARTIFACT_VERSION: "testdata/ci-external-aws-ccm_1757495441294888960-artifacts_must-gather-metrics.tar.xz"
+          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
+          LOCAL_TEST_DATA: /tmp/opct-metrics.tar.xz
+        run: |
+          echo "> Downloading sample artifact: ${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
+          wget -qO ${LOCAL_TEST_DATA} "${RESULT_ARTIFACT_URL}/${RESULT_ARTIFACT_VERSION}"
+
+          echo "> Setting run permissions to OPCT:"
+          chmod u+x ${CUSTOM_BUILD_PATH}
+
+      - name: "e2e parse metrics: opct adm parse-etcd-logs <must-gather-dir>"
+        env:
+          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
+          LOCAL_TEST_DATA: /tmp/opct-metrics.tar.xz
+        run: |
+          ${CUSTOM_BUILD_PATH} adm parse-metrics --input ${LOCAL_TEST_DATA} --output /tmp/metrics
+          tree /tmp/metrics

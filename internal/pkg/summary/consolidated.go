@@ -368,34 +368,49 @@ func (cs *ConsolidatedSummary) saveFailuresIndexToSheet(path string) error {
 	defer saveSheet(sheet, sheetFile)
 
 	sheetName := "failures-provider-filtered"
-	sheet.SetActiveSheet(sheet.NewSheet(sheetName))
-	if err := createSheet(sheet, sheetName); err != nil {
-		log.Error(err)
-	} else {
-		errList = cs.GetProvider().GetOpenShift().GetResultK8SValidated().FailedFilterBaseline
-		rowN = 2
-		populateSheet(sheet, sheetName, PluginNameKubernetesConformance, errList, &rowN)
+	sh, err := sheet.NewSheet(sheetName)
+	if err == nil {
+		sheet.SetActiveSheet(sh)
+		if err := createSheet(sheet, sheetName); err != nil {
+			log.Error(err)
+		} else {
+			errList = cs.GetProvider().GetOpenShift().GetResultK8SValidated().FailedFilterBaseline
+			rowN = 2
+			populateSheet(sheet, sheetName, PluginNameKubernetesConformance, errList, &rowN)
 
-		errList = cs.GetProvider().GetOpenShift().GetResultOCPValidated().FailedFilterBaseline
-		populateSheet(sheet, sheetName, PluginNameOpenShiftConformance, errList, &rowN)
+			errList = cs.GetProvider().GetOpenShift().GetResultOCPValidated().FailedFilterBaseline
+			populateSheet(sheet, sheetName, PluginNameOpenShiftConformance, errList, &rowN)
+		}
+	} else {
+		log.Errorf("skipping spreadsheet %s creation due errors: %s", sheetName, err)
 	}
 
 	sheetName = "failures-provider"
-	sheet.SetActiveSheet(sheet.NewSheet(sheetName))
-	if err := createSheet(sheet, sheetName); err != nil {
-		log.Error(err)
-	} else {
-		errList = cs.GetProvider().GetOpenShift().GetResultK8SValidated().FailedList
-		rowN = 2
-		populateSheet(sheet, sheetName, PluginNameKubernetesConformance, errList, &rowN)
+	sh, err = sheet.NewSheet(sheetName)
+	if err == nil {
+		sheet.SetActiveSheet(sh)
+		if err := createSheet(sheet, sheetName); err != nil {
+			log.Error(err)
+		} else {
+			errList = cs.GetProvider().GetOpenShift().GetResultK8SValidated().FailedList
+			rowN = 2
+			populateSheet(sheet, sheetName, PluginNameKubernetesConformance, errList, &rowN)
 
-		errList = cs.GetProvider().GetOpenShift().GetResultOCPValidated().FailedList
-		populateSheet(sheet, sheetName, PluginNameOpenShiftConformance, errList, &rowN)
+			errList = cs.GetProvider().GetOpenShift().GetResultOCPValidated().FailedList
+			populateSheet(sheet, sheetName, PluginNameOpenShiftConformance, errList, &rowN)
+		}
+	} else {
+		log.Errorf("skipping spreadsheet %s creation due errors: %s", sheetName, err)
 	}
 
 	if bProcessed {
 		sheetName = "failures-baseline"
-		sheet.SetActiveSheet(sheet.NewSheet(sheetName))
+		sh, err = sheet.NewSheet(sheetName)
+		if err != nil {
+			log.Errorf("skipping spreadsheet %s creation due errors: %s", sheetName, err)
+			return nil
+		}
+		sheet.SetActiveSheet(sh)
 		if err := createSheet(sheet, sheetName); err != nil {
 			log.Error(err)
 		} else {
