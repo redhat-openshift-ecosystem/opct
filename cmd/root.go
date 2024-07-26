@@ -11,6 +11,7 @@ import (
 	"github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
 
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/cmd/adm"
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/cmd/exp"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/cmd/get"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/destroy"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/report"
@@ -76,6 +77,7 @@ func init() {
 	rootCmd.AddCommand(report.NewCmdReport())
 	rootCmd.AddCommand(get.NewCmdGet())
 	rootCmd.AddCommand(adm.NewCmdAdm())
+	rootCmd.AddCommand(exp.NewCmdExp())
 
 	// Link in child commands direct from Sonobuoy
 	rootCmd.AddCommand(app.NewSonobuoyCommand())
