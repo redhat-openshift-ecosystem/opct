@@ -64,12 +64,13 @@ jobs:
 
       # https://github.com/softprops/action-gh-release
       - name: Create Release
-        uses: softprops/action-gh-release@v0.1.15
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CONTAINER_REPO: ${{ env.CONTAINER_REPO }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
         with:
+          prerelease: true
           files: |
             build/opct-darwin-amd64
             build/opct-darwin-amd64.sum
