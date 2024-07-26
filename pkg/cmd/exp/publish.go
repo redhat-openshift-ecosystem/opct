@@ -21,6 +21,7 @@ type submitInput struct {
 	bucketName   string
 	bucketRegion string
 	objectKey    string
+	metadata     string
 }
 
 var argsPublish submitInput
@@ -36,6 +37,10 @@ func init() {
 	cmdPublish.Flags().StringVarP(
 		&argsPublish.objectKey, "key", "k", "",
 		"Object key to use when uploading the archive to the bucket, when not set the uploads/ path will be prepended to the filename.",
+	)
+	cmdPublish.Flags().StringVarP(
+		&argsPublish.metadata, "metadata", "m", "",
+		"Object metadata.",
 	)
 }
 
@@ -71,6 +76,12 @@ func checkRequiredParams(input *submitInput) bool {
 
 	input.bucketName = "openshift-provider-certification"
 	input.bucketRegion = "us-west-2"
+	if os.Getenv("OPCT_EXP_BUCKET_NAME") != "" {
+		input.bucketName = os.Getenv("OPCT_EXP_BUCKET_NAME")
+	}
+	if os.Getenv("OPCT_EXP_BUCKET_REGION") != "" {
+		input.bucketRegion = os.Getenv("OPCT_EXP_BUCKET_REGION")
+	}
 
 	return true
 }
@@ -126,10 +137,26 @@ func publishResult(input *submitInput) error {
 		}
 		objectKey = input.objectKey
 	}
+
+	// when metadata is set, parse it and add it to the object
+	metadata := make(map[string]string)
+	if input.metadata != "" {
+		metadataParts := strings.Split(input.metadata, ",")
+		for _, part := range metadataParts {
+			kv := strings.Split(part, "=")
+			if len(kv) != 2 {
+				return fmt.Errorf("metadata must be in the form key1=value1,key2=value2")
+			}
+			metadata[kv[0]] = kv[1]
+		}
+	}
+
+	// upload artifact to bucket
 	_, err = svc.PutObject(&s3.PutObjectInput{
-		Bucket: aws.String(input.bucketName),
-		Key:    aws.String(objectKey),
-		Body:   file,
+		Bucket:   aws.String(input.bucketName),
+		Key:      aws.String(objectKey),
+		Body:     file,
+		Metadata: aws.StringMap(metadata),
 	})
 	if err != nil {
 		return errors.Wrapf(err, "failed to upload file %s to bucket %s", filename, input.bucketName)
