@@ -6,7 +6,7 @@ on:
       - '*'
 
 env:
-  CONTAINER_REPO: quay.io/ocp-cert/opct
+  CONTAINER_REPO: quay.io/opct/opct
   RELEASE_TAG: ${{ github.ref_name }}
 
 jobs:
@@ -41,8 +41,8 @@ jobs:
 
       - name: Build Container and Release to Quay
         env:
-          QUAY_USER: ${{ secrets.QUAY_USER }}
-          QUAY_PASS: ${{ secrets.QUAY_PASS }}
+          QUAY_USER: ${{ secrets.QUAY_OPCT_USER }}
+          QUAY_PASS: ${{ secrets.QUAY_OPCT_PASS }}
         run: |
           echo "> Logging to Quay.io:"
           podman login -u="${QUAY_USER}" -p="${QUAY_PASS}" quay.io
