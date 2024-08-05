@@ -82,31 +82,31 @@ func NewCmdRun() *cobra.Command {
 		Use:   "run",
 		Short: "Run the suite of tests for provider validation",
 		Long:  `Launches the provider validation environment inside of an already running OpenShift cluster`,
-		PreRun: func(cmd *cobra.Command, args []string) {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Client setup
 			kclient, sclient, err = client.CreateClients()
 			if err != nil {
-				log.Fatal(err)
+				return fmt.Errorf("run finished with errors: %v", err)
 			}
 
 			// Pre-checks and setup
 			if err = o.PreRunCheck(kclient); err != nil {
-				log.Fatal(err)
-				os.Exit(1)
+				return fmt.Errorf("run finished with errors: %v", err)
 			}
 
 			if err = o.PreRunSetup(kclient); err != nil {
-				log.Fatal(err)
-				os.Exit(1)
+				return fmt.Errorf("run finished with errors: %v", err)
 			}
+			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			log.Info("Running OPCT...")
 
 			// Fire off sonobuoy
 			err := o.Run(kclient, sclient)
 			if err != nil {
-				log.WithError(err).Fatal("Error running the tool. Please check the errors and try again.")
+				log.WithError(err).Errorf("Error running the tool. Please check the errors and try again.")
+				return err
 			}
 
 			log.Info("Jobs scheduled! Waiting for resources be created...")
@@ -114,7 +114,8 @@ func NewCmdRun() *cobra.Command {
 			// Wait for Sonobuoy to create
 			err = wait.WaitForRequiredResources(kclient)
 			if err != nil {
-				log.WithError(err).Fatal("error waiting for sonobuoy pods to become ready")
+				log.WithError(err).Errorf("error waiting for sonobuoy pods to become ready")
+				return err
 			}
 
 			// Sleep to give status time to appear
@@ -123,22 +124,26 @@ func NewCmdRun() *cobra.Command {
 
 			err = s.WaitForStatusReport(cmd.Context(), sclient)
 			if err != nil {
-				log.WithError(err).Fatal("error retrieving aggregator status")
+				log.WithError(err).Error("error retrieving aggregator status")
+				return err
 			}
 
 			err = s.Update(sclient)
 			if err != nil {
-				log.Fatal(err)
+				log.WithError(err).Error("error retrieving update")
+				return err
 			}
 
 			err = s.Print(cmd, sclient)
 			if err != nil {
-				log.Fatal(err)
+				log.WithError(err).Error("error showing status")
+				return err
 			}
 
 			if !o.watch {
 				log.Info("Sonobuoy pods are ready!")
 			}
+			return nil
 		},
 	}
 
