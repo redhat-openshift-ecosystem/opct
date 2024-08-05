@@ -29,7 +29,7 @@ var rootCmd = &cobra.Command{
 		var err error
 
 		// Validate logging level
-		loglevel := viper.GetString("loglevel")
+		loglevel := viper.GetString("log-level")
 		logrusLevel, err := log.ParseLevel(loglevel)
 		if err != nil {
 			log.Fatal(err)
@@ -63,9 +63,9 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().String("kubeconfig", "", "kubeconfig for target OpenShift cluster")
-	rootCmd.PersistentFlags().String("loglevel", "info", "logging level")
+	rootCmd.PersistentFlags().String("log-level", "info", "logging level")
 	initBindFlag("kubeconfig")
-	initBindFlag("loglevel")
+	initBindFlag("log-level")
 
 	// Link in child commands
 	rootCmd.AddCommand(destroy.NewCmdDestroy())
