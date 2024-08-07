@@ -39,16 +39,23 @@ type RunOptions struct {
 	dedicated       bool
 	sonobuoyImage   string
 	imageRepository string
+
 	// PluginsImage
 	// defines the image containing plugins associated with the provider-certification-tool.
 	// this variable is referenced by plugin manifest templates to dynamically reference the plugins image.
-	PluginsImage  string
+	PluginsImage              string
+	CollectorImage            string
+	MustGatherMonitoringImage string
+	OpenshiftTestsImage       string
+
 	timeout       int
 	watch         bool
 	watchInterval int
-	devCount      string
 	mode          string
 	upgradeImage  string
+
+	// devel flags
+	devCount string
 }
 
 const (
@@ -147,22 +154,37 @@ func NewCmdRun() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&o.dedicated, "dedicated", defaultDedicatedFlag, "Setup plugins to run in dedicated test environment.")
-	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
 	cmd.Flags().StringVar(&o.mode, "mode", defaultRunMode, "Run mode: Availble: regular, upgrade")
 	cmd.Flags().StringVar(&o.upgradeImage, "upgrade-to-image", defaultUpgradeImage, "Target OpenShift Release Image. Example: oc adm release info 4.11.18 -o jsonpath={.image}")
-	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times. (default plugins can be reviewed with assets subcommand)")
-	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", fmt.Sprintf("%s/sonobuoy:%s", pkg.DefaultToolsRepository, buildinfo.Version), "Image override for the Sonobuoy worker and aggregator")
-	cmd.Flags().StringVar(&o.PluginsImage, "plugins-image", pkg.PluginsImage, "Image containing plugins to be executed.")
 	cmd.Flags().StringVar(&o.imageRepository, "image-repository", "", "Image repository containing required images test environment. Example: openshift-provider-cert-tool --mirror-repository mirror.repository.net/ocp-cert")
 	cmd.Flags().IntVar(&o.timeout, "timeout", defaultRunTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", defaultRunWatchFlag, "Keep watch status after running")
 	cmd.Flags().IntVarP(&o.watchInterval, "watch-interval", "", status.DefaultStatusIntervalSeconds, "Interval to watch the status and print in the stdout")
 
-	// Hide optional flags
+	// Flags use for maitainance / development / CI. Those are intentionally hidden.
+	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times. (default plugins can be reviewed with assets subcommand)")
+	cmd.Flags().BoolVar(&o.dedicated, "dedicated", defaultDedicatedFlag, "Setup plugins to run in dedicated test environment.")
+	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
+
+	hideOptionalFlags(cmd, "plugin")
 	hideOptionalFlags(cmd, "dedicated")
 	hideOptionalFlags(cmd, "dev-count")
+
+	// Override build-int images use by plugins/steps in the standard workflow.
+	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", pkg.GetSonobuoyImage(), "Image override for the Sonobuoy worker and aggregator")
+	cmd.Flags().StringVar(&o.PluginsImage, "plugins-image", pkg.GetPluginsImage(), "Image containing plugins to be executed.")
+	cmd.Flags().StringVar(&o.CollectorImage, "collector-image", pkg.GetCollectorImage(), "Image containing the collector plugin.")
+	cmd.Flags().StringVar(&o.MustGatherMonitoringImage, "must-gather-monitoring-image", pkg.GetMustGatherMonitoring(), "Image containing the must-gather monitoring plugin.")
+
+	// devel can be override by quay.io/opct/openshift-tests:devel
+	// opct run --devel-skip-checks=true --plugins-image=plugin-openshift-tests:v0.0.0-devel-8ff93d9 --openshift-tests-image=quay.io/opct/openshift-tests:devel
+	cmd.Flags().StringVar(&o.OpenshiftTestsImage, "openshift-tests-image", pkg.OpenShiftTestsImage, "Developer Mode only: openshift-tests image override")
+
+	hideOptionalFlags(cmd, "sonobuoy-image")
 	hideOptionalFlags(cmd, "plugins-image")
+	hideOptionalFlags(cmd, "collector-image")
+	hideOptionalFlags(cmd, "must-gather-monitoring-image")
+	hideOptionalFlags(cmd, "openshift-tests-image")
 
 	return cmd
 }
@@ -459,13 +481,13 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 		imageRepository = r.imageRepository
 		log.Infof("Mirror registry is configured %s ", r.imageRepository)
 	}
-	// the flag --sonobuoy-image should not be used in default validation.
-	if overrideSonobuoyImageSet {
-		log.Warn("Flag --sonobuoy-image is not supported in official validation process, unset it if you are submitting the results to Red Hat.")
-	} else {
-		r.sonobuoyImage = fmt.Sprintf("%s/sonobuoy:%s", imageRepository, buildinfo.Version)
+	if imageRepository != pkg.DefaultToolsRepository {
+		log.Infof("Setting up images for custom image repository %s", imageRepository)
+		r.sonobuoyImage = fmt.Sprintf("%s/%s", imageRepository, pkg.SonobuoyImage)
+		r.PluginsImage = fmt.Sprintf("%s/%s", imageRepository, pkg.PluginsImage)
+		r.CollectorImage = fmt.Sprintf("%s/%s", imageRepository, pkg.CollectorImage)
+		r.MustGatherMonitoringImage = fmt.Sprintf("%s/%s", imageRepository, pkg.MustGatherMonitoringImage)
 	}
-	r.PluginsImage = fmt.Sprintf("%s/%s", imageRepository, r.PluginsImage)
 
 	// Let Sonobuoy do some preflight checks before we run
 	errs := sclient.PreflightChecks(&sonobuoyclient.PreflightConfig{

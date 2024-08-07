@@ -29,13 +29,13 @@ podSpec:
             --certificate-authority="${SA_CA_PATH}";
       env:
         - name: KUBECONFIG
-          value: "/tmp/shared/kubeconfig"
+          value: /tmp/shared/kubeconfig
         - name: KUBE_API_URL
           value: "https://172.30.0.1:443"
         - name: SA_TOKEN_PATH
-          value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+          value: /var/run/secrets/kubernetes.io/serviceaccount/token
         - name: SA_CA_PATH
-          value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+          value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
       volumeMounts:
         - mountPath: /tmp/shared
           name: shared
@@ -50,23 +50,23 @@ podSpec:
       env:
         - name: KUBECONFIG
           value: /tmp/shared/kubeconfig
-        - name: DEFAULT_SUITE_NAME
-          value: "kubernetes/conformance"
-        - name: OT_RUN_COMMAND
-          value: "run"
         - name: PLUGIN_NAME
-          value: "openshift-kube-conformance"
+          value: openshift-tests-replay
+        - name: DEFAULT_SUITE_NAME
+          value: all
+        - name: OT_RUN_COMMAND
+          value: run
 
 sonobuoy-config:
   driver: Job
-  plugin-name: 10-openshift-kube-conformance
+  plugin-name: 80-openshift-tests-replay
   result-format: junit
   description: |
-    OPCT plugin to schedule e2e tests using openshift-tests tool to validate
-    an OpenShift Container Platform cluster installed in a specific provider.
-  source-url:
-    "https://github.com/redhat-openshift-ecosystem/provider-certification-tool/\
-    blob/main/manifests/openshift-kube-conformance.yaml"
+    OPCT plugin to collect e2e failures from previous executions and
+    schedule a new execution running in serial mode with openshift-tests.
+  source-url: |
+    https://github.com/redhat-openshift-ecosystem/provider-certification-tool/\
+    blob/main/manifests/openshift-conformance-validated.yaml
   skipCleanup: true
 spec:
   name: plugin
@@ -85,9 +85,9 @@ spec:
     - name: KUBECONFIG
       value: /tmp/shared/kubeconfig
     - name: PLUGIN_NAME
-      value: "openshift-kube-conformance"
+      value: openshift-tests-replay
     - name: PLUGIN_ID
-      value: "10"
+      value: "80"
     - name: ENV_NODE_NAME
       valueFrom:
         fieldRef:
