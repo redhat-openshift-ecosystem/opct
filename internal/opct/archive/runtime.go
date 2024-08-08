@@ -1,5 +1,7 @@
 package archive
 
+// RuntimeInfoItem is a generic struct to hold runtime information,
+// it is used to export relevant information to the data keeper.
 type RuntimeInfoItem struct {
 	// Name holds the name of the item/attribute.
 	Name string `json:"name"`

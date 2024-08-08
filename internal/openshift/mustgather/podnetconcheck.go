@@ -4,7 +4,22 @@ import log "github.com/sirupsen/logrus"
 
 /* MustGather PodNetworkChecks handle connectivity monitor */
 
-type MustGatherPodNetworkCheck struct {
+type networkOutage struct {
+	Start   string
+	End     string
+	Name    string
+	Message string
+}
+
+type networkCheckFailure struct {
+	Time    string
+	Reason  string
+	Latency string
+	Name    string
+	Message string
+}
+
+type podNetworkCheck struct {
 	Name          string
 	SpecSource    string
 	SpecTarget    string
@@ -17,15 +32,15 @@ type MustGatherPodNetworkChecks struct {
 	TotalFailures int64
 	TotalOutages  int64
 	TotalSuccess  int64
-	Checks        []*MustGatherPodNetworkCheck
-	Outages       []*NetworkOutage
-	Failures      []*NetworkCheckFailure
+	Checks        []*podNetworkCheck
+	Outages       []*networkOutage
+	Failures      []*networkCheckFailure
 }
 
 func (p *MustGatherPodNetworkChecks) InsertCheck(
-	check *MustGatherPodNetworkCheck,
-	failures []*NetworkCheckFailure,
-	outages []*NetworkOutage,
+	check *podNetworkCheck,
+	failures []*networkCheckFailure,
+	outages []*networkOutage,
 ) {
 	p.Checks = append(p.Checks, check)
 	p.Outages = append(p.Outages, outages...)
@@ -39,29 +54,30 @@ func (p *MustGatherPodNetworkChecks) Parse(data map[string]interface{}) {
 
 	// TODO#1 use CRD PodNetworkConnectivityCheck and api controlplane.operator.openshift.io/v1alpha1 to parse
 	// TODO#2 use reflection to read data
+	prefixErr := "must-gather extracting file pod_network_connectivity_check"
 	for _, d := range data["items"].([]interface{}) {
 		item := d.(map[interface{}]interface{})
 
 		if item["metadata"] == nil {
-			log.Errorf("unable to retrieve pod network check metadata: %v", item["metadata"])
+			log.Debugf("%s/invalid metadata: %v", prefixErr, item["metadata"])
 			continue
 		}
 		metadata := item["metadata"].(map[interface{}]interface{})
 
 		if item["spec"] == nil {
-			log.Errorf("unable to retrieve pod network check spec: %v", item["spec"])
+			log.Debugf("%s/invalid spec: %v", prefixErr, item["spec"])
 			continue
 		}
 		spec := item["spec"].(map[interface{}]interface{})
 
 		if item["status"] == nil {
-			log.Errorf("unable to retrieve pod network check status: %v", item["status"])
+			log.Debugf("%s/invalid itme/status: %v", prefixErr, item)
 			continue
 		}
 		status := item["status"].(map[interface{}]interface{})
 
 		name := metadata["name"].(string)
-		check := &MustGatherPodNetworkCheck{
+		check := &podNetworkCheck{
 			Name:       name,
 			SpecSource: spec["sourcePod"].(string),
 			SpecTarget: spec["targetEndpoint"].(string),
@@ -70,7 +86,7 @@ func (p *MustGatherPodNetworkChecks) Parse(data map[string]interface{}) {
 			check.TotalSuccess = int64(len(status["successes"].([]interface{})))
 		}
 
-		netFailures := []*NetworkCheckFailure{}
+		netFailures := []*networkCheckFailure{}
 		if status["failures"] != nil {
 			failures := status["failures"].([]interface{})
 			check.TotalFailures = int64(len(failures))
@@ -78,7 +94,7 @@ func (p *MustGatherPodNetworkChecks) Parse(data map[string]interface{}) {
 				if f.(map[interface{}]interface{})["time"] == nil {
 					continue
 				}
-				nf := &NetworkCheckFailure{
+				nf := &networkCheckFailure{
 					Name: name,
 					Time: f.(map[interface{}]interface{})["time"].(string),
 				}
@@ -95,12 +111,12 @@ func (p *MustGatherPodNetworkChecks) Parse(data map[string]interface{}) {
 			}
 		}
 
-		netOutages := []*NetworkOutage{}
+		netOutages := []*networkOutage{}
 		if status["outages"] != nil {
 			outages := status["outages"].([]interface{})
 			check.TotalOutages = int64(len(outages))
 			for _, o := range outages {
-				no := &NetworkOutage{Name: name}
+				no := &networkOutage{Name: name}
 				if o.(map[interface{}]interface{})["start"] == nil {
 					continue
 				}
@@ -116,20 +132,4 @@ func (p *MustGatherPodNetworkChecks) Parse(data map[string]interface{}) {
 		}
 		p.InsertCheck(check, netFailures, netOutages)
 	}
-
-}
-
-type NetworkOutage struct {
-	Start   string
-	End     string
-	Name    string
-	Message string
-}
-
-type NetworkCheckFailure struct {
-	Time    string
-	Reason  string
-	Latency string
-	Name    string
-	Message string
 }

@@ -5,7 +5,7 @@ export GO111MODULE=on
 export CGO_ENABLED=0
 
 BUILD_DIR ?= $(PWD)/build
-IMG ?= quay.io/ocp-cert/opct
+IMG ?= quay.io/opct/opct
 VERSION=$(shell git rev-parse --short HEAD)
 RELEASE_TAG ?= 0.0.0
 BIN_NAME ?= opct
@@ -57,15 +57,30 @@ build-darwin-arm64: build
 linux-amd64-container: build-linux-amd64
 	podman build -t $(IMG):latest -f hack/Containerfile --build-arg=RELEASE_TAG=$(RELEASE_TAG) .
 
-.PHONY: image-mirror-sonobuoy
-image-mirror-sonobuoy:
-	./hack/image-mirror-sonobuoy/mirror.sh
+# Publish devel binaries (non-official). Must be used only for troubleshooting in development/support.
+.PHONY: publish-amd64-devel
+publish-amd64-devel: build-linux-amd64
+	aws s3 cp $(BUILD_DIR)/opct-linux-amd64 s3://openshift-provider-certification/bin/opct-linux-amd64-devel
 
-# Utils dev
-.PHONY: update-go
-update-go:
-	go get -u
-	go mod tidy
+.PHONY: publish-darwin-arm64-devel
+publish-darwin-arm64-devel: build-darwin-arm64
+	aws s3 cp $(BUILD_DIR)/opct-darwin-arm64 s3://openshift-provider-certification/bin/opct-darwin-arm64-devel
+
+.PHONY: publish-devel
+publish-devel: publish-amd64-devel
+publish-devel: publish-darwin-arm64-devel
+
+#
+# Test
+#
+
+.PHONY: test-lint
+test-lint:
+	@echo "Running linting tools"
+	# Download https://github.com/golangci/golangci-lint/releases/tag/v1.59.1
+	golangci-lint run --timeout=10m
+	# yamllint: pip install yamllint
+	yamllint .github/workflows/*.yaml
 
 .PHONY: test
 test:
@@ -90,3 +105,13 @@ build-changelog:
 .PHONY: build-docs
 build-docs: build-changelog
 	mkdocs build --site-dir ./site
+
+.PHONY: image-mirror-sonobuoy
+image-mirror-sonobuoy:
+	./hack/image-mirror-sonobuoy/mirror.sh
+
+# Utils dev
+.PHONY: update-go
+update-go:
+	go get -u
+	go mod tidy

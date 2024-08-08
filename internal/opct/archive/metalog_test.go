@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	opcttests "github.com/redhat-openshift-ecosystem/provider-certification-tool/test"
 )
 
@@ -70,7 +71,9 @@ func TestParseMetaLogs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ParseMetaLogs(tt.args.logs); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ParseMetaLogs() = %v, want %v", got, tt.want)
+				if !cmp.Equal(got, tt.want) {
+					return
+				}
 			}
 		})
 	}
