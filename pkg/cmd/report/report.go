@@ -605,144 +605,119 @@ func showSummaryPlugin(re *report.ReportResult, pluginName string, bProcessed bo
 func showErrorDetails(re *report.ReportData, verbose bool) error {
 	fmt.Printf("\n==> Result details by conformance plugins: \n")
 
-	bProcessed := re.Provider.HasValidBaseline
-	showErrorDetailPlugin(re.Provider.Plugins[plugin.PluginNameKubernetesConformance], verbose, bProcessed)
-	showErrorDetailPlugin(re.Provider.Plugins[plugin.PluginNameOpenShiftConformance], verbose, bProcessed)
+	showErrorDetailPlugin(re.Provider.Plugins[plugin.PluginNameKubernetesConformance], verbose)
+	showErrorDetailPlugin(re.Provider.Plugins[plugin.PluginNameOpenShiftConformance], verbose)
 
 	return nil
 }
 
 // showErrorDetailPlugin Show failed e2e tests by filter, when verbose each filter will be shown.
-func showErrorDetailPlugin(p *report.ReportPlugin, verbose bool, bProcessed bool) {
-	flakeCount := p.Stat.FilterBaseline - p.Stat.FilterFailedPrio
-
-	// TODO(mtulio): migrate to new table format (go-table)
-	if verbose {
-		fmt.Printf("\n\n => %s: (%d failures, %d failures filtered, %d flakes)\n", p.Name, p.Stat.Failed, p.Stat.FilterBaseline, flakeCount)
-		fmt.Printf("\n --> [verbose] Failed tests detected on archive (without filters):\n")
-		if p.Stat.Failed == 0 {
-			fmt.Println("<empty>")
-		}
-		for _, test := range p.Tests {
-			if test.State == "failed" {
-				fmt.Println(test.Name)
-			}
-		}
-
-		fmt.Printf("\n --> [verbose] Failed tests detected on suite (Filter SuiteOnly):\n")
-		if p.Stat.FilterSuite == 0 {
-			fmt.Println("<empty>")
-		}
-		for _, test := range p.Tests {
-			if test.State == "filterSuiteOnly" {
-				fmt.Println(test.Name)
-			}
-		}
-		if bProcessed {
-			fmt.Printf("\n --> [verbose] Failed tests removing baseline (Filter Baseline):\n")
-			if p.Stat.FilterBaseline == 0 {
-				fmt.Println("<empty>")
-			}
-			for _, test := range p.Tests {
-				if test.State == "filterBaseline" {
-					fmt.Println(test.Name)
-				}
-			}
-		}
-	} else {
-		if p.Stat.FilterFailures == 0 && flakeCount == 0 {
-			log.Infof("No failures detected on %s", p.Name)
-			return
-		}
-		fmt.Printf("\n\n => %s: (%d failures, %d flakes)\n", p.Name, p.Stat.FilterFailures, flakeCount)
+func showErrorDetailPlugin(p *report.ReportPlugin, verbose bool) {
+	if p == nil {
+		errlog.LogError(errors.New("unable to get plugin"))
+		return
 	}
+	fmt.Printf("==> %s - test failures:\n", p.Name)
 
-	// tables with go-table
-	rowsFail := []table.Row{}
-	tbFailTags := ""
-	tbFailSkip := false
-	noFlakes := make(map[string]struct{})
-	if p.Stat.FilterBaseline == flakeCount {
-		tbFailSkip = true
-	} else {
-		testTags := plugin.NewTestTagsEmpty(int(p.Stat.FilterFailures))
-		for _, test := range p.FailedFiltered {
-			noFlakes[test.Name] = struct{}{}
-			testTags.Add(&test.Name)
-			errCount := 0
-			if _, ok := p.Tests[test.Name].ErrorCounters["total"]; ok {
-				errCount = p.Tests[test.Name].ErrorCounters["total"]
-			}
-			// testsWErrCnt = append(testsWErrCnt, fmt.Sprintf("%d\t%s", errCount, test.Name))
-			rowsFail = append(rowsFail, table.Row{errCount, test.Name})
-		}
-		// Failed tests grouped by tag (first value between '[]')
-		tbFailTags = testTags.ShowSorted()
-	}
-
-	rowsFlake := []table.Row{}
-	tbFlakeTags := ""
-	tbFlakeSkip := false
-	if p.Stat.FilterBaseline == 0 {
-		tbFlakeSkip = true
-	} else {
-		testTags := plugin.NewTestTagsEmpty(int(p.Stat.FilterBaseline))
-		for _, test := range p.TestsFlakeCI {
-			// preventing duplication when flake tests was already listed.
-			if _, ok := noFlakes[test.Name]; ok {
-				continue
-			}
-			// TODO: fix issues when retrieving flakes from Sippy API.
-			// Fallback to '--' when has issues.
-			if p.Tests[test.Name].Flake == nil {
-				rowsFlake = append(rowsFlake, table.Row{"--", "--", "--", test.Name})
-			} else if p.Tests[test.Name].Flake.CurrentFlakes != 0 {
-				errCount := 0
-				if _, ok := p.Tests[test.Name].ErrorCounters["total"]; ok {
-					errCount = p.Tests[test.Name].ErrorCounters["total"]
-				}
-				rowsFlake = append(rowsFlake, table.Row{
-					p.Tests[test.Name].Flake.CurrentFlakes,
-					fmt.Sprintf("%.3f %%", p.Tests[test.Name].Flake.CurrentFlakePerc),
-					errCount, test.Name})
-			}
-			testTags.Add(&test.Name)
-		}
-		tbFlakeTags = testTags.ShowSorted()
-	}
-
-	// Table style
+	// Plugin failures table - setup
 	st := table.StyleLight
 	st.Options.SeparateRows = true
 
-	// Table for Flakes
-	tbFail := table.NewWriter()
-	tbFail.SetOutputMirror(os.Stdout)
-	tbFail.SetStyle(st)
-	tbFail.SetTitle("==> %s \n%s ACTION REQUIRED: Failed tests to review", p.Name, iconsCollor["alert"])
-	tbFail.AppendHeader(table.Row{"Err Log", "Test Name"})
-	tbFail.AppendRows(rowsFail)
-	tbFail.AppendFooter(table.Row{"", tbFailTags})
-	tbFail.SetColumnConfigs([]table.ColumnConfig{
-		{Number: 2, AlignHeader: tabletext.AlignCenter, WidthMax: 150},
-	})
-	if !tbFailSkip {
-		tbFail.Render()
+	// Build table utility
+	defaultHeaderRow := table.Row{"#Err", "#Flake", "%Flake", "State", "Test Name"}
+	buildTable := func(title string, header table.Row) table.Writer {
+		tb := table.NewWriter()
+		tb.SetOutputMirror(os.Stdout)
+		tb.SetStyle(st)
+		tb.SetTitle(title)
+		tb.AppendHeader(header)
+		tb.SetColumnConfigs([]table.ColumnConfig{
+			{Number: 5, AlignHeader: tabletext.AlignCenter, WidthMax: 67},
+		})
+		return tb
+	}
+	populateTable := func(tb table.Writer, failures []*report.ReportTestFailure, skipFlake bool) {
+		for _, failure := range failures {
+			test, ok := p.Tests[failure.Name]
+			if !ok {
+				errlog.LogError(errors.New(fmt.Sprintf("unable to get test %s", failure.Name)))
+				continue
+			}
+			errCount := 0
+			if _, ok := test.ErrorCounters["total"]; ok {
+				errCount = test.ErrorCounters["total"]
+			}
+			if skipFlake {
+				tb.AppendRow(table.Row{errCount, test.Name})
+				continue
+			}
+			if test.Flake == nil {
+				tb.AppendRow(table.Row{errCount, "--", "--", test.State, test.Name})
+				continue
+			}
+			tb.AppendRow(table.Row{errCount, test.Flake.CurrentFlakes, fmt.Sprintf("%.2f", test.Flake.CurrentFlakePerc), test.State, test.Name})
+		}
+		tb.Render()
+	}
+
+	// Table for Priority
+	if len(p.FailedFiltered) > 0 {
+		tb := table.NewWriter()
+		tb.SetOutputMirror(os.Stdout)
+		tb.SetStyle(st)
+		tb.AppendHeader(table.Row{"#Err", "Test Name"})
+		tb.AppendFooter(table.Row{"", p.TagsFiltered})
+		tb.SetColumnConfigs([]table.ColumnConfig{
+			{Number: 2, AlignHeader: tabletext.AlignCenter, WidthMax: 100},
+		})
+		title := fmt.Sprintf("==> %s \n%s ACTION REQUIRED: Failed tests to review", p.Name, iconsCollor["alert"])
+		tb.SetTitle(title)
+		populateTable(tb, p.FailedFiltered, true)
 	}
 
 	// Table for Flakes
-	tbFlake := table.NewWriter()
-	tbFlake.SetOutputMirror(os.Stdout)
-	tbFlake.SetStyle(st)
-	tbFlake.SetTitle("==> %s \nFailed tests with flake occurrences (on OpenShift CI)", p.Name)
-	tbFlake.AppendHeader(table.Row{"Flake #", "%", "Err Log", "Test Name"})
-	tbFlake.AppendRows(rowsFlake)
-	tbFlake.AppendFooter(table.Row{"", "", "", tbFlakeTags})
-	tbFlake.SetColumnConfigs([]table.ColumnConfig{
-		{Number: 4, AlignHeader: tabletext.AlignCenter, WidthMax: 129},
-	})
-	if !tbFlakeSkip {
-		tbFlake.Render()
+	if len(p.FailedFilter3) > 0 {
+		filterName := "FlakeAPI"
+		title := fmt.Sprintf("\n==> %s\n Failed tests excluded in %q filter (%d)", p.Name, filterName, len(p.FailedFilter3))
+		tb := buildTable(title, defaultHeaderRow)
+		populateTable(tb, p.FailedFilter3, false)
+	}
+
+	if verbose {
+		fmt.Printf("\n Show failures by filter (verbose mode): %v\n", verbose)
+		skipFlake := false
+		titlePrefix := fmt.Sprintf("==> %s\n Failed tests excluded in", p.Name)
+		// Show tests removed in filter: Replay
+		if len(p.FailedFilter6) > 0 {
+			filterName := "Replay"
+			title := fmt.Sprintf("%s %q filter (%d)", titlePrefix, filterName, len(p.FailedFilter6))
+			tb := buildTable(title, defaultHeaderRow)
+			populateTable(tb, p.FailedFilter6, skipFlake)
+		}
+
+		// Show tests removed in filter: KnownFailures
+		if len(p.FailedFilter5) > 0 {
+			filterName := "KnownFailures"
+			title := fmt.Sprintf("%s %q filter (%d)", titlePrefix, filterName, len(p.FailedFilter5))
+			tb := buildTable(title, defaultHeaderRow)
+			populateTable(tb, p.FailedFilter5, skipFlake)
+		}
+
+		// Show tests removed in filter: BaselineArchive
+		if len(p.FailedFilter2) > 0 {
+			filterName := "BaselineArchive"
+			title := fmt.Sprintf("%s %q filter (%d)", titlePrefix, filterName, len(p.FailedFilter2))
+			tb := buildTable(title, defaultHeaderRow)
+			populateTable(tb, p.FailedFilter2, skipFlake)
+		}
+
+		// Show tests removed in filter: SuiteOnly
+		if len(p.FailedFilter1) > 0 {
+			filterName := "SuiteOnly"
+			title := fmt.Sprintf("%s %q filter (%d)", titlePrefix, filterName, len(p.FailedFilter1))
+			tb := buildTable(title, defaultHeaderRow)
+			populateTable(tb, p.FailedFilter1, skipFlake)
+		}
 	}
 }
 

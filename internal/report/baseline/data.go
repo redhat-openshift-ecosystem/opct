@@ -44,15 +44,19 @@ func (bd *BaselineData) GetPriorityFailuresFromPlugin(pluginName string) ([]stri
 		if pluginID != pluginName {
 			continue
 		}
-		if _, ok := pluginBaseline.(map[string]interface{})["failedFiltered"]; !ok {
-			log.Debugf("BaselineData/GetPriorityFailuresFromPlugin() plugin %q does not have filtered failures, skipping...", pluginName)
-			return failureStr, nil
+		failures, ok := pluginBaseline.(map[string]interface{})["failedFiltered"]
+		if !ok || failures == nil {
+			failures, ok2 := pluginBaseline.(map[string]interface{})["failedPriority"]
+			if !ok2 {
+				log.Debugf("BaselineAPI data for plugin %q is missing failures (failedPriority), skipping...", pluginName)
+				return failureStr, nil
+			}
+			if failures == nil {
+				log.Debugf("BaselineAPI data for plugin %q is missing failures (failedPriority), skipping...", pluginName)
+				return failureStr, nil
+			}
 		}
-		if pluginBaseline.(map[string]interface{})["failedFiltered"] == nil {
-			log.Debugf("BaselineData/GetPriorityFailuresFromPlugin() plugin %q does not have filtered failures, skipping...", pluginName)
-			return failureStr, nil
-		}
-		for _, f := range pluginBaseline.(map[string]interface{})["failedFiltered"].([]interface{}) {
+		for _, f := range failures.([]interface{}) {
 			failureStr = append(failureStr, f.(map[string]interface{})["name"].(string))
 		}
 	}

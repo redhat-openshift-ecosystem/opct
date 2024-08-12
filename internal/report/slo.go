@@ -27,10 +27,10 @@ const (
 	CheckIdEmptyValue string = "--"
 
 	// SLOs
-	CheckID001 string = "OPCT-001"
-	CheckID004 string = "OPCT-004"
-	CheckID005 string = "OPCT-005"
-	CheckID022 string = "OPCT-022"
+	CheckID001  string = "OPCT-001"
+	CheckID004  string = "OPCT-004"
+	CheckID005  string = "OPCT-005"
+	CheckID022  string = "OPCT-022"
 	CheckID023A string = "OPCT-023A"
 	CheckID023B string = "OPCT-023B"
 )
@@ -183,9 +183,9 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 				log.Debugf("%s Runtime: Total and Failed counters are equals indicating execution failure", prefix)
 				return res
 			}
-			res.Actual = fmt.Sprintf("Priority==%d", len(p.TestsFailedPrio))
-			if len(p.TestsFailedPrio) > 0 {
-				log.Debugf("%s Acceptance criteria: TestsFailedPrio counter are greater than 0: %v", prefix, len(p.TestsFailedPrio))
+			res.Actual = fmt.Sprintf("Priority==%d", len(p.FailedFiltered))
+			if len(p.FailedFiltered) > 0 {
+				log.Debugf("%s Acceptance criteria: FailedFiltered counter is greater than 0: %v", prefix, len(p.FailedFiltered))
 				return res
 			}
 			res.Name = CheckResultNamePass
