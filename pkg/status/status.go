@@ -34,11 +34,19 @@ type StatusOptions struct {
 	shownPostProcessMsg bool
 	watchInterval       int
 	waitInterval        time.Duration
+
+	// clients
+	kclient kubernetes.Interface
+	sclient sonobuoyclient.Interface
 }
 
 type StatusInput struct {
 	Watch           bool
 	IntervalSeconds int
+
+	// clients
+	KClient kubernetes.Interface
+	SClient sonobuoyclient.Interface
 }
 
 func NewStatusOptions(in *StatusInput) *StatusOptions {
@@ -49,6 +57,19 @@ func NewStatusOptions(in *StatusInput) *StatusOptions {
 	}
 	if in.IntervalSeconds != 0 {
 		s.waitInterval = time.Duration(in.IntervalSeconds) * time.Second
+	}
+	kclient, sclient, err := client.CreateClients()
+	if err != nil {
+		log.WithError(err).Errorf("error creating clients: %v", err)
+		return s
+	}
+	s.kclient = in.KClient
+	if s.kclient == nil {
+		s.kclient = kclient
+	}
+	s.sclient = in.SClient
+	if s.sclient == nil {
+		s.sclient = sclient
 	}
 	return s
 }
@@ -61,36 +82,25 @@ func NewCmdStatus() *cobra.Command {
 		Short: "Show the current status of the validation tool",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Client setup
-			kclient, sclient, err := client.CreateClients()
-			if err != nil {
-				log.WithError(err).Errorf("status finished with errors: %v", err)
-				return err
-			}
-
 			// Pre-checks and setup
-			err = o.PreRunCheck(kclient)
-			if err != nil {
+			if err := o.PreRunCheck(); err != nil {
 				log.WithError(err).Error("error running pre-checks")
 				return err
 			}
 
 			// Wait for Sonobuoy to create
-			err = wait.WaitForRequiredResources(kclient)
-			if err != nil {
+			if err := wait.WaitForRequiredResources(o.kclient); err != nil {
 				log.WithError(err).Error("error waiting for sonobuoy pods to become ready")
 				return err
 			}
 
 			// Wait for Sononbuoy to start reporting status
-			err = o.WaitForStatusReport(cmd.Context(), sclient)
-			if err != nil {
+			if err := o.WaitForStatusReport(cmd.Context()); err != nil {
 				log.WithError(err).Error("error retrieving current aggregator status")
 				return err
 			}
 
-			err = o.Print(cmd, sclient)
-			if err != nil {
+			if err := o.Print(cmd); err != nil {
 				log.WithError(err).Error("error printing status")
 				return err
 			}
@@ -107,9 +117,9 @@ func NewCmdStatus() *cobra.Command {
 	return cmd
 }
 
-func (s *StatusOptions) PreRunCheck(kclient kubernetes.Interface) error {
+func (s *StatusOptions) PreRunCheck() error {
 	// Check if sonobuoy namespac already exists
-	_, err := kclient.CoreV1().Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
+	_, err := s.kclient.CoreV1().Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
 	if err != nil {
 		// If error is due to namespace not being found, return guidance.
 		if kerrors.IsNotFound(err) {
@@ -122,9 +132,9 @@ func (s *StatusOptions) PreRunCheck(kclient kubernetes.Interface) error {
 }
 
 // Update the Sonobuoy state saved in StatusOptions
-func (s *StatusOptions) Update(sclient sonobuoyclient.Interface) error {
+func (s *StatusOptions) Update() error {
 	// TODO Is a retry in here needed?
-	sstatus, err := sclient.GetStatus(&sonobuoyclient.StatusConfig{Namespace: pkg.CertificationNamespace})
+	sstatus, err := s.sclient.GetStatus(&sonobuoyclient.StatusConfig{Namespace: pkg.CertificationNamespace})
 	if err != nil {
 		return err
 	}
@@ -159,16 +169,14 @@ func (s *StatusOptions) GetStatus() string {
 
 // WaitForStatusReport will block until either context is canceled, status is reported, or retry limit reach.
 // An error will not result in immediate failure and will be retried.
-func (s *StatusOptions) WaitForStatusReport(ctx context.Context, sclient sonobuoyclient.Interface) error {
+func (s *StatusOptions) WaitForStatusReport(ctx context.Context) error {
 	tries := 1
-
 	err := wait2.PollUntilContextCancel(ctx, s.waitInterval, true, func(ctx context.Context) (done bool, err error) {
 		if tries == StatusRetryLimit {
 			return false, errors.New("retry limit reached checking for aggregator status")
 		}
 
-		err = s.Update(sclient)
-		if err != nil {
+		if err := s.Update(); err != nil {
 			log.WithError(err).Warn("error retrieving current aggregator status")
 		} else if s.Latest.Status != "" {
 			return true, nil
@@ -181,7 +189,7 @@ func (s *StatusOptions) WaitForStatusReport(ctx context.Context, sclient sonobuo
 	return err
 }
 
-func (s *StatusOptions) Print(cmd *cobra.Command, sclient sonobuoyclient.Interface) error {
+func (s *StatusOptions) Print(cmd *cobra.Command) error {
 	if !s.watch {
 		_, err := s.doPrint()
 		return err
@@ -193,7 +201,7 @@ func (s *StatusOptions) Print(cmd *cobra.Command, sclient sonobuoyclient.Interfa
 			// we hit back-to-back errors too many times.
 			return true, errors.New("retry limit reached checking status")
 		}
-		err = s.Update(sclient)
+		err = s.Update()
 		if err != nil {
 			tries++ // increment retries sinc we hit error.
 			log.Error(err)
@@ -207,27 +215,23 @@ func (s *StatusOptions) Print(cmd *cobra.Command, sclient sonobuoyclient.Interfa
 func (s *StatusOptions) doPrint() (complete bool, err error) {
 	switch s.GetStatus() {
 	case aggregation.RunningStatus:
-		err := PrintRunningStatus(s.Latest, s.StartTime)
-		if err != nil {
+		if err := s.printRunningStatus(); err != nil {
 			return false, err
 		}
 	case aggregation.PostProcessingStatus:
 		if !s.watch {
-			err := PrintRunningStatus(s.Latest, s.StartTime)
-			if err != nil {
+			if err := s.printRunningStatus(); err != nil {
 				return false, err
 			}
 		} else if !s.shownPostProcessMsg {
-			err := PrintRunningStatus(s.Latest, s.StartTime)
-			if err != nil {
+			if err := s.printRunningStatus(); err != nil {
 				return false, err
 			}
 			log.Info("Waiting for post-processor...")
 			s.shownPostProcessMsg = true
 		}
 	case aggregation.CompleteStatus:
-		err := PrintRunningStatus(s.Latest, s.StartTime)
-		if err != nil {
+		if err := s.printRunningStatus(); err != nil {
 			return true, err
 		}
 		log.Infof("The execution has completed! Use retrieve command to collect the results and share the archive with your Red Hat partner.")
@@ -237,4 +241,8 @@ func (s *StatusOptions) doPrint() (complete bool, err error) {
 	}
 
 	return false, nil
+}
+
+func (s *StatusOptions) GetSonobuoyClient() sonobuoyclient.Interface {
+	return s.sclient
 }

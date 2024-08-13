@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
-	"strings"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -16,7 +16,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/client"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/status"
 )
 
@@ -42,20 +41,13 @@ func NewCmdRetrieve() *cobra.Command {
 				}
 			}
 
-			kclient, sclient, err := client.CreateClients()
-			if err != nil {
-				return fmt.Errorf("retrieve finished with errors: %v", err)
-			}
-
 			s := status.NewStatusOptions(&status.StatusInput{Watch: false})
-			err = s.PreRunCheck(kclient)
-			if err != nil {
+			if err := s.PreRunCheck(); err != nil {
 				return fmt.Errorf("retrieve finished with errors: %v", err)
 			}
 
 			log.Info("Collecting results...")
-
-			if err := retrieveResultsRetry(sclient, destinationDirectory); err != nil {
+			if err := retrieveResultsRetry(s.GetSonobuoyClient(), destinationDirectory); err != nil {
 				return fmt.Errorf("retrieve finished with errors: %v", err)
 			}
 

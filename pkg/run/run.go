@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -48,10 +47,10 @@ type RunOptions struct {
 	MustGatherMonitoringImage string
 	OpenshiftTestsImage       string
 
-	timeout       int
-	watch         bool
-	mode          string
-	upgradeImage  string
+	timeout      int
+	watch        bool
+	mode         string
+	upgradeImage string
 
 	// devel flags
 	devCount      string
@@ -126,21 +125,25 @@ func NewCmdRun() *cobra.Command {
 			}
 
 			// Sleep to give status time to appear
-			time.Sleep(status.StatusInterval)
+			// time.Sleep(status.StatusInterval)
 
 			// Retrieve the first status and print it, finishing when --watch is not set.
-			s := status.NewStatusOptions(&status.StatusInput{Watch: o.watch})
-			if err := s.WaitForStatusReport(cmd.Context(), sclient); err != nil {
+			s := status.NewStatusOptions(&status.StatusInput{
+				Watch:   o.watch,
+				KClient: kclient,
+				SClient: sclient,
+			})
+			if err := s.WaitForStatusReport(cmd.Context()); err != nil {
 				log.WithError(err).Error("error retrieving aggregator status")
 				return err
 			}
 
-			if err := s.Update(sclient); err != nil {
+			if err := s.Update(); err != nil {
 				log.WithError(err).Error("error retrieving update")
 				return err
 			}
 
-			if err := s.Print(cmd, sclient); err != nil {
+			if err := s.Print(cmd); err != nil {
 				log.WithError(err).Error("error showing status")
 				return err
 			}
