@@ -162,32 +162,31 @@ type ReportPlugin struct {
 	Tests map[string]*plugin.TestItem `json:"tests,omitempty"`
 
 	// Filters
-	TagsFailedPrio  string               `json:"tagsFailuresPriority"`
-	TestsFailedPrio []*ReportTestFailure `json:"testsFailuresPriority"`
-	TagsFlakeCI     string               `json:"tagsFlakeCI"`
-	TestsFlakeCI    []*ReportTestFailure `json:"testsFlakeCI"`
-
 	// SuiteOnly
 	FailedFilter1 []*ReportTestFailure `json:"failedTestsFilter1"`
 	TagsFilter1   string               `json:"tagsFailuresFilter1"`
 
-	// Baseline
+	// Filter: BaselineArchive
 	FailedFilter2 []*ReportTestFailure `json:"failedTestsFilter2"`
 	TagsFilter2   string               `json:"tagsFailuresFilter2"`
 
-	// FlakeAPI
+	// Filter: FlakeAPI
 	FailedFilter3 []*ReportTestFailure `json:"failedTestsFilter3"`
 	TagsFilter3   string               `json:"tagsFailuresFilter3"`
 
+	// Filter: BaselineAPI
 	FailedFilter4 []*ReportTestFailure `json:"failedTestsFilter4"`
 	TagsFilter4   string               `json:"tagsFailuresFilter4"`
 
+	// Filter: KnownFailures
 	FailedFilter5 []*ReportTestFailure `json:"failedTestsFilter5"`
 	TagsFilter5   string               `json:"tagsFailuresFilter5"`
 
+	// Filter: Replay
 	FailedFilter6 []*ReportTestFailure `json:"failedTestsFilter6"`
 	TagsFilter6   string               `json:"tagsFailuresFilter6"`
 
+	// Final results after filters
 	FailedFiltered []*ReportTestFailure `json:"failedFiltered"`
 	TagsFiltered   string               `json:"tagsFailuresFiltered"`
 }
@@ -216,6 +215,7 @@ func (rp *ReportPlugin) BuildFailedData(filterID string, dataFailures []string) 
 		tags.Add(&f)
 		failures = append(failures, rtf)
 	}
+	failures = sortReportTestFailure(failures)
 	switch filterID {
 	case "final":
 		rp.FailedFiltered = failures
@@ -229,6 +229,9 @@ func (rp *ReportPlugin) BuildFailedData(filterID string, dataFailures []string) 
 	case "F4":
 		rp.FailedFilter4 = failures
 		rp.TagsFilter4 = tags.ShowSorted()
+	case "F5":
+		rp.FailedFilter5 = failures
+		rp.TagsFilter5 = tags.ShowSorted()
 	case "F6":
 		rp.FailedFilter6 = failures
 		rp.TagsFilter6 = tags.ShowSorted()
@@ -250,7 +253,7 @@ type ReportPluginStat struct {
 	FilterSuite     int64 `json:"filter1Suite"`
 	Filter1Excluded int64 `json:"filter1Excluded"`
 
-	// Filter: Baseline (deprecated soon)
+	// Filter: BaselineArchive (deprecated soon)
 	FilterBaseline  int64 `json:"filter2Baseline"`
 	Filter2Excluded int64 `json:"filter2Excluded"`
 
@@ -660,47 +663,7 @@ func (re *ReportData) populatePluginConformance(rs *summary.ResultSummary, reRes
 		}
 	}
 
-	// TODO move this filter to a dedicated function
-	noFlakes := make(map[string]struct{})
-	testTagsFailedPrio := plugin.NewTestTagsEmpty(len(pluginSum.FailedFiltered))
-	for _, test := range pluginSum.FailedFiltered {
-		noFlakes[test] = struct{}{}
-		testTagsFailedPrio.Add(&test)
-		testData := &ReportTestFailure{
-			Name:          test,
-			ID:            pluginSum.Tests[test].ID,
-			Documentation: pluginSum.Tests[test].Documentation,
-		}
-		if _, ok := pluginSum.Tests[test].ErrorCounters["total"]; ok {
-			testData.ErrorsCount = int64(pluginSum.Tests[test].ErrorCounters["total"])
-		}
-		reResult.Plugins[pluginID].FailedFiltered = append(reResult.Plugins[pluginID].FailedFiltered, testData)
-	}
-	reResult.Plugins[pluginID].TagsFailedPrio = testTagsFailedPrio.ShowSorted()
-	reResult.Plugins[pluginID].FailedFiltered = sortReportTestFailure(reResult.Plugins[pluginID].FailedFiltered)
-
-	flakes := reResult.Plugins[pluginID].TestsFlakeCI
-	testTagsFlakeCI := plugin.NewTestTagsEmpty(len(pluginSum.FailedFilter2))
-	for _, test := range pluginSum.FailedFilter2 {
-		if _, ok := noFlakes[test]; ok {
-			continue
-		}
-		testData := &ReportTestFailure{Name: test, ID: pluginSum.Tests[test].ID}
-		if pluginSum.Tests[test].Flake != nil {
-			testData.FlakeCount = pluginSum.Tests[test].Flake.CurrentFlakes
-			testData.FlakePerc = pluginSum.Tests[test].Flake.CurrentFlakePerc
-		}
-		testTagsFlakeCI.Add(&test)
-		if _, ok := pluginSum.Tests[test].ErrorCounters["total"]; ok {
-			testData.ErrorsCount = int64(pluginSum.Tests[test].ErrorCounters["total"])
-		}
-		flakes = append(flakes, testData)
-	}
-	reResult.Plugins[pluginID].TestsFlakeCI = sortReportTestFailure(flakes)
-	reResult.Plugins[pluginID].TagsFlakeCI = testTagsFlakeCI.ShowSorted()
-
-	// Final failures
-	// testTagsFilteredFailures := plugin.NewTestTagsEmpty(len(pluginSum.FailedFiltered))
+	// Filter failures
 	// Final filters (results/priority)
 	reResult.Plugins[pluginID].BuildFailedData("final", pluginSum.FailedFiltered)
 
@@ -712,6 +675,9 @@ func (re *ReportData) populatePluginConformance(rs *summary.ResultSummary, reRes
 
 	// Filter Replay
 	reResult.Plugins[pluginID].BuildFailedData("F6", pluginSum.FailedExcludedFilter6)
+
+	// Filter KnownFailures
+	reResult.Plugins[pluginID].BuildFailedData("F5", pluginSum.FailedExcludedFilter5)
 
 	// Filter SuiteOnly
 	reResult.Plugins[pluginID].BuildFailedData("F1", pluginSum.FailedExcludedFilter1)
