@@ -12,26 +12,28 @@ import (
 )
 
 func Test_PrintStatus(t *testing.T) {
-	a := &aggregation.Status{
-		Plugins: []aggregation.PluginStatus{
-			{
-				Plugin:             "test",
-				Status:             "running",
-				ResultStatus:       "failed",
-				ResultStatusCounts: map[string]int{"passed": 10, "failed": 5},
-				Progress: &plugin.ProgressUpdate{
-					Total:     30,
-					Completed: 10,
-					Errors:    nil,
-					Failures:  []string{"a", "b", "c"},
-					Message:   "waiting post-processor...",
+	status := &StatusOptions{
+		StartTime: time.Now(),
+		Latest: &aggregation.Status{
+			Plugins: []aggregation.PluginStatus{
+				{
+					Plugin:             "test",
+					Status:             "running",
+					ResultStatus:       "failed",
+					ResultStatusCounts: map[string]int{"passed": 10, "failed": 5},
+					Progress: &plugin.ProgressUpdate{
+						Total:     30,
+						Completed: 10,
+						Errors:    nil,
+						Failures:  []string{"a", "b", "c"},
+						Message:   "waiting post-processor...",
+					},
 				},
 			},
+			Status: "running",
 		},
-		Status: "running",
 	}
-	now := time.Now()
-	ps := getPrintableRunningStatus(a, now)
+	ps := status.getPrintableRunningStatus()
 
 	tmpl, err := template.New("test").Parse(runningStatusTemplate)
 	if err != nil {
