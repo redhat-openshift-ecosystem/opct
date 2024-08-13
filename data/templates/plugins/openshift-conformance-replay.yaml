@@ -31,7 +31,7 @@ podSpec:
         - name: KUBECONFIG
           value: /tmp/shared/kubeconfig
         - name: KUBE_API_URL
-          value: "https://172.30.0.1:443"
+          value: "https://kubernetes.default.svc:443"
         - name: SA_TOKEN_PATH
           value: /var/run/secrets/kubernetes.io/serviceaccount/token
         - name: SA_CA_PATH
