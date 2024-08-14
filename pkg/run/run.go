@@ -124,11 +124,8 @@ func NewCmdRun() *cobra.Command {
 				return err
 			}
 
-			// Sleep to give status time to appear
-			// time.Sleep(status.StatusInterval)
-
 			// Retrieve the first status and print it, finishing when --watch is not set.
-			s := status.NewStatusOptions(&status.StatusInput{
+			s := status.NewStatus(&status.StatusInput{
 				Watch:   o.watch,
 				KClient: kclient,
 				SClient: sclient,

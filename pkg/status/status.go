@@ -16,7 +16,6 @@ import (
 
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/client"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/wait"
 )
 
 const (
@@ -25,14 +24,13 @@ const (
 	StatusRetryLimit             = 10
 )
 
-// StatusOptions is the interface to store input options to
+// Status is the interface to store input options to
 // interface with Status command.
-type StatusOptions struct {
+type Status struct {
 	StartTime           time.Time
 	Latest              *aggregation.Status
 	watch               bool
 	shownPostProcessMsg bool
-	watchInterval       int
 	waitInterval        time.Duration
 
 	// clients
@@ -49,10 +47,10 @@ type StatusInput struct {
 	SClient sonobuoyclient.Interface
 }
 
-func NewStatusOptions(in *StatusInput) *StatusOptions {
-	s := &StatusOptions{
+func NewStatus(in *StatusInput) *Status {
+	s := &Status{
 		watch:        in.Watch,
-		waitInterval: time.Second * DefaultStatusIntervalSeconds,
+		waitInterval: DefaultStatusIntervalSeconds * time.Second,
 		StartTime:    time.Now(),
 	}
 	if in.IntervalSeconds != 0 {
@@ -74,51 +72,8 @@ func NewStatusOptions(in *StatusInput) *StatusOptions {
 	return s
 }
 
-func NewCmdStatus() *cobra.Command {
-	o := NewStatusOptions(&StatusInput{Watch: false})
-
-	cmd := &cobra.Command{
-		Use:   "status",
-		Short: "Show the current status of the validation tool",
-		Long:  ``,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Pre-checks and setup
-			if err := o.PreRunCheck(); err != nil {
-				log.WithError(err).Error("error running pre-checks")
-				return err
-			}
-
-			// Wait for Sonobuoy to create
-			if err := wait.WaitForRequiredResources(o.kclient); err != nil {
-				log.WithError(err).Error("error waiting for sonobuoy pods to become ready")
-				return err
-			}
-
-			// Wait for Sononbuoy to start reporting status
-			if err := o.WaitForStatusReport(cmd.Context()); err != nil {
-				log.WithError(err).Error("error retrieving current aggregator status")
-				return err
-			}
-
-			if err := o.Print(cmd); err != nil {
-				log.WithError(err).Error("error printing status")
-				return err
-			}
-			return nil
-		},
-	}
-
-	cmd.PersistentFlags().BoolVarP(&o.watch, "watch", "w", false, "Keep watch status after running")
-	cmd.Flags().IntVarP(&o.watchInterval, "watch-interval", "", DefaultStatusIntervalSeconds, "Interval to watch the status and print in the stdout")
-	if o.watchInterval != DefaultStatusIntervalSeconds {
-		o.waitInterval = time.Duration(o.watchInterval) * time.Second
-	}
-
-	return cmd
-}
-
-func (s *StatusOptions) PreRunCheck() error {
-	// Check if sonobuoy namespac already exists
+// PreRunCheck will check if the validation environment is running.
+func (s *Status) PreRunCheck() error {
 	_, err := s.kclient.CoreV1().Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
 	if err != nil {
 		// If error is due to namespace not being found, return guidance.
@@ -126,14 +81,11 @@ func (s *StatusOptions) PreRunCheck() error {
 			return errors.New("looks like there is no validation environment running. use run command to start the validation process")
 		}
 	}
-
-	// Sonobuoy namespace exists so no error
 	return nil
 }
 
-// Update the Sonobuoy state saved in StatusOptions
-func (s *StatusOptions) Update() error {
-	// TODO Is a retry in here needed?
+// Update the Sonobuoy state saved in Status
+func (s *Status) Update() error {
 	sstatus, err := s.sclient.GetStatus(&sonobuoyclient.StatusConfig{Namespace: pkg.CertificationNamespace})
 	if err != nil {
 		return err
@@ -143,8 +95,8 @@ func (s *StatusOptions) Update() error {
 	return nil
 }
 
-// GetStatusForPlugin will get a plugin's status from the state saved in StatusOptions
-func (s *StatusOptions) GetStatusForPlugin(name string) *aggregation.PluginStatus {
+// GetStatusForPlugin will get a plugin's status from the state saved in Status.
+func (s *Status) GetStatusForPlugin(name string) *aggregation.PluginStatus {
 	if s.Latest == nil {
 		return nil
 	}
@@ -159,7 +111,7 @@ func (s *StatusOptions) GetStatusForPlugin(name string) *aggregation.PluginStatu
 }
 
 // GetStatus returns the latest aggregator status if there is one, otherwise empty string.
-func (s *StatusOptions) GetStatus() string {
+func (s *Status) GetStatus() string {
 	if s.Latest != nil {
 		return s.Latest.Status
 	}
@@ -169,7 +121,7 @@ func (s *StatusOptions) GetStatus() string {
 
 // WaitForStatusReport will block until either context is canceled, status is reported, or retry limit reach.
 // An error will not result in immediate failure and will be retried.
-func (s *StatusOptions) WaitForStatusReport(ctx context.Context) error {
+func (s *Status) WaitForStatusReport(ctx context.Context) error {
 	tries := 1
 	err := wait2.PollUntilContextCancel(ctx, s.waitInterval, true, func(ctx context.Context) (done bool, err error) {
 		if tries == StatusRetryLimit {
@@ -189,7 +141,7 @@ func (s *StatusOptions) WaitForStatusReport(ctx context.Context) error {
 	return err
 }
 
-func (s *StatusOptions) Print(cmd *cobra.Command) error {
+func (s *Status) Print(cmd *cobra.Command) error {
 	if !s.watch {
 		_, err := s.doPrint()
 		return err
@@ -212,7 +164,7 @@ func (s *StatusOptions) Print(cmd *cobra.Command) error {
 	})
 }
 
-func (s *StatusOptions) doPrint() (complete bool, err error) {
+func (s *Status) doPrint() (complete bool, err error) {
 	switch s.GetStatus() {
 	case aggregation.RunningStatus:
 		if err := s.printRunningStatus(); err != nil {
@@ -243,6 +195,6 @@ func (s *StatusOptions) doPrint() (complete bool, err error) {
 	return false, nil
 }
 
-func (s *StatusOptions) GetSonobuoyClient() sonobuoyclient.Interface {
+func (s *Status) GetSonobuoyClient() sonobuoyclient.Interface {
 	return s.sclient
 }
