@@ -1,7 +1,6 @@
 package status
 
 import (
-	"context"
 	"fmt"
 	"html/template"
 	"os"
@@ -9,13 +8,7 @@ import (
 	"time"
 
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
-	log "github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/aggregation"
-
-	kcorev1 "k8s.io/api/core/v1"
-	kmmetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/kubernetes"
 )
 
 type PrintableStatus struct {
@@ -38,7 +31,7 @@ var runningStatusTemplate = `{{.CurrentTime}}|{{.ElapsedTime}}> Global Status: {
 {{printf "%-34s | %-10s | %-10s | %-25s | %-50s" $pl.Name $pl.Status $pl.Result $pl.Progress $pl.Message}}{{end}}
 `
 
-func (s *StatusOptions) printRunningStatus() error {
+func (s *Status) printRunningStatus() error {
 	statusTemplate, err := template.New("statusTemplate").Parse(runningStatusTemplate)
 	if err != nil {
 		return err
@@ -46,7 +39,7 @@ func (s *StatusOptions) printRunningStatus() error {
 	return statusTemplate.Execute(os.Stdout, s.getPrintableRunningStatus())
 }
 
-func (s *StatusOptions) getPrintableRunningStatus() PrintableStatus {
+func (s *Status) getPrintableRunningStatus() PrintableStatus {
 	now := time.Now()
 	ps := PrintableStatus{
 		GlobalStatus: s.Latest.Status,
@@ -108,59 +101,4 @@ func (s *StatusOptions) getPrintableRunningStatus() PrintableStatus {
 	})
 
 	return ps
-}
-
-// GetPluginPod get the plugin pod spec.
-func getPluginPod(kclient kubernetes.Interface, namespace string, pluginPodName string) (*kcorev1.Pod, error) {
-	labelSelector := kmmetav1.LabelSelector{MatchLabels: map[string]string{"component": "sonobuoy", "sonobuoy-plugin": pluginPodName}}
-	log.Debugf("Getting pod with labels: %v\n", labelSelector)
-	listOptions := kmmetav1.ListOptions{
-		LabelSelector: klabels.Set(labelSelector.MatchLabels).String(),
-	}
-
-	podList, err := kclient.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
-	if err != nil {
-		return nil, fmt.Errorf("unable to list pods with label %q", labelSelector)
-	}
-
-	switch {
-	case len(podList.Items) == 0:
-		log.Warnf("no pods found with label %q in namespace %s", labelSelector, namespace)
-		return nil, fmt.Errorf(fmt.Sprintf("no pods found with label %q in namespace %s", labelSelector, namespace))
-
-	case len(podList.Items) > 1:
-		log.Warnf("Found more than one pod with label %q. Using pod with name %q", labelSelector, podList.Items[0].GetName())
-		return &podList.Items[0], nil
-	default:
-		return &podList.Items[0], nil
-	}
-}
-
-// getPodStatusString get the pod status string.
-func getPodStatusString(pod *kcorev1.Pod) string {
-	if pod == nil {
-		return "TBD(pod)"
-	}
-
-	for _, cond := range pod.Status.Conditions {
-		// Pod Running
-		if cond.Type == kcorev1.PodReady &&
-			cond.Status == kcorev1.ConditionTrue &&
-			pod.Status.Phase == kcorev1.PodRunning {
-			return "Running"
-		}
-		// Pod Completed
-		if cond.Type == kcorev1.PodReady &&
-			cond.Status == "False" &&
-			cond.Reason == "PodCompleted" {
-			return "Completed"
-		}
-		// Pod NotReady (Container)
-		if cond.Type == kcorev1.PodReady &&
-			cond.Status == "False" &&
-			cond.Reason == "ContainersNotReady" {
-			return "NotReady"
-		}
-	}
-	return string(pod.Status.Phase)
 }

@@ -41,7 +41,7 @@ func NewCmdRetrieve() *cobra.Command {
 				}
 			}
 
-			s := status.NewStatusOptions(&status.StatusInput{Watch: false})
+			s := status.NewStatus(&status.StatusInput{Watch: false})
 			if err := s.PreRunCheck(); err != nil {
 				return fmt.Errorf("retrieve finished with errors: %v", err)
 			}

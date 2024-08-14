@@ -11,8 +11,8 @@ import (
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/aggregation"
 )
 
-func Test_PrintStatus(t *testing.T) {
-	status := &StatusOptions{
+func Test_printStatus(t *testing.T) {
+	status := &Status{
 		StartTime: time.Now(),
 		Latest: &aggregation.Status{
 			Plugins: []aggregation.PluginStatus{
