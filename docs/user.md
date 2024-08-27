@@ -68,9 +68,9 @@ OPCT is tested in the following topologies - uncovered topologies(flagged as TBD
 | OCP Topology/ARCH | OPCT Initial version | OPCT Execution mode |
 | -- | -- | -- |
 | HA/amd64 | v0.1 | regular(v0.1+), upgrade(v0.3+), disconnect(v0.4+) |
+| HA/arm64 | v0.5 | all |
 | Compact/amd64 | TBD([OPCT-193](https://issues.redhat.com/browse/OPCT-193)) | -- |
 | SNO/amd64 | TBD([OPCT-30](https://issues.redhat.com/browse/OPCT-30)) | -- |
-| HA/arm64 | TBD([OPCT-26](https://issues.redhat.com/browse/OPCT-26)) | -- |
 
 !!! info "Unsupported Topologies"
     You must be able to run the tool in unsupported topologies when the required configuration is set,
@@ -92,13 +92,13 @@ OpenShift Platform Type supported by OPCT:
 
 The matrix below describes the OpenShift and OPCT versions supported for each release and features:
 
-| OPCT [version](releases) | OCP Supported versions | OPCT Execution mode |
+| OPCT [version](releases) | OCP tested versions | OPCT Execution mode |
 | -- | -- | -- |
-| v0.5.x | 4.11, 4.12, 4.13, 4.14 | regular, upgrade, disconnected |
-| v0.4.x | 4.10, 4.11, 4.12, 4.13 | regular, upgrade, disconnected |
-| v0.3.x | 4.9, 4.10, 4.11, 4.12 | regular, upgrade |
-| v0.2.x | 4.9, 4.10, 4.11 | regular |
-| v0.1.x | 4.9, 4.10, 4.11 | regular |
+| v0.5.x | 4.14-4.17 | regular, upgrade, disconnected |
+| v0.4.x | 4.10-4.13 | regular, upgrade, disconnected |
+| v0.3.x | 4.9-4.12 | regular, upgrade |
+| v0.2.x | 4.9-4.11 | regular |
+| v0.1.x | 4.9-4.11 | regular |
 
 It's highly recommended to use the latest OPCT version.
 
