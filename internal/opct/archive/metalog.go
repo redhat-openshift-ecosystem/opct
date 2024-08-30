@@ -51,13 +51,11 @@ func ParseMetaLogs(logs []string) []*RuntimeInfoItem {
 	diffDate := func(strStart string, strEnd string) string {
 		start, err := time.Parse(dateFormat, convertDate(strStart))
 		if err != nil {
-			fmt.Println("start")
-			fmt.Println(err)
+			log.Debugf("Erorr: [parser] couldn't parse date start: %v", err)
 		}
 		end, err := time.Parse(dateFormat, convertDate(strEnd))
 		if err != nil {
-			fmt.Println("dateEnd")
-			fmt.Println(err)
+			log.Debugf("Erorr: [parser] couldn't parse date dateEnd: %v", err)
 		}
 		return end.Sub(start).String()
 	}

@@ -169,26 +169,32 @@ func (brs *BaselineConfig) CreateBaselineIndex() error {
 	if err != nil {
 		return fmt.Errorf("failed to create cloudfront client: %w", err)
 	}
-	invalidationPathURI := "/result/summary/index.json"
-	log.Infof("Creating cache invalidation for %s", invalidationPathURI)
+	invalidationPathsStr := []string{
+		"/result/summary/index.json",
+		"/result/summary/*_latest.json",
+	}
+	log.Infof("Creating cache invalidation for %v", strings.Join(invalidationPathsStr, " "))
+	var invalidationPaths []*string
+	for _, path := range invalidationPathsStr {
+		invalidationPaths = append(invalidationPaths, aws.String(path))
+	}
 	_, err = svcCloudfront.CreateInvalidation(&cloudfront.CreateInvalidationInput{
 		DistributionId: aws.String(brs.cloudfrontDistributionID),
 		InvalidationBatch: &cloudfront.InvalidationBatch{
 			CallerReference: aws.String(time.Now().Format(time.RFC3339)),
 			Paths: &cloudfront.Paths{
-				Quantity: aws.Int64(1),
-				Items: []*string{
-					aws.String(invalidationPathURI),
-				},
+				Quantity: aws.Int64(int64(len(invalidationPaths))),
+				Items:    invalidationPaths,
 			},
 		},
 	})
 	if err != nil {
+
 		log.Warnf("failed to create cache invalidation: %v", err)
 		fmt.Printf(`Index updated. Run the following command to invalidate index.cache:
 aws cloudfront create-invalidation \
 	--distribution-id %s \
-	--paths %s`, brs.cloudfrontDistributionID, invalidationPathURI)
+	--paths %s`, brs.cloudfrontDistributionID, strings.Join(invalidationPathsStr, " "))
 		fmt.Println()
 	}
 	return nil

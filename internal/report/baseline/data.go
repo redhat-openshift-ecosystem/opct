@@ -52,7 +52,7 @@ func (bd *BaselineData) GetPriorityFailuresFromPlugin(pluginName string) ([]stri
 				return failureStr, nil
 			}
 			if failures == nil {
-				log.Debugf("BaselineAPI data for plugin %q is missing failures (failedPriority), skipping...", pluginName)
+				log.Debugf("BaselineAPI data for plugin %q is missing failures (failedFiltered), skipping...", pluginName)
 				return failureStr, nil
 			}
 		}
@@ -70,9 +70,8 @@ func (bd *BaselineData) GetSetupTags() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal baseline data: %w", err)
 	}
+
 	fmt.Println(obj["setup"].(map[string]interface{}))
 	tags = obj["setup"].(map[string]interface{})["api"].(map[string]interface{})
-	// tags = obj["setup"].(map[string]interface{})["api"].(map[string]string)
-	// fmt.Println(s)
 	return tags, nil
 }
