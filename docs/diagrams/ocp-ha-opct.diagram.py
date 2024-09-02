@@ -7,6 +7,7 @@ from diagrams.k8s.infra import ( Node )
 
 from diagrams.azure.network import DNSZones
 
+
 with Diagram("OCP/OKD Cluster", show=False, filename="./ocp-ha-opct.diagram"):
     dnsApiExt = DNSZones("api.<cluster>.<domain>")
     dnsApsExt = DNSZones("*.apps.<cluster>.<domain>")

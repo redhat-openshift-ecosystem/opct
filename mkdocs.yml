@@ -6,6 +6,72 @@ edit_uri: edit/main/docs/
 docs_dir: ./docs
 dev_addr: 127.0.0.1:8000
 
+# ###############
+# Page Navigation
+#
+
+nav:
+#
+# Welcome
+# This section documents summary of the project, Quick start, FAQ, etc
+#
+  - Introduction: README.md
+  - Welcome:
+    - Install: install.md
+    - Quick Start: quick-start.md
+    - FAQ: FAQ.md
+
+#
+# Usage
+#
+  - Usage:
+    - Getting started: getting-started.md
+    - Validation User Guide:
+      - guides/cluster-validation/index.md
+      - Installation Checklist: guides/cluster-validation/installation-checklist.md
+      - Installation Review: guides/cluster-validation/installation-review.md
+      - Disconnected Installations: guides/cluster-validation/installation-disconnected.md
+    - opct CLI:
+      - opct/index.md
+      - run: opct/run.md
+      - retrieve: opct/retrieve.md
+      - report: opct/report.md
+      - results: opct/results.md
+      - status: opct/status.md
+      - adm:
+        - opct/adm/index.md
+        - parse-etcd-logs: opct/adm/parse-etcd-logs.md
+        - parse-metrics: opct/adm/parse-metrics.md
+        - baseline: opct/adm/baseline.md
+#
+# Review Guides
+#
+  - Review Guides:
+    - review/index.md
+    - OPCT Rules: review/rules.md
+    - Support Guide: guides/support-guide.md
+    - Troubleshooting: review/troubleshooting.md
+
+#
+# Contributing
+#
+  - Contributing:
+    - FAQ: devel/FAQ.md
+    - Quick Start: CONTRIBUTION.md
+    - Development Guide: devel/guide.md
+    - Workflow: guides/contribution-workflow.md
+    - This Site: devel/docs.md
+    - Architecture/Diagrams:
+      - diagrams/index.md
+      - diagrams/opct-sequence.md
+      - "Reference Architecture": diagrams/ocp-architecture-reference.md
+    - BYO Plugin: devel/byo-plugin.md
+    - Repositories: devel/repositories.md
+  - Changelog: CHANGELOG.md
+
+# ##########
+# PAge setup
+#
 markdown_extensions:
   - admonition
   - pymdownx.superfences:
@@ -28,23 +94,11 @@ theme:
   features:
     #- toc.integrate
     - navigation.top
-
-nav:
-  - User Guides:
-    - "User Guide": "user.md"
-    - "Installation Checklist": user-installation-checklist.md
-    - "Installation Review": user-installation-review.md
-    - "Disconnected Installations": user-installation-disconnected.md
-    - "Troubleshooting": troubleshooting-guide.md
-  - Support Guides:
-    - Support Guide: support-guide.md
-  - Review:
-    - review/index.md
-    - OPCT Rules: review/rules.md
-  - Developer Guides:
-    - Development Guide: dev.md
-    - Diagrams:
-      - diagrams/index.md
-      - diagrams/opct-sequence.md
-      - "Reference Architecture": diagrams/ocp-architecture-reference.md
-  - CHANGELOG: CHANGELOG.md
+    # use sections
+    - navigation.sections
+    # expand subsections by default
+    - navigation.expand
+    # show path of page on top
+    - navigation.path
+    # add button to return to top
+    - navigation.top
