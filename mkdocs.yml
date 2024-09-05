@@ -1,7 +1,7 @@
 site_name: OpenShift Provider Compatibility Tool | OPCT
 site_description: OpenShift Provider Compatibility Tool
-site_url: https://redhat-openshift-ecosystem.github.io/provider-certification-tool
-repo_url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool
+site_url: https://redhat-openshift-ecosystem.github.io/opct
+repo_url: https://github.com/redhat-openshift-ecosystem/opct
 edit_uri: edit/main/docs/
 docs_dir: ./docs
 dev_addr: 127.0.0.1:8000
