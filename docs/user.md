@@ -102,7 +102,7 @@ The matrix below describes the OpenShift and OPCT versions supported for each re
 
 It's highly recommended to use the latest OPCT version.
 
-[releases]:https://github.com/redhat-openshift-ecosystem/provider-certification-tool/releases
+[releases]:https://github.com/redhat-openshift-ecosystem/opct/releases
 
 ### Standard Environment <a name="standard-env"></a>
 
@@ -182,14 +182,14 @@ A user with [cluster administrator privilege](https://docs.openshift.com/contain
 
 ## Install <a name="install"></a>
 
-The OPCT is shipped as a single executable binary which can be downloaded from [the Project Releases page](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/releases). Choose the latest version and the architecture of the node (client) you will execute the tool, then download the binary.
+The OPCT is shipped as a single executable binary which can be downloaded from [the Project Releases page](https://github.com/redhat-openshift-ecosystem/opct/releases). Choose the latest version and the architecture of the node (client) you will execute the tool, then download the binary.
 
 The tool can be used from any system with access to API to the OpenShift cluster under test.
 
 ```sh
 VERSION=v0.4.1
 BINARY=opct-linux-amd64
-wget -O opct "https://github.com/redhat-openshift-ecosystem/provider-certification-tool/releases/download/${VERSION}/${BINARY}"
+wget -O opct "https://github.com/redhat-openshift-ecosystem/opct/releases/download/${VERSION}/${BINARY}"
 chmod u+x ./opct
 ```
 
@@ -335,6 +335,6 @@ Check also the documents below that might help while investigating the results a
 
 ## Feedback <a name="feedback"></a>
 
-If you are a community user and found any bugs or issues, you can open a [new GitHub issue](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/issues/new).
+If you are a community user and found any bugs or issues, you can open a [new GitHub issue](https://github.com/redhat-openshift-ecosystem/opct/issues/new).
 
 If you are under validation process and are looking for guidance or feedback, please reach out to your Red Hat Partner Manager to assist you with the conformance process.

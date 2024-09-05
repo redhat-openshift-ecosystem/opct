@@ -293,7 +293,7 @@ Additional items to review:
 The validation process (when applyging for the Partner Support Case) requires a successful y-stream upgrade (e.g. upgrade 4.11.17 to 4.12.0).
 Upgrade review should only proceed if there is reasonably high confidence in passing and not if there are still significant issues in passing the review process above. 
 
-> TODO: Review this documentation after the automated upgrade procedure is merged in https://github.com/redhat-openshift-ecosystem/provider-certification-tool/pull/33
+> TODO: Review this documentation after the automated upgrade procedure is merged in https://github.com/redhat-openshift-ecosystem/opct/pull/33
 
 Once prepared to review an upgrade, this is the recommended procedure:
 

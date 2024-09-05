@@ -17,10 +17,10 @@ Table of Contents:
 
 ## Create Release <a name="release"></a>
 
-Releasing a new version of the tool is done automatically through [GitHub Action workflow](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/release.yaml)
+Releasing a new version of the tool is done automatically through [GitHub Action workflow](https://github.com/redhat-openshift-ecosystem/opct/blob/main/.github/workflows/release.yaml)
 which is run when tags are created. Tags should follow the [Semantic Versioning (SemVer)](https://semver.org/) standard. Example: v0.1.0, v0.1.0-alpha1 (...).
 
-Tags should only be created from the `main` branch which only accepts pull-requests that pass through [this CI GitHub Action](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/.github/workflows/go.yaml).
+Tags should only be created from the `main` branch which only accepts pull-requests that pass through [this CI GitHub Action](https://github.com/redhat-openshift-ecosystem/opct/blob/main/.github/workflows/go.yaml).
 
 The container image for CLI is automatically published to the container registry [`quay.io/ocp-cert/opct`](https://quay.io/repository/ocp-cert/opct?tab=tags) by Github Action job `Build Container and Release to Quay` every new release.
 
@@ -43,9 +43,9 @@ Release process checklist:
         - `podman push quay.io/my-user/opct:latest`
     - Check the Security Scan results on https://quay.io/repository/my-user/opct?tab=tags
 - Run one-shot/preflight before promoting the tag:
-    - [install a cluster using the **latest OCP GA** version](https://redhat-openshift-ecosystem.github.io/provider-certification-tool/user/#prerequisites) for validation (platform agnostic installation)
-    - [run the conformance validation (regular or upgrade)](https://redhat-openshift-ecosystem.github.io/provider-certification-tool/user/#run-conformance-tests)
-    - [collect the results](https://redhat-openshift-ecosystem.github.io/provider-certification-tool/user/#collect-the-results)
+    - [install a cluster using the **latest OCP GA** version](https://redhat-openshift-ecosystem.github.io/opct/user/#prerequisites) for validation (platform agnostic installation)
+    - [run the conformance validation (regular or upgrade)](https://redhat-openshift-ecosystem.github.io/opct/user/#run-conformance-tests)
+    - [collect the results](https://redhat-openshift-ecosystem.github.io/opct/user/#collect-the-results)
     - review if the execution finished correctly
         - plugins finished
         - artifacts collected
@@ -56,8 +56,8 @@ Release process checklist:
 git tag v0.4.0 -m "Release for OPCT v0.4 related to features on OPCT-XXX"
 git push --tags upstream
 ~~~
-- Open a PR updating the [`PluginsImage` value](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/pkg/types.go#LL16C2-L16C14) on the CLI repository, merge it;
-- Create a tag on [CLI/Tool repository](https://github.com/redhat-openshift-ecosystem/provider-certification-tool) based on the `main` branch (or the commit for the release)
+- Open a PR updating the [`PluginsImage` value](https://github.com/redhat-openshift-ecosystem/opct/blob/main/pkg/types.go#LL16C2-L16C14) on the CLI repository, merge it;
+- Create a tag on [CLI/Tool repository](https://github.com/redhat-openshift-ecosystem/opct) based on the `main` branch (or the commit for the release)
 ~~~bash
 # Example
 git tag v0.4.0 -m "Release for OPCT v0.4 related to features on OPCT-XXX"
@@ -68,7 +68,7 @@ git push --tags upstream
 
 - Create an OCP cluster
 - Prepare the cluster to run OPCT: set tests label for dedicated node, taint, create registry, create MachineConfigPool for upgrade, wait to be ready, etc
-    - It's possible to use the Ansible Playbook to do everything in Day-2 by running (WIP on [#38](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/pull/38)):
+    - It's possible to use the Ansible Playbook to do everything in Day-2 by running (WIP on [#38](https://github.com/redhat-openshift-ecosystem/opct/pull/38)):
 ```bash
 ansible-playbook hack/opct-runner/opct-run-tool-preflight.yaml  -e cluster_name=opct-v040
 ```
@@ -168,7 +168,7 @@ BUILD_PLATFORMS+=( ["windows-amd64"]="windows/amd64" )
     --plugins-image openshift-tests-provider-cert:v0.5.0-alpha.3
 ```
 
-[image-mirror-sonobuoy]: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/tree/main/hack/image-mirror-sonobuoy/mirror.sh
+[image-mirror-sonobuoy]: https://github.com/redhat-openshift-ecosystem/opct/tree/main/hack/image-mirror-sonobuoy/mirror.sh
 
 
 ## Sonobuoy Plugins <a name="dev-sonobuoy-plugins"></a>
