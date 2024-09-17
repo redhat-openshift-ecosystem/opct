@@ -19,42 +19,60 @@ import (
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/status"
 )
 
-func NewCmdRetrieve() *cobra.Command {
-	return &cobra.Command{
-		Use:   "retrieve",
-		Args:  cobra.MaximumNArgs(1),
-		Short: "Collect results from validation environment",
-		Long:  `Downloads the results archive from the validation environment`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			destinationDirectory, err := os.Getwd()
-			if err != nil {
-				return fmt.Errorf("retrieve finished with errors: %v", err)
-			}
-			if len(args) == 1 {
-				destinationDirectory = args[0]
-				finfo, err := os.Stat(destinationDirectory)
-				if err != nil {
-					return fmt.Errorf("retrieve finished with errors: %v", err)
-				}
-				if !finfo.IsDir() {
-					return fmt.Errorf("retrieve finished with errors: %v", err)
-				}
-			}
+type retrieveOptions struct {
+	Namespace string
+	SkipCheck bool
+}
 
-			s := status.NewStatus(&status.StatusInput{Watch: false})
-			if err := s.PreRunCheck(); err != nil {
-				return fmt.Errorf("retrieve finished with errors: %v", err)
-			}
+var options *retrieveOptions
+var retrieveCmd = &cobra.Command{
+	Use:   "retrieve",
+	Args:  cobra.MaximumNArgs(1),
+	Short: "Collect results from validation environment",
+	Long:  `Downloads the results archive from the validation environment`,
+	RunE:  runRetrieve,
+}
 
-			log.Info("Collecting results...")
-			if err := retrieveResultsRetry(s.GetSonobuoyClient(), destinationDirectory); err != nil {
-				return fmt.Errorf("retrieve finished with errors: %v", err)
-			}
+func init() {
+	options = new(retrieveOptions)
+	retrieveCmd.Flags().StringVarP(&options.Namespace, "namespace", "n", pkg.CertificationNamespace, "Show images with format to mirror to repository. Example: registry.example.io:5000")
+	retrieveCmd.Flags().BoolVarP(&options.SkipCheck, "skip-check", "s", false, "Skip pre-run check")
+}
 
-			log.Info("Use the results command to check the validation test summary or share the results archive with your Red Hat partner.")
-			return nil
-		},
+func runRetrieve(cmd *cobra.Command, args []string) error {
+	destinationDirectory, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("retrieve finished with errors: %v", err)
 	}
+	if len(args) == 1 {
+		destinationDirectory = args[0]
+		finfo, err := os.Stat(destinationDirectory)
+		if err != nil {
+			return fmt.Errorf("retrieve finished with errors: %v", err)
+		}
+		if !finfo.IsDir() {
+			return fmt.Errorf("retrieve finished with errors: %v", err)
+		}
+	}
+
+	s := status.NewStatus(&status.StatusInput{Watch: false})
+	if !options.SkipCheck {
+		if err := s.PreRunCheck(); err != nil {
+			return fmt.Errorf("retrieve finished with errors: %v", err)
+		}
+	}
+
+	log.Info("Collecting results...")
+	if err := retrieveResultsRetry(s.GetSonobuoyClient(), destinationDirectory); err != nil {
+		return fmt.Errorf("retrieve finished with errors: %v", err)
+	}
+
+	log.Info("Use the results command to check the validation test summary or share the results archive with your Red Hat partner.")
+	return nil
+}
+
+func NewCmdRetrieve() *cobra.Command {
+	return retrieveCmd
 }
 
 func retrieveResultsRetry(sclient sonobuoyclient.Interface, destinationDirectory string) error {
@@ -82,7 +100,7 @@ func retrieveResultsRetry(sclient sonobuoyclient.Interface, destinationDirectory
 func retrieveResults(sclient sonobuoyclient.Interface, destinationDirectory string) error {
 	// Get a reader that contains the tar output of the results directory.
 	reader, ec, err := sclient.RetrieveResults(&sonobuoyclient.RetrieveConfig{
-		Namespace: pkg.CertificationNamespace,
+		Namespace: options.Namespace,
 		Path:      config2.AggregatorResultsPath,
 	})
 	if err != nil {
