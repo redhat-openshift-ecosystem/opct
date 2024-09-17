@@ -127,102 +127,11 @@ This section documents how to run dense disk tests using `fio`.
 
 This section provides a guide to check the etcd slow requests from the logs on the etcd pods to understand how the etcd is performing while running the e2e tests.
 
-The steps below use a utility `insights-ocp-etcd-logs` to parse the logs, aggregate the requests into buckets of 100ms from 200ms to 1s and report it on the stdout.
+The steps below use command `opct adm parse-etcd-logs` to read the logs, aggregate the requests and shows by buckets of 100ms from 200ms to 1s.
 
-This is the utility to help you to troubleshoot the slow requests in your cluster, and help make some decisions like changing the flavor of the block device used by the control plane, increasing IOPS, changing the flavor of the instances, etc.
+This is the utility to help to troubleshoot the slow requests in the cluster, and help make decisions like changing the flavor of the block device used by the control plane, increasing IOPS, changing the flavor of the instances, etc.
 
-There's no magic or desired number, but for reference, based on the observations from integrated platforms, is to have no more than 30-40% of requests above 500ms while running the conformance tests.
-
-> TODO: provide guidance on how to get the errors from the etcd pods, and parse it into buckets of latency to understand the performance of the etcd while running the validated environment.
-
-- Export the location you must-gather has been extracted:
-
-```bash
-export MUST_GATHER_PATH=${PWD}/must-gather.local.2905984348081335046
-```
-
-- Extract the utility from the tools repository:
-
-> This binary will be available when this card will be completed: https://issues.redhat.com/browse/SPLAT-857
-
-```bash
-oc image extract quay.io/ocp-cert/tools:latest --file="/usr/bin/ocp-etcd-log-filters"
-chmod u+x ocp-etcd-log-filters
-```
-
-- Overall report:
-
-> Note: This report can not be usefull depending how old is the logs. We recommend looking at the next report which aggregates by the hour, so you can check the time frame the validation environment has been executed
-
-```bash
-$ cat ${MUST_GATHER_PATH}/*/namespaces/openshift-etcd/pods/*/etcd/etcd/logs/current.log \
-    | ./ocp-etcd-log-filters
-> Filter Name: ApplyTookTooLong
-> Group by: all
->>> Summary <<<
-all	 16949
->500ms	 1485	(8.762 %)
----
->>> Buckets <<<
-low-200	 0	(0.000 %)
-200-300	 9340	(55.106 %)
-300-400	 4169	(24.597 %)
-400-500	 1853	(10.933 %)
-500-600	 716	(4.224 %)
-600-700	 223	(1.316 %)
-700-800	 185	(1.092 %)
-800-900	 139	(0.820 %)
-900-1s	 79	(0.466 %)
-1s-inf	 143	(0.844 %)
-unkw	 102	(0.602 %)
-```
-
-- Report aggregated by hour:
-
-```bash
-$ cat ${MUST_GATHER_PATH}/*/namespaces/openshift-etcd/pods/*/etcd/etcd/logs/current.log \
-    | ./ocp-etcd-log-filters -aggregator hour
-> Filter Name: ApplyTookTooLong
-> Group by: hour
-
->> 2023-03-01T17
->>> Summary <<<
-all	 558
->500ms	 54	(9.677 %)
----
->>> Buckets <<<
-low-200	 0	(0.000 %)
-200-300	 385	(68.996 %)
-300-400	 90	(16.129 %)
-400-500	 28	(5.018 %)
-500-600	 9	(1.613 %)
-600-700	 10	(1.792 %)
-700-800	 7	(1.254 %)
-800-900	 9	(1.613 %)
-900-1s	 16	(2.867 %)
-1s-inf	 3	(0.538 %)
-unkw	 1	(0.179 %)
-(...)
->> 2023-03-01T16
->>> Summary <<<
-all	 8651
->500ms	 812	(9.386 %)
----
->>> Buckets <<<
-low-200	 0	(0.000 %)
-200-300	 4833	(55.866 %)
-300-400	 1972	(22.795 %)
-400-500	 983	(11.363 %)
-500-600	 328	(3.791 %)
-600-700	 135	(1.561 %)
-700-800	 111	(1.283 %)
-800-900	 75	(0.867 %)
-900-1s	 48	(0.555 %)
-1s-inf	 115	(1.329 %)
-unkw	 51	(0.590 %)
-```
-
-The values on the output are a reference for expected results: most of the slow requests reported on the logs (>=200ms) should be under 500 ms while the tests are executing.
+See the command [`opct adm parse-etcd-logs`](./opct/adm/parse-etcd-logs.md) for more information.
 
 #### Mount /var/lib/etcd in separate disk <a name="components-etcd-mount"></a>
 

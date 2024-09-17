@@ -54,14 +54,14 @@ Release process checklist:
 ~~~bash
 # Example
 git tag v0.4.0 -m "Release for OPCT v0.4 related to features on OPCT-XXX"
-git push --tags upstream
+git push upstream ref/tags/v0.4.0
 ~~~
 - Open a PR updating the [`PluginsImage` value](https://github.com/redhat-openshift-ecosystem/opct/blob/main/pkg/types.go#LL16C2-L16C14) on the CLI repository, merge it;
 - Create a tag on [CLI/Tool repository](https://github.com/redhat-openshift-ecosystem/opct) based on the `main` branch (or the commit for the release)
 ~~~bash
 # Example
 git tag v0.4.0 -m "Release for OPCT v0.4 related to features on OPCT-XXX"
-git push --tags upstream
+git push upstream ref/tags/v0.4.0
 ~~~
 
 ### Manual tests
