@@ -22,6 +22,7 @@ var admCmd = &cobra.Command{
 func init() {
 	admCmd.AddCommand(parseMetricsCmd)
 	admCmd.AddCommand(parseEtcdLogsCmd)
+	admCmd.AddCommand(parseJUnitCmd)
 	admCmd.AddCommand(baseline.NewCmdBaseline())
 	admCmd.AddCommand(setupNodeCmd)
 }
