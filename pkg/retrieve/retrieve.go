@@ -15,6 +15,7 @@ import (
 	config2 "github.com/vmware-tanzu/sonobuoy/pkg/config"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/cleaner"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
 	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/status"
 )
@@ -114,8 +115,14 @@ func writeResultsToDirectory(outputDir string, r io.Reader, ec <-chan error) ([]
 	var results []string
 	eg.Go(func() error { return <-ec })
 	eg.Go(func() error {
+		// scanning for sensitive data
+		scannedReader, _, err := cleaner.ScanPatchTarGzipReaderFor(r)
+		if err != nil {
+			return fmt.Errorf("error scanning results: %w", err)
+		}
+
 		// This untars the request itself, which is tar'd as just part of the API request, not the sonobuoy logic.
-		filesCreated, err := sonobuoyclient.UntarAll(r, outputDir, "")
+		filesCreated, err := sonobuoyclient.UntarAll(scannedReader, outputDir, "")
 		if err != nil {
 			return err
 		}

@@ -24,6 +24,7 @@ func init() {
 	admCmd.AddCommand(parseMetricsCmd)
 	admCmd.AddCommand(parseEtcdLogsCmd)
 	admCmd.AddCommand(setupNodeCmd)
+	admCmd.AddCommand(cleanerCmd)
 	admCmd.AddCommand(baseline.NewCmdBaseline())
 	admCmd.AddCommand(generate.NewCommandGenerate())
 }

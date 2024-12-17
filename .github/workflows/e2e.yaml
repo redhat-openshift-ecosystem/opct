@@ -189,7 +189,6 @@ jobs:
         with:
           name: opct-linux-amd64
           path: /tmp/build/
-
       - name: "e2e adm generate checks-docs"
         env:
           OPCT: /tmp/build/opct-linux-amd64
@@ -206,3 +205,40 @@ jobs:
           # Enforce generated markdwn with the rules documentation page
           echo -e "\n\t#>> Fail if documentation not updated. Review and commit the changes to docs/review/rules.md"
           git diff --quiet docs/review/rules.md
+
+  e2e-cmd_adm-cleaner:
+    name: "e2e-cmd_adm-cleaner"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: opct-linux-amd64
+          path: /tmp/build/
+
+      - name: Preparing testdata
+        env:
+          ARTIFACT: fake-cleaner.tar.gz
+          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
+          LOCAL_TEST_DATA: /tmp/artifact.tar.gz
+        run: |
+          TEST_URL=${TEST_DATA_URL}/${ARTIFACT}
+          echo "> Downloading sample artifact: ${TEST_URL}"
+          wget -qO ${LOCAL_TEST_DATA} "${TEST_URL}"
+
+          echo "> Setting exec permissions to OPCT:"
+          chmod u+x ${CUSTOM_BUILD_PATH}
+
+      - name: "e2e parse metrics: opct adm cleaner"
+        env:
+          CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
+          LOCAL_TEST_DATA: /tmp/artifact.tar.gz
+        run: |
+          ${CUSTOM_BUILD_PATH} adm cleaner \
+            --input ${LOCAL_TEST_DATA} \
+            --output /tmp/redacted.tar.gz
+          mkdir data
+          tar xfz /tmp/redacted.tar.gz -C data
+          # Prevent yaml-ci issues
+          MCC=machineconfiguration.openshift.io_v1_controllerconfigs.json
+          jq .items[].spec.internalRegistryPullSecret data/resources/cluster/${MCC}
