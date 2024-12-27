@@ -363,8 +363,7 @@ func (re *ReportData) Populate(cs *summary.ConsolidatedSummary) error {
 	// Checks need to run after the report is populated, so it can evaluate the
 	// data entirely.
 	checks := NewCheckSummary(re)
-	err := checks.Run()
-	if err != nil {
+	if err := checks.Run(); err != nil {
 		log.Debugf("one or more errors found when running checks: %v", err)
 	}
 	pass, fail, warn, skip := checks.GetCheckResults()
@@ -380,7 +379,6 @@ func (re *ReportData) Populate(cs *summary.ConsolidatedSummary) error {
 		re.Summary.Alerts.Checks = "danger"
 		re.Summary.Alerts.ChecksMessage = fmt.Sprintf("%d", len(re.Checks.Fail))
 	}
-
 	cs.Timers.Add("report-populate")
 	re.Summary.Runtime.Timers = cs.Timers
 	return nil

@@ -8,6 +8,7 @@ package report
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -17,7 +18,7 @@ import (
 
 const (
 	docsRulesPath  = "/review/rules"
-	defaultBaseURL = "https://redhat-openshift-ecosystem.github.io/provider-certification-tool"
+	defaultBaseURL = "https://redhat-openshift-ecosystem.github.io/opct"
 
 	CheckResultNamePass CheckResultName = "pass"
 	CheckResultNameFail CheckResultName = "fail"
@@ -83,6 +84,9 @@ type Check struct {
 	// item.
 	Documentation string `json:"documentation"`
 
+	// DocumentationSpec is the detailed documentation for the check.
+	DocumentationSpec CheckDocumentationSpec `json:"documentationSpec"`
+
 	// Accepted must report acceptance criteria, when true
 	// the Check is accepted by the tool, otherwise it is
 	// failed and must be reviewede.
@@ -95,6 +99,15 @@ type Check struct {
 	// Priority is the priority to execute the check.
 	// 0 is higher.
 	Priority uint64
+}
+
+// CheckDocumentationSpec is the detailed documentation for the check.
+type CheckDocumentationSpec struct {
+	Description  string   `json:"description"`
+	Expected     string   `json:"expected"`
+	Troubleshoot string   `json:"troubleshoot"`
+	Action       string   `json:"action"`
+	Dependencies []string `json:"dependencies"`
 }
 
 func ExampleAcceptanceCheckPass() CheckResultName {
@@ -148,6 +161,23 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			res.Name = CheckResultNamePass
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: "All nodes must be healthy. The node health is a metric that helps to understand the health of the cluster.",
+			Action:      "Check the node health section in the report and review the logs for each node.",
+			Expected:    "All nodes must be healthy.",
+			Troubleshoot: `One or more nodes have been detected as unhealth when the aggregator server collected the cluster state (end of job).
+Unhealth nodes can cause test failures. This check can be used as a helper while investigating test failures. This check can be skipped
+if it is not causing failures in the conformance tests.
+Check the unhealthy nodes in the cluster:
+~~~sh
+$ omc get nodes
+~~~
+Review the node and events:
+~~~sh
+$ omc describe node <node_name>
+~~~
+`,
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   "OPCT-021",
@@ -163,6 +193,34 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			}
 			res.Name = CheckResultNamePass
 			return res
+		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: `Pods Healthy must report higher than 98%. The pod health is a metric that helps to understand the health of some components.
+			High pod health is a good indicator of the cluster health. The error budget of 2% is a reference used as a baseline from several executions in known platforms.`,
+			Action:   "Check the failing pod, and isolate if it is related to the environment and/or the validation tests.",
+			Expected: "Pods Healthy must report higher than 98%.",
+			Troubleshoot: `One or more pods have been detected as unhealth when the aggregator server collected the cluster state (end of job).
+Run the CLI command <code>opct results archive.tar.gz</code> to review the failed pods.
+Explore the logs for each pods in must-gather available in the collector plugin.
+Check the unhealthy pods:
+~~~sh
+$ ./opct report archive.tar.gz
+(...)
+ Health summary:              [A=True/P=True/D=True]    
+ - Cluster Operators            : [33/0/0]
+ - Node health              : 6/6  (100.00%)
+ - Pods health              : 246/247  (99.00%)
+                        
+ Failed pods:
+  Namespace/PodName                     Healthy Ready   Reason      Message
+  openshift-kube-controller-manager/installer-6-control-plane-1 false   False   PodFailed   
+(...)
+~~~
+Explore the pods:
+~~~sh
+$ omc get pods -A |egrep -v '(Running|Completed)'
+~~~
+`,
 		},
 	})
 	// Plugins Checks
@@ -190,6 +248,30 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			}
 			res.Name = CheckResultNamePass
 			return res
+		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: "Kubernetes Conformance suite (defined as `kubernetes/conformance` in `openshift-tests`) implements e2e required by Kubernetes Certification. Those tests are base tests for an operational Kubernetes cluster. All tests must be passed prior reviewing OpenShift Conformance suite.",
+			Action:      "Review the logs for each failed test in the Kubernetes conformance suite.",
+			Expected: `~~~
+ - 10-openshift-kube-conformance:
+[...]
+   - Failed (Filter SuiteOnly): 0 (0.00%)
+   - Failed (Priority)        : 0 (0.00%)
+   - Status After Filters     : passed
+~~~`,
+			Troubleshoot: `Review the High-Priority Failures:
+~~~sh
+$ /opct report archive.tar.gz
+(..)
+ => 10-openshift-kube-conformance: (2 failures, 0 flakes)
+
+ --> Failed tests to Review (without flakes) - Immediate action:
+[total=2] [sig-apps=1 (50.00%)] [sig-api-machinery=1 (50.00%)]
+
+15	[sig-apps] Deployment deployment should support proportional scaling [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]
+6	[sig-api-machinery] Aggregator Should be able to support the 1.17 Sample API Server using the current Aggregator [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]
+
+~~~`,
 		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
@@ -224,6 +306,27 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			}
 			res.Name = CheckResultNamePass
 			return res
+		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: `OpenShift Conformance suite must not report a high number of failures in the base execution.
+Ideally, the lower is better, but the e2e tests are frequently being updated/improved fixing bugs and eventually,
+the tested release could be impacted by those issues. The reference of 1.5% error budged is a reference used as basedline
+from several executions in known platforms.
+Higher failure ratio could be related to errors in the tested environment, cluster configuration, and/or infrastructure issues.
+Check the test logs to isolate the issues.
+When applying to cluster validation with Red Hat teams, this check must be reviewed immediately before submitting the results as
+it is a potential problem in the infrastructure or missconfiguration.
+Review the [OpenShift documentation for installing in agnostic platforms](https://docs.openshift.com/container-platform/latest/installing/installing_platform_agnostic/installing-platform-agnostic.html)`,
+			Expected: `Error budget lower than 1.5% of failed tests.`,
+			Troubleshoot: `
+1. Load the html report and navigate to the failures
+1.A. Generate the html report
+~~~sh
+$ /opct report --save-to ./results archive.tar.gz
+$ firefox http://localhost:8000
+~~~
+1.B. Review the logs for each failed test`,
+			Action: `Check the failures section <code>Test failures [high priority]</code> and review the logs for each failed test.`,
 		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
@@ -263,10 +366,25 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			res.Name = CheckResultNamePass
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: `OpenShift Conformance suite must not report a high number of failures after applying filters.
+Ideally, the lower is better, but the e2e tests are frequently being updated/improved fixing bugs and eventually,
+the tested release could be impacted by those issues. The error budget higher than 0.5% could indicate issues in the
+tested environment. Higher failures could be related to errors in the tested environment.
+Check the test logs for OpenShift conformance suite, Priority section, to isolate the issues.`,
+			Action: `
+
+	1. check the failures section <code>Test failures [high priority]</code>
+	2. review the logs for each failed test.
+	3. the remainging failures must be reviewed individually to achieve a successfull installation. Root cause of individual failures must be identified.
+`,
+			Expected: `Error budget under acceptance criteria. Errors in the budget must be reviewed and root cause identified.`,
+			//Troubleshoot: ``,
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   "OPCT-005B",
-		Name: "OpenShift Conformance Validation [20]: Required to Pass After Filtering",
+		Name: "OpenShift Conformance Validation [20]: Required to Pass After Filters",
 		Test: func() CheckResult {
 			prefix := "Check OPCT-005B Failed"
 			target := 0.50
@@ -301,52 +419,16 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			res.Name = CheckResultNamePass
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description:  `OpenShift Conformance suite must report passing after applying filters removing common/well-known issues.`,
+			Action:       "Check the failures section `Test failures [high priority]`. Dependencies must be passing prior this check.",
+			Dependencies: []string{"OPCT-004", "OPCT-005"},
+		},
 	})
-	// TODO: validate if this test is duplicated with OPCT-005
-	// checkSum.Checks = append(checkSum.Checks, &Check{
-	// 	ID:   "OPCT-TBD",
-	// 	Name: "OpenShift Conformance [20-openshift-conformance-validated]: Pass 100% with Baseline",
-	// 	Test: func() CheckResult {
-	// 		prefix := "Check OPCT-TBD Failed"
-	// 		res := CheckResult{
-	// 			Name:   CheckResultNameFail,
-	// 			Target: "Pass==100%",
-	// 			Actual: "N/A",
-	// 		}
-	// 		if _, ok := re.Provider.Plugins[plugin.PluginNameOpenShiftConformance]; !ok {
-	// 			return res
-	// 		}
-	// 		if re.Baseline == nil {
-	// 			res.Name = CheckResultNameSkip
-	// 			return res
-	// 		}
-	// 		if _, ok := re.Baseline.Plugins[plugin.PluginNameOpenShiftConformance]; !ok {
-	// 			res.Name = CheckResultNameSkip
-	// 			return res
-	// 		}
-	// 		// "Acceptance" are relative, the baselines is observed to set
-	// 		// an "accepted" value considering a healthy cluster in known provider/installation.
-	// 		p := re.Provider.Plugins[plugin.PluginNameOpenShiftConformance]
-	// 		if p.Stat.Total == p.Stat.Failed {
-	// 			res.Message = "Potential Runtime Failure. Check the Plugin logs."
-	// 			res.Actual = "Total==Failed"
-	// 			log.Debugf("%s Runtime: Total and Failed counters are equals indicating execution failure", prefix)
-	// 			return res
-	// 		}
-	// 		perc := (float64(p.Stat.FilterFailedPrio) / float64(p.Stat.Total)) * 100
-	// 		res.Actual = fmt.Sprintf("FailedPrio==%.2f%%", perc)
-	// 		if perc > 0 {
-	// 			res.Name = CheckResultNameFail
-	// 			return res
-	// 		}
-	// 		res.Name = CheckResultNamePass
-	// 		return res
-	// 	},
-	// })
 
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   "OPCT-011",
-		Name: "The test suite should generate fewer error reports in the logs",
+		Name: "The test suite generates accepted error budget",
 		Test: func() CheckResult {
 			// threshold for warn and fail
 			thWarn := 150
@@ -390,10 +472,21 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			res.Name = CheckResultNamePass
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: `The test suite generates accepted error budget. The error budget is a metric that helps to understand the
+health of the test suite. The error budget is the total number of errors that the test suite can generate before it is considered
+unreliable. The error budget is a relative value and it is based on the observed values in known platforms.
+To check the error counter by e2e test using HTML report navigate to <code>Suite Errors</code> in the left menu and table <code>Tests by Error Pattern</code>.
+To check the logs, navigate to the Plugin menu and check the logs <code>failure</code> and <code>systemOut</code>.
+`,
+			Action:       "Check the errors section in the report and resolve the log failures for the failed test.",
+			Expected:     "The error budget is a relative value and it is based on the observed values in known platforms.",
+			Troubleshoot: "Open the error budget section in the report and review the logs for each failed test.",
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   "OPCT-010",
-		Name: "The cluster logs should generate fewer error reports in the logs",
+		Name: "The cluster logs generates accepted error budget",
 		Test: func() CheckResult {
 			passLimit := 30000
 			failLimit := 100000
@@ -439,6 +532,39 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			res.Name = CheckResultNamePass
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: `The cluster logs, must-gather event logs, should generate fewer error in the logs. The error budget are a metric that helps to isolate the
+health of the cluster. The error counters are a relative value and it is based on the observed values in CI executions in tested providers/platforms.`,
+			Action:   "Check the errors section in the report, explore the logs for each service in must-gather - using tools like omc, omg, grep, etc (must-gather readers/explorer).",
+			Expected: "The error events in must-gather are a relative value and it is based on the observed values in known platforms.",
+			Troubleshoot: `Open the error events section in the report and review the rank of failed keywords, then check the rank by namespace and services for each failure.
+Error budgets helps to focus in specific services that may contribute to the cluster failures.
+
+To check the error counter by e2e test using HTML report navigate to <code>Workload Errors</code> in the left menu.
+The table <code>Error Counters by Namespace</code> shows the namespace reporting a high number of errors, rank by the higher,
+you can start exploring the logs in that namespace.
+
+The table <code>Error Counters by Pod and Pattern</code> in <code>Workload Errors</code> menu also report the pods
+you also can use that information to isolate any issue in your environment.
+
+To explore the logs, you can extract the must-gather collected by the plugin <code>99-openshift-artifacts-collector</code>:
+
+~~~sh
+# extract must-gather from the results
+tar xfz artifact.tar.gz \
+    plugins/99-openshift-artifacts-collector/results/global/artifacts_must-gather.tar.xz
+
+# extract must-gather
+mkdir must-gather && \
+tar xfJ plugins/99-openshift-artifacts-collector/results/global/artifacts_must-gather.tar.xz \
+-C must-gather
+
+# check workload logs with 'omc' (example etcd)
+omc use must-gather
+omc logs -n openshift-etcd etcd-control-plane-0 -c etcd
+~~~
+`,
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   "OPCT-003",
@@ -463,6 +589,23 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			log.Debugf("%s: %s", prefix, msgDefaultNotMatch)
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: "The Collector plugin is responsible to retrieve information from the cluster, including must-gather, etcd parsed logs, e2e test lists for conformance suites. It is expected the value of `passed` in the state, otherwise, the review flow will be impacted.",
+			Expected:    "The artifacts collector plugin must pass the execution.",
+			Troubleshoot: `Review the artifacts collector logs and check the artifacts generated by the plugin:
+- Check the failed tests:
+~~~sh
+$ ./opct results -p 99-openshift-artifacts-collector archive.tar.gz
+~~~
+
+- Check the plugin logs:
+~~~sh
+$ grep -B 5 'Creating failed JUnit' \
+	podlogs/openshift-provider-certification/sonobuoy-99-*/logs/plugin.txt
+~~~
+`,
+			Action: "Check the artifacts collector logs (click under the test name in the job list). If the cause is undefined, re-run the execution.",
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   "OPCT-002",
@@ -480,6 +623,12 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			}
 			log.Debugf("%s: %s", prefix, msgDefaultNotMatch)
 			return res
+		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description:  "The cluster upgrade plugin must pass (or skip) the execution. The cluster upgrade plugin is responsible to schedule the upgrade conformance suite, which will upgrade the cluster while running conformance suite to monitor upgrade. This plugin is enabled when the execution mode is <code>upgrade</code>.",
+			Expected:     "The cluster upgrade plugin must pass the execution when execution mode is <code>upgrade</code>.",
+			Action:       "Check the cluster upgrade logs (click under the test name in the job list). If the cause is undefined, re-run the execution or raise a question.",
+			Troubleshoot: "Review the cluster upgrade logs and check the artifacts generated by the plugin.",
 		},
 	})
 	// TODO(etcd)
@@ -542,6 +691,59 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			res.Name = CheckResultNamePass
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: `The etcd logs must generate the average of slow requests lower than 500 milisseconds.
+The slow requests are a metric that helps to understand the health of the etcd. The slow requests are a relative value
+and it is based on the observed values in known, and tested, cloud providers/platforms.`,
+			Action:   `Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.`,
+			Expected: `The slow requests in etcd logs are a relative value and it is based on the observed values in known platforms.`,
+			Troubleshoot: `
+1) Review the documentation for the required storage for etcd:
+
+- A) [Product Documentation](https://docs.openshift.com/container-platform/4.13/installing/installing_platform_agnostic/installing-platform-agnostic.html#installation-minimum-resource-requirements_installing-platform-agnostic)
+- B) [Red Hat Article: Understanding etcd and the tunables/conditions affecting performance](https://access.redhat.com/articles/7010406#effects-of-network-latency--jitter-on-etcd-4)
+- C) [Red Hat Article: How to Use 'fio' to Check Etcd Disk Performance in OCP](https://access.redhat.com/solutions/4885641)
+- D) [etcd-operator: baseline speed for standard hardware](https://github.com/openshift/cluster-etcd-operator/blob/f68835306c2d6670697a5fd98ba8c6ffe197ab02/pkg/hwspeedhelpers/hwhelper.go#L21-L34)
+
+2) Check the performance described in the article(B)
+
+3) Review the processed values from your environment
+
+!!! danger "Requirement"
+	It is required to run a conformance validation in a new cluster.
+
+	The validation tests parses the etcd logs from the entire cluster, including historical data, if you changed
+	the storage and didn't recreate the cluster, the results will include values containing slow requests from the
+	old storage, impacting in the current view.
+
+Run the report with debug flag <code>--loglevel=debug</code>:
+~~~text
+(...)
+DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010 Failed Acceptance criteria: want=[<500] got=[690.412] 
+DEBU[2023-09-25T12:52:05-03:00] Check OPCT-011 Failed Acceptance criteria: want=[<1000] got=[3091.49]
+~~~
+
+Extract the information from the logs using parser utility:
+
+~~~sh
+# Export the path of extracted must-gather. Example:
+export MUST_GATHER_PATH=${PWD}/must-gather.local.2905984348081335046
+
+# Run the utility
+cat ${MUST_GATHER_PATH}/*/namespaces/openshift-etcd/pods/*/etcd/etcd/logs/current.log \
+	| opct adm parse-etcd-logs --aggregator hour
+
+# Or, use the must-gather path
+opct adm parse-etcd-logs --aggregator hour --path ${MUST_GATHER_PATH}
+~~~
+
+References:
+
+- [etcd: Hardware recommendations](https://etcd.io/docs/v3.5/op-guide/hardware/)
+- [OpenShift Docs: Planning your environment according to object maximums](https://docs.openshift.com/container-platform/4.11/scalability_and_performance/planning-your-environment-according-to-object-maximums.html)
+- [OpenShift KCS: Backend Performance Requirements for OpenShift etcd](https://access.redhat.com/solutions/4770281)
+- [IBM: Using Fio to Tell Whether Your Storage is Fast Enough for Etcd](https://www.ibm.com/cloud/blog/using-fio-to-tell-whether-your-storage-is-fast-enough-for-etcd)`,
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   "OPCT-010B",
@@ -594,6 +796,17 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			res.Name = CheckResultNamePass
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: `The etcd logs must generate the maximum of slow requests lower than 1000 milisseconds.
+One or more requests with high latency could impact the cluster performance. Slow requests are a metric that helps to
+understand the health of the etcd. The slow requests are a relative value and it is based on the observed values in known platforms.
+The maximum value is the highest value of slow requests reported in the etcd logs, it must not be higher than 1 second.
+`,
+			Action:       "Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.",
+			Expected:     "The slow requests in etcd logs are a relative value and it is based on the observed values in known platforms.",
+			Troubleshoot: "Review Dependencies: [Troubleshooting section of OPCT-010A](#opct-010A)",
+			Dependencies: []string{"OPCT-010A"},
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   CheckID022,
@@ -629,6 +842,16 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			log.Debugf("%s: %s", prefix, msgDefaultNotMatch)
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: `The plugin(s) must pass the execution, or generate valid results.
+The plugin(s) are responsible to execute the conformance test suites, and generate the report.`,
+			Action:   "Check the plugin logs (click under the test name in the job list). If the cause is undefined, re-run the execution",
+			Expected: "The plugin(s) must pass the execution, or generate valid results.",
+			Troubleshoot: `Review the plugin logs and check the artifacts generated by the plugin.
+Possible causes of failed plugins:
+	- The plugin is not able to execute the tests: Check the plugin logs for errors in the directory "plugins" in the report archive
+	- The plugin total counter is equal than the failed counter: Check the output of 'opct report' indicating the failed plugins`,
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID: CheckID023A,
@@ -654,6 +877,13 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			res.Name = CheckResultNamePass
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: `The Kubernetes Conformance suite must have acceptable number of tests to be considered as a valid execution.`,
+			Expected: `The Kubernetes Conformance suite must have at least 300 tests to be valid. This number is based in the kubernetes
+conformance suite across different releases. This test is a sanity test to ensure that the plugin is running correctly.`,
+			Troubleshoot: "Review the plugin logs and check the artifacts generated by the plugin.",
+			Action:       "This is unexpected for regular cluster validation. Check the plugin logs and the artifacts generated by the <code>opct report</code> to check if the job for Kubernetes Conformance suite have been completed.",
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID: CheckID023B,
@@ -678,6 +908,13 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			}
 			res.Name = CheckResultNamePass
 			return res
+		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: `The OpenShift Conformance suite must have acceptable number of tests to be considered as a valid execution.`,
+			Expected: `The OpenShift Conformance suite must have at least 3000 tests to be valid. This number is based in the OpenShift
+conformance suite across different releases. This test is a sanity test to ensure that the plugin is running correctly.`,
+			//Troubleshoot: ``,
+			Action: `Review the plugin logs and check the artifacts generated by the plugin.`,
 		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
@@ -731,6 +968,12 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			res.Actual = fmt.Sprintf("Zones==%d", len(controlPlaneZones))
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description:  `The control plane nodes must be distributed across multiple zones to ensure high availability.`,
+			Expected:     `The control plane nodes must be distributed across multiple zones to ensure high availability.`,
+			Troubleshoot: ``,
+			Action:       `Check the control plane nodes and ensure that the nodes are distributed across multiple zones.`,
+		},
 	})
 	// OpenShift / Infrastructure Object Check
 	checkSum.Checks = append(checkSum.Checks, &Check{
@@ -754,6 +997,14 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			log.Debugf("%s (Platform Type): %s: got=[%s]", prefix, msgDefaultNotMatch, re.Provider.Infra.PlatformType)
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: `The platform type must be supported by the OPCT tool to generate valid and tested reports.
+You can run the conformance tests in different platforms, but the OPCT results is tested with specific platforms, and the
+report is made and calibrated based in the tested platforms.`,
+			Expected:     `The platform type must be supported by the OPCT tool to generate valid and tested reports.`,
+			Troubleshoot: `Review the platform type in the report and check the artifacts generated by the plugin: oc get infrastructure`,
+			Action:       `Check the platform type in the report and ensure that the platform is supported by the OPCT tool.`,
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   CheckIdEmptyValue,
@@ -771,6 +1022,13 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			}
 			res.Name = CheckResultNamePass
 			return res
+		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description:  `The Cluster Version Operator must be available to ensure that the cluster is in a healthy state.`,
+			Expected:     `The Cluster Version Operator must be available to ensure that the cluster is in a healthy state.`,
+			Troubleshoot: `Review the Cluster Version Operator logs and check the artifacts generated by the plugin.`,
+			Action: `Check the Cluster Version Operator logs (click under the test name in the job list). If the cause is undefined, re-run the execution
+and check the logs for errors.`,
 		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
@@ -790,6 +1048,13 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			res.Name = CheckResultNamePass
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description:  `The Cluster condition Failing must be False to ensure that the cluster is in a healthy state.`,
+			Expected:     `The Cluster condition Failing must be False to ensure that the cluster is in a healthy state.`,
+			Troubleshoot: `Review the Cluster condition Failing logs and check the artifacts generated by the plugin.`,
+			Action: `Check the Cluster condition Failing logs (click under the test name in the job list). If the cause is undefined, re-run the execution
+and check the logs for errors.`,
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   CheckIdEmptyValue,
@@ -805,6 +1070,13 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			}
 			res.Name = CheckResultNamePass
 			return res
+		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description:  `The Cluster upgrade must not be Progressing to ensure that the cluster is in a healthy state.`,
+			Expected:     `The Cluster upgrade must not be Progressing to ensure that the cluster is in a healthy state.`,
+			Troubleshoot: `Review the Cluster upgrade logs and check the artifacts generated by the plugin.`,
+			Action: `Check the Cluster upgrade logs (click under the test name in the job list). If the cause is undefined, re-run the execution
+and check the logs for errors.`,
 		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
@@ -822,6 +1094,13 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			res.Name = CheckResultNamePass
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description:  `The Cluster ReleaseAccepted must be True to ensure that the cluster is in a healthy state.`,
+			Expected:     `The Cluster ReleaseAccepted must be True to ensure that the cluster is in a healthy state.`,
+			Troubleshoot: `Review the Cluster ReleaseAccepted logs and check the artifacts generated by the plugin.`,
+			Action: `Check the Cluster ReleaseAccepted logs (click under the test name in the job list). If the cause is undefined, re-run the execution
+and check the logs for errors.`,
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   CheckIdEmptyValue,
@@ -838,6 +1117,13 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			res.Name = CheckResultNamePass
 			return res
 		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description:  `The infrastructure status must have Topology=HighlyAvailable to ensure that the cluster is in a healthy state.`,
+			Expected:     `The infrastructure status must have Topology=HighlyAvailable to ensure that the cluster is in a healthy state.`,
+			Troubleshoot: `Review the infrastructure status logs and check the artifacts generated by the plugin.`,
+			Action: `Check the infrastructure status logs (click under the test name in the job list). If the cause is undefined, re-run the execution
+and check the logs for errors.`,
+		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   CheckIdEmptyValue,
@@ -853,6 +1139,13 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 			}
 			res.Name = CheckResultNamePass
 			return res
+		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description:  `The infrastructure status must have ControlPlaneTopology=HighlyAvailable to ensure that the cluster is in a healthy state.`,
+			Expected:     `The infrastructure status must have ControlPlaneTopology=HighlyAvailable to ensure that the cluster is in a healthy state.`,
+			Troubleshoot: `Review the infrastructure status logs and check the artifacts generated by the plugin.`,
+			Action: `Check the infrastructure status logs (click under the test name in the job list). If the cause is undefined, re-run the execution
+and check the logs for errors.`,
 		},
 	})
 	// TODO(network): podConnectivityChecks must not have outages
@@ -952,4 +1245,73 @@ func (csum *CheckSummary) Run() error {
 		check.Result = check.Test()
 	}
 	return nil
+}
+
+// CheckDocumentationSpec generates the markdown documentation for all rules/checks/SLOs.
+func (csum *CheckSummary) generateDocumentation() string {
+	var doc strings.Builder
+
+	// Create the header
+	doc.WriteString(`# OPCT Review/Check Rules
+
+The OPCT rules are used in the report command to evaluate the data collected by the OPCT execution.
+The HTML report will link directly to the rule ID on this page.
+
+The rule details can be used as an additional resource in the review process.
+
+The acceptance criteria for the rules are based on multiple CI jobs used as a reference to evaluate the expected result.
+If you have any questions about the rules, please file an Issue in the OPCT repository.
+
+## Rules
+___
+
+`)
+
+	// sort csum.Checks by check.ID to ensure the order is consistent. The empty IDs or "--" will be at the end
+	sort.Slice(csum.Checks, func(i, j int) bool {
+		if csum.Checks[i].ID == CheckIdEmptyValue {
+			return false
+		}
+		return csum.Checks[i].ID < csum.Checks[j].ID
+	})
+
+	// Create the documentation for each check
+	for _, check := range csum.Checks {
+		if check.ID == CheckIdEmptyValue {
+			doc.WriteString(fmt.Sprintf("### %s\n\n", check.Name))
+		} else {
+			doc.WriteString(fmt.Sprintf("### %s\n\n", check.ID))
+		}
+		doc.WriteString(fmt.Sprintf("- **Name**: %s\n", check.Name))
+		doc.WriteString(fmt.Sprintf("- **Description**: %s\n", check.DocumentationSpec.Description))
+		doc.WriteString(fmt.Sprintf("- **Action**: %s\n", check.DocumentationSpec.Action))
+		if len(check.DocumentationSpec.Expected) > 0 {
+			doc.WriteString(fmt.Sprintf("- **Expected**:\n%s\n", check.DocumentationSpec.Expected))
+		}
+		if len(check.DocumentationSpec.Troubleshoot) > 0 {
+			doc.WriteString(fmt.Sprintf("- **Troubleshoot**:\n%s\n", check.DocumentationSpec.Troubleshoot))
+		}
+		if len(check.DocumentationSpec.Dependencies) > 0 {
+			var deps strings.Builder
+			for idx, dep := range check.DocumentationSpec.Dependencies {
+				if idx > 0 {
+					deps.WriteString(", ")
+				}
+				deps.WriteString(fmt.Sprintf("[%s](#%s)", dep, strings.ToLower(dep)))
+			}
+			doc.WriteString(fmt.Sprintf("- **Dependencies**: %s\n", deps.String()))
+		}
+		doc.WriteString("\n")
+	}
+
+	doc.WriteString("___\n")
+	doc.WriteString(`*<p style='text-align:center;'>Page generated automatically by <code>opct adm generate checks-docs</code></p>*`)
+
+	return doc.String()
+}
+
+// WriteDocumentation writes the documentation to the provided path.
+func (csum *CheckSummary) WriteDocumentation(docPath string) error {
+	doc := csum.generateDocumentation()
+	return os.WriteFile(docPath, []byte(doc), 0644)
 }
