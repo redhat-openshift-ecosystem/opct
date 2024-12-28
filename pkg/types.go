@@ -19,9 +19,9 @@ const (
 	SonobuoyLabelComponentName     = "component"
 	SonobuoyLabelComponentValue    = "sonobuoy"
 	DefaultToolsRepository         = "quay.io/opct"
-	PluginsImage                   = "plugin-openshift-tests:v0.5.0"
-	CollectorImage                 = "plugin-artifacts-collector:v0.5.0"
-	MustGatherMonitoringImage      = "must-gather-monitoring:v0.5.0"
+	PluginsImage                   = "plugin-openshift-tests:v0.5.1"
+	CollectorImage                 = "plugin-artifacts-collector:v0.5.1"
+	MustGatherMonitoringImage      = "must-gather-monitoring:v0.5.1"
 	OpenShiftTestsImage            = "image-registry.openshift-image-registry.svc:5000/openshift/tests"
 )
 
