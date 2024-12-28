@@ -5,7 +5,7 @@ package version
 import (
 	"fmt"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
+	"github.com/redhat-openshift-ecosystem/opct/pkg"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/sonobuoy/pkg/buildinfo"
 )

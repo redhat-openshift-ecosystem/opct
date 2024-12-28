@@ -27,7 +27,7 @@ first_commit=$(git rev-list --max-parents=0 HEAD)
 init_release=$first_commit
 for rel in "${releases[@]}"; do
     ch_file=$chagelog_dir/$rel.md
-    echo -e "\n## [$rel](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/releases/tag/$rel)" > "$ch_file"
+    echo -e "\n## [$rel](https://github.com/redhat-openshift-ecosystem/opct/releases/tag/$rel)" > "$ch_file"
     echo -e "\n### OPCT\n" >> "$ch_file"
 
     # read the git log with changes between releases (from/to)
@@ -35,7 +35,7 @@ for rel in "${releases[@]}"; do
     while read -r line
     do
         commit="$(echo "$line" | awk '{print$1}')"
-        commit_url="[$commit](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/commit/$commit)"
+        commit_url="[$commit](https://github.com/redhat-openshift-ecosystem/opct/commit/$commit)"
         line="${line#"$commit"}"
         jira_card=$(echo "$line" | grep -Po '(OPCT-\d+)' || true)
         if [ -n "${jira_card-}" ] ; then
@@ -45,7 +45,7 @@ for rel in "${releases[@]}"; do
         # lookup for PR number (#{\d+}) in the commit name
         pr_id=$(echo "$line" | grep -Po '#\d+' || true)
         if [ -n "${pr_id-}" ] ; then
-            line=$(echo "$line" | sed "s/$pr_id/\[$pr_id\]\(https\:\/\/github.com\/redhat-openshift-ecosystem\/provider-certification-tool\/pull\/${pr_id#\#}\)/")
+            line=$(echo "$line" | sed "s/$pr_id/\[$pr_id\]\(https\:\/\/github.com\/redhat-openshift-ecosystem\/opct\/pull\/${pr_id#\#}\)/")
         fi
         echo -e "- $commit_url - ${line}" >> "$ch_file"
     done
@@ -65,7 +65,7 @@ git log --pretty=oneline --abbrev-commit --no-decorate --no-color "$init_release
 while read -r line
 do
     commit="$(echo $line | awk '{print$1}')"
-    commit_url="[$commit](https://github.com/redhat-openshift-ecosystem/provider-certification-tool/commit/$commit)"
+    commit_url="[$commit](https://github.com/redhat-openshift-ecosystem/opct/commit/$commit)"
     line="${line#"$commit"}"
     jira_card=$(echo $line | grep -Po '(OPCT-\d+)' || true)
     if [ -n "${jira_card-}" ] ; then
@@ -73,7 +73,7 @@ do
     fi
     pr_id=$(echo $line | grep -Po '#\d+' || true)
     if [ -n "${pr_id-}" ] ; then
-        line=$(echo $line | sed "s/$pr_id/\[$pr_id\]\(https\:\/\/github.com\/redhat-openshift-ecosystem\/provider-certification-tool\/pull\/${pr_id#\#}\)/")
+        line=$(echo $line | sed "s/$pr_id/\[$pr_id\]\(https\:\/\/github.com\/redhat-openshift-ecosystem\/opct\/pull\/${pr_id#\#}\)/")
     fi
     echo -e "- $commit_url - ${line}" >> "$ch_file"
 done

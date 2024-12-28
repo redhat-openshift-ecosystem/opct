@@ -12,7 +12,7 @@ import (
 	irclient "github.com/openshift/client-go/imageregistry/clientset/versioned"
 	mcfgclientset "github.com/openshift/client-go/machineconfiguration/clientset/versioned"
 	"github.com/pkg/errors"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/version"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vmware-tanzu/sonobuoy/pkg/buildinfo"
@@ -22,10 +22,10 @@ import (
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/manifest"
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/client"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/status"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/wait"
+	"github.com/redhat-openshift-ecosystem/opct/pkg"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/client"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/status"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/wait"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +40,7 @@ type RunOptions struct {
 	imageRepository string
 
 	// PluginsImage
-	// defines the image containing plugins associated with the provider-certification-tool.
+	// defines the image containing plugins associated with the opct.
 	// this variable is referenced by plugin manifest templates to dynamically reference the plugins image.
 	PluginsImage              string
 	CollectorImage            string

@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	opcttests "github.com/redhat-openshift-ecosystem/provider-certification-tool/test"
+	opcttests "github.com/redhat-openshift-ecosystem/opct/test"
 )
 
 func TestParseMetaLogs(t *testing.T) {

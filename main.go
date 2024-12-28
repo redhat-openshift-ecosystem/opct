@@ -3,8 +3,8 @@ package main
 import (
 	"embed"
 
-	cmd "github.com/redhat-openshift-ecosystem/provider-certification-tool/cmd/opct"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/assets"
+	cmd "github.com/redhat-openshift-ecosystem/opct/cmd/opct"
+	"github.com/redhat-openshift-ecosystem/opct/internal/assets"
 )
 
 //go:embed data/templates

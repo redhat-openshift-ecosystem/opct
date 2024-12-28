@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/archive"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
 )
 
 const (

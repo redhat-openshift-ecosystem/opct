@@ -14,10 +14,10 @@ import (
 
 	table "github.com/jedib0t/go-pretty/v6/table"
 	tabletext "github.com/jedib0t/go-pretty/v6/text"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/metrics"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/plugin"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/summary"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/report"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/metrics"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/summary"
+	"github.com/redhat-openshift-ecosystem/opct/internal/report"
 	log "github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/sonobuoy/pkg/errlog"
 )

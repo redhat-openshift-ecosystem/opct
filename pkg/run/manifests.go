@@ -5,7 +5,7 @@ import (
 	"text/template"
 
 	"github.com/pkg/errors"
-	efs "github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/assets"
+	efs "github.com/redhat-openshift-ecosystem/opct/internal/assets"
 	log "github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/loader"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/manifest"

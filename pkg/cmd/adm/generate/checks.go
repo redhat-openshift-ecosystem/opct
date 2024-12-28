@@ -1,7 +1,7 @@
 package generate
 
 import (
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/report"
+	"github.com/redhat-openshift-ecosystem/opct/internal/report"
 	"github.com/spf13/cobra"
 )
 

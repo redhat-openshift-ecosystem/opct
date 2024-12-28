@@ -1,4 +1,4 @@
-module github.com/redhat-openshift-ecosystem/provider-certification-tool
+module github.com/redhat-openshift-ecosystem/opct
 
 go 1.23
 

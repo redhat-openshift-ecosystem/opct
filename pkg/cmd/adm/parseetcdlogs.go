@@ -12,8 +12,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/archive"
-	mg "github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/openshift/mustgather"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
+	mg "github.com/redhat-openshift-ecosystem/opct/internal/openshift/mustgather"
 	"github.com/spf13/cobra"
 )
 

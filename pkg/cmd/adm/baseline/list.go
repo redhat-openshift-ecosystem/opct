@@ -5,7 +5,7 @@ import (
 	"os"
 	"sort"
 
-	reb "github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/report/baseline"
+	reb "github.com/redhat-openshift-ecosystem/opct/internal/report/baseline"
 
 	table "github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"

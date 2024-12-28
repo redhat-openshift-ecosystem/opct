@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/client"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/client"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"

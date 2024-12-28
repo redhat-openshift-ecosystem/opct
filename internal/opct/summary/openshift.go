@@ -8,7 +8,7 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/pkg/errors"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/plugin"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
 	v1 "k8s.io/api/core/v1"
 )
 

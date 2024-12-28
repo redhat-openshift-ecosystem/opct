@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/archive"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/openshift/ci/sippy"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
+	"github.com/redhat-openshift-ecosystem/opct/internal/openshift/ci/sippy"
 )
 
 // TestItem represents a single test unit holding attributes for the processor

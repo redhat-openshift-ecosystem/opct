@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/openshift/mustgathermetrics"
+	"github.com/redhat-openshift-ecosystem/opct/internal/openshift/mustgathermetrics"
 )
 
 type parseMetricsInput struct {

@@ -65,7 +65,7 @@ sonobuoy-config:
     OPCT plugin to collect e2e failures from previous executions and
     schedule a new execution running in serial mode with openshift-tests.
   source-url: |
-    https://github.com/redhat-openshift-ecosystem/provider-certification-tool/\
+    https://github.com/redhat-openshift-ecosystem/opct/\
     blob/main/manifests/openshift-conformance-validated.yaml
   skipCleanup: true
 spec:

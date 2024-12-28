@@ -2,7 +2,7 @@
 FROM docker.io/golang:1.23-alpine AS builder
 ARG RELEASE_TAG
 RUN apk add --no-cache --update make git
-WORKDIR /go/src/github.com/redhat-openshift-ecosystem/provider-certification-tool
+WORKDIR /go/src/github.com/redhat-openshift-ecosystem/opct
 COPY . .
 RUN make build-linux-amd64 RELEASE_TAG=${RELEASE_TAG}
 
@@ -13,7 +13,7 @@ LABEL io.k8s.display-name="OPCT" \
       io.opct.os="linux" io.opct.arch="amd64"
 
 COPY --from=builder \
-      /go/src/github.com/redhat-openshift-ecosystem/provider-certification-tool/build/opct-linux-amd64 \
+      /go/src/github.com/redhat-openshift-ecosystem/opct/build/opct-linux-amd64 \
       /usr/bin/opct
 
 CMD ["/usr/bin/opct"]

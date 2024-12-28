@@ -65,7 +65,7 @@ sonobuoy-config:
     OPCT plugin to schedule e2e tests using openshift-tests tool to validate
     an OpenShift Container Platform cluster installed in a specific provider.
   source-url:
-    "https://github.com/redhat-openshift-ecosystem/provider-certification-tool/\
+    "https://github.com/redhat-openshift-ecosystem/opct/\
     blob/main/manifests/openshift-conformance-validated.yaml"
   skipCleanup: true
 spec:

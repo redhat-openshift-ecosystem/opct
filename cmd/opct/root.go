@@ -11,14 +11,14 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vmware-tanzu/sonobuoy/cmd/sonobuoy/app"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/cmd/adm"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/cmd/get"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/cmd/report"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/destroy"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/retrieve"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/run"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/status"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/cmd/adm"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/cmd/get"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/cmd/report"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/destroy"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/retrieve"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/run"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/status"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/version"
 )
 
 const logFile = "opct.log"

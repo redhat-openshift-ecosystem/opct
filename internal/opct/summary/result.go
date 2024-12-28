@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/archive"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/plugin"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/openshift/mustgather"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/openshift/mustgathermetrics"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
+	"github.com/redhat-openshift-ecosystem/opct/internal/openshift/mustgather"
+	"github.com/redhat-openshift-ecosystem/opct/internal/openshift/mustgathermetrics"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 

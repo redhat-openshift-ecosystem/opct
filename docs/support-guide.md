@@ -53,7 +53,7 @@ pip3 install o-must-gather --user
 
 ### Download Baseline CI results <a name="setup-download-baseline"></a>
 
-The OPCT run periodically ([source code](https://github.com/openshift/release/blob/master/ci-operator/jobs/redhat-openshift-ecosystem/provider-certification-tool/redhat-openshift-ecosystem-provider-certification-tool-main-periodics.yaml)) in OpenShift CI using the latest stable release of OpenShift.
+The OPCT run periodically ([source code](https://github.com/openshift/release/blob/master/ci-operator/jobs/redhat-openshift-ecosystem/opct/redhat-openshift-ecosystem-provider-certification-tool-main-periodics.yaml)) in OpenShift CI using the latest stable release of OpenShift.
 These baseline results are stored long-term in an AWS S3 bucket (`s3://openshift-provider-certification/baseline-results`). An HTML listing can be found [here](https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html).
 These baseline results should be used as a reference when reviewing a partner's conformance results.
 

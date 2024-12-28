@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	watchtools "k8s.io/client-go/tools/watch"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
+	"github.com/redhat-openshift-ecosystem/opct/pkg"
 )
 
 // WaitForRequiredResources will wait for the sonobuoy pod in the sonobuoy namespace to go into

@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"testing"
 
-	opcttests "github.com/redhat-openshift-ecosystem/provider-certification-tool/test"
+	opcttests "github.com/redhat-openshift-ecosystem/opct/test"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

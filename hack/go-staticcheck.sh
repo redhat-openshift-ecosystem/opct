@@ -7,8 +7,8 @@ if [ "$IS_CONTAINER" != "" ]; then
 else
   podman run --rm \
     --env IS_CONTAINER=TRUE \
-    --volume "${PWD}:/go/src/github.com/redhat-openshift-ecosystem/provider-certification-tool:z" \
-    --workdir /go/src/github.com/redhat-openshift-ecosystem/provider-certification-tool \
+    --volume "${PWD}:/go/src/github.com/redhat-openshift-ecosystem/opct:z" \
+    --workdir /go/src/github.com/redhat-openshift-ecosystem/opct \
     docker.io/golang:1.19 \
     ./hack/go-staticcheck.sh "${@}"
 fi

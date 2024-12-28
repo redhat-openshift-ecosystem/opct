@@ -1,8 +1,8 @@
 package adm
 
 import (
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/cmd/adm/baseline"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/cmd/adm/generate"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/cmd/adm/baseline"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/cmd/adm/generate"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

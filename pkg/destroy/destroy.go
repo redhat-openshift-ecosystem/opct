@@ -11,8 +11,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/client"
+	"github.com/redhat-openshift-ecosystem/opct/pkg"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/client"
 )
 
 const (

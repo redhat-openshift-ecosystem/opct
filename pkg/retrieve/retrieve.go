@@ -15,9 +15,9 @@ import (
 	config2 "github.com/vmware-tanzu/sonobuoy/pkg/config"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/cleaner"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/status"
+	"github.com/redhat-openshift-ecosystem/opct/internal/cleaner"
+	"github.com/redhat-openshift-ecosystem/opct/pkg"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/status"
 )
 
 func NewCmdRetrieve() *cobra.Command {

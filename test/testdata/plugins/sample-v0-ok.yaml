@@ -36,7 +36,7 @@ sonobuoy-config:
   plugin-name: 99-openshift-artifacts-collector
   result-format: raw
   description: The OpenShift Provider Certification Tool artifacts collector executed on the post-certification.
-  source-url: https://github.com/redhat-openshift-ecosystem/provider-certification-tool/blob/main/manifests/openshift-artifacts-collector.yaml
+  source-url: https://github.com/redhat-openshift-ecosystem/opct/blob/main/manifests/openshift-artifacts-collector.yaml
   skipCleanup: true
 spec:
   name: plugin

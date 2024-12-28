@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"testing"
 
-	opcttests "github.com/redhat-openshift-ecosystem/provider-certification-tool/test"
+	opcttests "github.com/redhat-openshift-ecosystem/opct/test"
 )
 
 var testDataMetaConfig MetaConfigSonobuoy

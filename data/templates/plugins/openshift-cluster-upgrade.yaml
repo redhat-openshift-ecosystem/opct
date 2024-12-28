@@ -65,7 +65,7 @@ sonobuoy-config:
     The end-to-end tests maintained by OpenShift to validate provider
     running the OpenShift Container Platform.
   source-url:
-    "https://github.com/redhat-openshift-ecosystem/provider-certification-tool/\
+    "https://github.com/redhat-openshift-ecosystem/opct/\
     blob/main/manifests/openshift-conformance-validated.yaml"
   skipCleanup: true
 spec:

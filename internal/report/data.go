@@ -13,12 +13,12 @@ import (
 	"sort"
 	"strings"
 
-	vfs "github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/assets"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/archive"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/metrics"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/plugin"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/summary"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/openshift/mustgather"
+	vfs "github.com/redhat-openshift-ecosystem/opct/internal/assets"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/metrics"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/summary"
+	"github.com/redhat-openshift-ecosystem/opct/internal/openshift/mustgather"
 	log "github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/sonobuoy/pkg/discovery"
 )

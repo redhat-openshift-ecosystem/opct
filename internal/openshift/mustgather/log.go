@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/archive"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
 	log "github.com/sirupsen/logrus"
 )
 

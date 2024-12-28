@@ -14,8 +14,8 @@ import (
 	wait2 "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/client"
+	"github.com/redhat-openshift-ecosystem/opct/pkg"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/client"
 )
 
 const (

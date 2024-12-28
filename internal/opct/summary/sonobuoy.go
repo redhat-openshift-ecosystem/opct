@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/archive"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
 	"github.com/vmware-tanzu/sonobuoy/pkg/discovery"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/manifest"
 	v1 "k8s.io/api/core/v1"

@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/metrics"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/summary"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/report"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/report/baseline"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/metrics"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/summary"
+	"github.com/redhat-openshift-ecosystem/opct/internal/report"
+	"github.com/redhat-openshift-ecosystem/opct/internal/report/baseline"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

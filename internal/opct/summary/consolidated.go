@@ -14,10 +14,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/metrics"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/plugin"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/openshift/ci/sippy"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/report/baseline"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/metrics"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
+	"github.com/redhat-openshift-ecosystem/opct/internal/openshift/ci/sippy"
+	"github.com/redhat-openshift-ecosystem/opct/internal/report/baseline"
 )
 
 // ConsolidatedSummary Aggregate the results of provider and baseline

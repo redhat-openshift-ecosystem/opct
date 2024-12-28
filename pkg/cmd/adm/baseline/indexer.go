@@ -5,7 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	reb "github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/report/baseline"
+	reb "github.com/redhat-openshift-ecosystem/opct/internal/report/baseline"
 	"github.com/spf13/cobra"
 )
 

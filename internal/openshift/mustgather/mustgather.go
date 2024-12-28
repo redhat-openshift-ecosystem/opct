@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/archive"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 	"k8s.io/utils/ptr"

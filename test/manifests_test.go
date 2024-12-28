@@ -4,8 +4,8 @@ import (
 	"embed"
 	"testing"
 
-	efs "github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/assets"
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/run"
+	efs "github.com/redhat-openshift-ecosystem/opct/internal/assets"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/run"
 	"github.com/stretchr/testify/assert"
 )
 

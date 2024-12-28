@@ -10,7 +10,7 @@ VERSION=$(shell git rev-parse --short HEAD)
 RELEASE_TAG ?= 0.0.0
 BIN_NAME ?= opct
 
-GO_BUILD_FLAGS := -ldflags '-s -w -X github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version.commit=$(VERSION) -X github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/version.version=$(RELEASE_TAG)'
+GO_BUILD_FLAGS := -ldflags '-s -w -X github.com/redhat-openshift-ecosystem/opct/pkg/version.commit=$(VERSION) -X github.com/redhat-openshift-ecosystem/opct/pkg/version.version=$(RELEASE_TAG)'
 GOOS ?= linux
 GOARCH ?= amd64
 

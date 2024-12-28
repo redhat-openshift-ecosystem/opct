@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/opct/plugin"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -134,7 +134,7 @@ func NewCheckSummary(re *ReportData) *CheckSummary {
 	msgDefaultNotMatch := "default value does not match the acceptance criteria"
 	// Developer environment:
 	// $ mkdocs serve
-	// $ export OPCT_DEV_BASE_URL_DOC="http://127.0.0.1:8000/provider-certification-tool"
+	// $ export OPCT_DEV_BASE_URL_DOC="http://127.0.0.1:8000/opct"
 	localDevBaseURL := os.Getenv("OPCT_DEV_BASE_URL_DOC")
 	if localDevBaseURL != "" {
 		baseURL = localDevBaseURL

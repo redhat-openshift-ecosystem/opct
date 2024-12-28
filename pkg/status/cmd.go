@@ -1,7 +1,7 @@
 package status
 
 import (
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/pkg/wait"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/wait"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

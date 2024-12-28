@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/cleaner"
+	"github.com/redhat-openshift-ecosystem/opct/internal/cleaner"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

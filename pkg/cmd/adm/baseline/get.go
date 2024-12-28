@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/report"
-	reb "github.com/redhat-openshift-ecosystem/provider-certification-tool/internal/report/baseline"
+	"github.com/redhat-openshift-ecosystem/opct/internal/report"
+	reb "github.com/redhat-openshift-ecosystem/opct/internal/report/baseline"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
