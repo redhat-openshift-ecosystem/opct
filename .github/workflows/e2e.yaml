@@ -12,6 +12,7 @@ permissions:
 env:
   GO_VERSION: 1.22
   GOLANGCI_LINT_VERSION: v1.59
+  TEST_DATA_URL: "https://d23912a6309zf7.cloudfront.net/ci"
 
 jobs:
   e2e-cmd_report:
@@ -26,18 +27,13 @@ jobs:
 
       - name: Running report
         env:
-          BUCKET: openshift-provider-certification
-          REGION: us-west-2
-          OPCT_MODE: v0.4.0/default
-          EXEC_MODE: default
           ARTIFACT: 4.15.0-20240228-HighlyAvailable-vsphere-None.tar.gz
           OPCT: /tmp/build/opct-linux-amd64
         run: |
-          URI=${OPCT_MODE}/${ARTIFACT}
-          URL=https://${BUCKET}.s3.${REGION}.amazonaws.com/${URI}
+          TEST_URL=${TEST_DATA_URL}/${ARTIFACT}
 
-          echo "> Downloading sample artifact: ${URL}"
-          wget -qO /tmp/result.tar.gz "${URL}"
+          echo "> Downloading sample artifact: ${TEST_URL}"
+          wget -qO /tmp/result.tar.gz "${TEST_URL}"
 
           echo "> Setting run permissions to OPCT:"
           chmod u+x ${OPCT}
@@ -64,16 +60,14 @@ jobs:
 
       - name: Preparing testdata
         env:
-          BUCKET: openshift-provider-certification
-          REGION: us-west-2
-          VERSION: "testdata/must-gather-etcd-logs.tar.gz"
+          ARTIFACT: "must-gather-etcd-logs.tar.gz"
           CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
           LOCAL_TEST_DATA: /tmp/must-gather.tar.gz
           LOCAL_TEST_DATA_DIR: /tmp/must-gather
         run: |
-          URL=https://${BUCKET}.s3.${REGION}.amazonaws.com
-          echo "> Downloading sample artifact: ${URL}/${VERSION}"
-          wget -qO ${LOCAL_TEST_DATA} "${URL}/${VERSION}"
+          TEST_URL=${TEST_DATA_URL}/${ARTIFACT}
+          echo "> Downloading sample artifact: ${TEST_URL}"
+          wget -qO ${LOCAL_TEST_DATA} "${TEST_URL}"
 
           echo "> Setting run permissions to OPCT:"
           chmod u+x ${CUSTOM_BUILD_PATH}
@@ -130,17 +124,15 @@ jobs:
 
       - name: Preparing testdata
         env:
-          BUCKET: openshift-provider-certification
-          REGION: us-west-2
-          PREFIX: testdata/ci-external-aws-ccm_
+          PREFIX: ci-external-aws-ccm_
           VERSION: 1757495441294888960-artifacts_must-gather-metrics.tar.xz
           CUSTOM_BUILD_PATH: /tmp/build/opct-linux-amd64
           LOCAL_TEST_DATA: /tmp/opct-metrics.tar.xz
         run: |
-          DATA_VERSION=${PREFIX}${VERSION}
-          URL=https://${BUCKET}.s3.${REGION}.amazonaws.com
-          echo "> Downloading sample artifact: ${URL}/${DATA_VERSION}"
-          wget -qO ${LOCAL_TEST_DATA} "${URL}/${DATA_VERSION}"
+          ARTIFACT=${PREFIX}${VERSION}
+          TEST_URL=${TEST_DATA_URL}/${ARTIFACT}
+          echo "> Downloading sample artifact: ${TEST_URL}"
+          wget -qO ${LOCAL_TEST_DATA} "${TEST_URL}"
 
           echo "> Setting exec permissions to OPCT:"
           chmod u+x ${CUSTOM_BUILD_PATH}
