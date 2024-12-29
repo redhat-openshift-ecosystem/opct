@@ -1179,7 +1179,7 @@ and check the logs for errors.`,
 	// Create docs reference when ID is set
 	for c := range checkSum.Checks {
 		if checkSum.Checks[c].ID != CheckIdEmptyValue {
-			checkSum.Checks[c].Documentation = fmt.Sprintf("%s/#%s", checkSum.baseURL, checkSum.Checks[c].ID)
+			checkSum.Checks[c].Documentation = fmt.Sprintf("%s/#%s", checkSum.baseURL, strings.ToLower(checkSum.Checks[c].ID))
 		}
 	}
 	return checkSum
