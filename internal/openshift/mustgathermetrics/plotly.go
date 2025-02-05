@@ -89,9 +89,8 @@ func (cpp *ChartPagePlotly) RenderPage() error {
 	indexChartsMap := []map[string]string{}
 	validDivIds := []string{}
 	for k := range cpp.Charts {
-		err := cpp.processMetricV2(k)
-		if err != nil {
-			log.Error(err)
+		if err := cpp.processMetricV2(k); err != nil {
+			log.Debug(err)
 			continue
 		}
 		if cpp.Charts[k].DivId != "" {
@@ -213,7 +212,7 @@ func (cpp *ChartPagePlotly) processMetricV2(name string) error {
 	}
 
 	if len(data) == 0 {
-		return fmt.Errorf("no valid data for metric %s", name)
+		return fmt.Errorf("error processing metric: no valid data for %q", name)
 	}
 
 	// create table with rows by label
