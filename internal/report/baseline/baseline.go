@@ -158,7 +158,7 @@ func (brs *BaselineConfig) ReadReportSummaryFromAPI(path string) ([]byte, error)
 // service, trying to get the latest summary from the specified platform, and fallback to "None",
 // and "AWS", when available.
 func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpRelease, platformType string) error {
-	var lastError error
+	var errors []error
 	errCount := 0
 	evaluatePaths := []string{
 		fmt.Sprintf("/result/summary/%s_%s_latest.json", ocpRelease, platformType),
@@ -173,8 +173,7 @@ func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpReleas
 		}
 		body, err := brs.ReadReportSummaryFromAPI(path)
 		if err != nil {
-			// skip error and try the next path
-			lastError = fmt.Errorf("error loading BaselineAPI: %v", err)
+			errors = append(errors, fmt.Errorf("error loading BaselineAPI path %s: %v", path, err))
 			errCount++
 			continue
 		}
@@ -182,7 +181,11 @@ func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpReleas
 		brs.buffer.SetRawData(body)
 		return nil
 	}
-	return lastError
+	// We don't want to block this flow when checking the baseline while processing the report.
+	if len(errors) > 0 {
+		log.Debugf("Found one or more errors while querying baseline API: %v", errors)
+	}
+	return nil
 }
 
 // GetLatestSummaryByPlatform reads the latest summary report from the OPCT report service, trying to
