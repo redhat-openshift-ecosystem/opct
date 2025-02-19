@@ -48,7 +48,7 @@ Create images to test locally:
 make images
 ```
 
-To build images individually, you can use, for example to a single arch:
+To build images individually, you can use, for example for a single arch:
 
 ```sh
 PLATFORMS=linux/amd64 make build-plugin-tests
@@ -56,8 +56,8 @@ PLATFORMS=linux/amd64 make build-plugin-tests
 
 Take a look into individual targets for each program in the [Makefile](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/Makefile).
 
-The script responsible to build images locally is [`build.sh`](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/build.sh),
-get started there if you want to explore more about the build pipeline.
+The script responsible to build images locally is [`build.sh`](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/build.sh).
+Get started there if you want to explore more about the build pipeline.
 
 #### Production builds
 

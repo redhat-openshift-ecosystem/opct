@@ -1,16 +1,16 @@
 # OPCT Devel Guide - Architecture support
 
-OPCT projects are split into different components, each
-component has its build process and dependencies.
+OPCT projects are split into different components. Each
+component has its own build process and dependencies.
 
-OPCT is splitted into two main components:
+OPCT is divided into two main components:
 - OPCT CLI: client side application to provision the test environment, collect, and generate report.
 - Test environment: a group of tools running in server-side, target OpenShift cluster,
   which is limited to architectures supported by OPCT
 
-The next steps describes how to explore hacking building the components,
-we advose to follow this guide only if are looking how to create support of new architectures,
-or are curious to learn how the components are packed.
+The next steps will describe how to explore building the components,
+we advise that this guide be followed only if support for a new architecture is added,
+or you are curious to learn how the components are packed.
 
 ## Client
 
@@ -24,7 +24,7 @@ The client (OPCT CLI) is built in the following platforms:
 
 ### Adding support to a new platform
 
-The OPCT command line interface is built in Go language, to add support to a new OS/architecture
+The OPCT command line interface is built in Go language. To add support for a new OS/architecture
 you need to:
 
 - 1) Check if the Go toolchain used by [the project][go-mod] can build to the target architecture:

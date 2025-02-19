@@ -1,7 +1,6 @@
 # Validating OpenShift installation with ARM
 
-This guide describe how to install an OpenShift cluster on AWS on instances with ARM64 architecture,
-then run the validation tests with OPCT.
+This guide describe how to install an OpenShift cluster on AWS on instances with ARM64 architecture and run the validation tests with OPCT.
 
 This is a reference guide, not an official documentation of installing OpenShift on AWS on
 ARM64 architecture.
