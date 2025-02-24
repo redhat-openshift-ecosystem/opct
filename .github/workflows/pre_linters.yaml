@@ -16,9 +16,9 @@ permissions:
   checks: write
 
 env:
-  GO_VERSION: 1.22
-  GOLANGCI_LINT_VERSION: v1.59
-  STATIC_CHECK_VERSION: 2023.1.7
+  GO_VERSION: 1.23
+  GOLANGCI_LINT_VERSION: v1.64
+  STATIC_CHECK_VERSION: 2025.1
 
 jobs:
   # shell:

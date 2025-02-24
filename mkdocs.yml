@@ -43,6 +43,8 @@ nav:
     - OPCT Rules: review/rules.md
   - Developer Guides:
     - Development Guide: dev.md
+    - Release Guide: dev/release.md
+    - Update Guide: dev/update.md
     - Diagrams:
       - diagrams/index.md
       - diagrams/opct-sequence.md
