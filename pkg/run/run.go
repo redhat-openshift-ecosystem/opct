@@ -248,10 +248,9 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 			return errors.Wrap(err, "error getting the Node list")
 		}
 		if len(nodes.Items) == 0 {
-			errMsg := fmt.Sprintf("missing dedicated node. Set the label %q to a node and try again", pkg.DedicatedNodeRoleLabelSelector)
-			errMsg = fmt.Sprintf("%s\nCheck the documentation[1] or run 'opct adm setup-node' to set the label and taints", errMsg)
-			errMsg = fmt.Sprintf("%s\n[1] https://redhat-openshift-ecosystem.github.io/provider-certification-tool/user/#standard-env-setup-node", errMsg)
-			return fmt.Errorf(errMsg)
+			return fmt.Errorf(`missing dedicated node. Set the label %q to a node and try again
+Check the documentation[1] or run 'opct adm setup-node' to set the label and taints.
+[1] https://redhat-openshift-ecosystem.github.io/provider-certification-tool/user/#standard-env-setup-node`, pkg.DedicatedNodeRoleLabelSelector)
 		}
 		if len(nodes.Items) > 2 {
 			return fmt.Errorf("too many nodes with label %q. Set the label to only one node and try again", pkg.DedicatedNodeRoleLabelSelector)

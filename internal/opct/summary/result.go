@@ -516,7 +516,7 @@ func (rs *ResultSummary) extractAndLoadData() error {
 			log.Error("Processing results/Populating/Populating Summary/Processing/MetricsData: Not Found")
 		}
 		// extract install-config
-		if kubeSystemConfigMapList.Items != nil && len(kubeSystemConfigMapList.Items) > 0 {
+		if len(kubeSystemConfigMapList.Items) > 0 {
 			for _, config := range kubeSystemConfigMapList.Items {
 				if config.ObjectMeta.Name == "cluster-config-v1" {
 					dest := fmt.Sprintf("%s/install-config.txt", rs.SavePath)

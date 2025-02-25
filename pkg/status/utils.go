@@ -27,7 +27,7 @@ func getPluginPod(kclient kubernetes.Interface, namespace string, pluginPodName 
 	switch {
 	case len(podList.Items) == 0:
 		log.Warnf("no pods found with label %q in namespace %s", labelSelector, namespace)
-		return nil, fmt.Errorf(fmt.Sprintf("no pods found with label %q in namespace %s", labelSelector, namespace))
+		return nil, fmt.Errorf("no pods found with label %q in namespace %s", labelSelector, namespace)
 
 	case len(podList.Items) > 1:
 		log.Warnf("Found more than one pod with label %q. Using pod with name %q", labelSelector, podList.Items[0].GetName())
