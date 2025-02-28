@@ -59,7 +59,7 @@ func runGetImages(cmd *cobra.Command, args []string) {
 	if options.ToRepository == "" {
 		images = append(images, img_e2epause)
 	} else {
-		to := fmt.Sprintf("%s/%s", options.ToRepository, "ocp-cert:e2e-28-registry-k8s-io-pause-3-8-aP7uYsw5XCmoDy5W")
+		to := fmt.Sprintf("%s/%s", options.ToRepository, "opct:e2e-28-registry-k8s-io-pause-3-8-aP7uYsw5XCmoDy5W")
 		images = append(images, fmt.Sprintf("%s %s", img_e2epause, to))
 	}
 

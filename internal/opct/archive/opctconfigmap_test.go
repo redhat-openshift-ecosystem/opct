@@ -79,7 +79,7 @@ func TestParseOpctConfig(t *testing.T) {
 				},
 				{
 					Name:   "sonobuoy-image",
-					Value:  "quay.io/ocp-cert/sonobuoy:v0.56.10",
+					Value:  "quay.io/opct/sonobuoy:v0.56.10",
 					Config: "openshift-provider-certification-version",
 				},
 				{
