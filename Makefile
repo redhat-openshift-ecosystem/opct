@@ -94,9 +94,13 @@ vet:
 clean:
 	rm -rvf ./build/ ./openshift-provider-cert-* ./opct-*
 
-# For dependencies, see:
+
+#
+# Documentation
+#
+# See also:
 # .github/workflows/static-website.yml
-# hack/docs-requirements.txt
+# docs/requirements.txt
 
 .PHONY: build-changelog
 build-changelog:
@@ -106,6 +110,9 @@ build-changelog:
 build-docs: build-changelog
 	mkdocs build --site-dir ./site
 
+#
+# Mirror Sonobuoy aggregator server
+#
 .PHONY: image-mirror-sonobuoy
 image-mirror-sonobuoy:
 	./hack/image-mirror-sonobuoy/mirror.sh
