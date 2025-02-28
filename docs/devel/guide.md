@@ -22,7 +22,7 @@ which is run when tags are created. Tags should follow the [Semantic Versioning 
 
 Tags should only be created from the `main` branch which only accepts pull-requests that pass through [this CI GitHub Action](https://github.com/redhat-openshift-ecosystem/opct/blob/main/.github/workflows/go.yaml).
 
-The container image for CLI is automatically published to the container registry [`quay.io/ocp-cert/opct`](https://quay.io/repository/ocp-cert/opct?tab=tags) by Github Action job `Build Container and Release to Quay` every new release.
+The container image for CLI is automatically published to the container registry [`quay.io/opct/opct`](https://quay.io/repository/opct/opct?tab=tags) by Github Action job `Build Container and Release to Quay` every new release.
 
 Note that any version in v0.* will be considered part of the **preview release** of the tool.
 
@@ -30,13 +30,13 @@ Release process checklist:
 
 - Make sure the base image has Security issues on Quay Security Scan. Steps to check:
     - Build a "dev tag" for Plugin image: `cd openshift-tests-provider-cert && make build-dev`
-    - Check the Security Scan results on https://quay.io/repository/ocp-cert/openshift-tests-provider-cert?tab=tags
+    - Check the Security Scan results on https://quay.io/repository/opct/opct?tab=tags
         - if there is security scan needed to fix on the base image, you must build the base image and tools image with the following steps:
         - 1. bump the version with fixes on the base image. Example: [provider-certification-plugins#41](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/pull/41)
         - 2. build the tools image: `./hack/build-image.sh build-tools`
-        - 3. push the tools image:  `podman push quay.io/ocp-cert/tools:v0.0.0-<the version>`
+        - 3. push the tools image:  `podman push quay.io/opct/tools:v0.0.0-<the version>`
         - 4. check security scan results
-        - 5. if success, promote to latest: `podman push quay.io/ocp-cert/tools:latest`
+        - 5. if success, promote to latest: `podman push quay.io/opct/tools:latest`
         - 6. rebuild the plugins image with new base
     - Build a "dev tag" for CLI image:
         - `make linux-amd64-container IMG=quay.io/my-user/opct`
@@ -209,24 +209,7 @@ The diagram visualizing the filters is available on draw.io, stored on the share
 
 ## Running Customized Plugins <a name="dev-running-custom-plugins"></a>
 
-In some situations, you may need to modify the plugins that are run by the OPCT.
-Running the OPCT with customized plugin manifests cannot be used for final validation of an OpenShift cluster!
-If you find issues or changes that are needed to complete, please open a GitHub issue or reach out to your Red Hat contact assisting with validation process.
-
-1. Export default plugins to local filesystem:
-```
-$ ./opct assets /tmp
-INFO[2022-06-16T15:35:29-06:00] Asset openshift-conformance-validated.yaml saved to /tmp/openshift-conformance-validated.yaml 
-INFO[2022-06-16T15:35:29-06:00] Asset openshift-kube-conformance.yaml saved to /tmp/openshift-kube-conformance.yaml 
-```
-2. Make your edits to the exported YAML assets:
-```
-vi /tmp/openshift-kube-conformance.yaml
-```
-3. Launch the tool with customized plugin:
-```
-./opct run --plugin /tmp/openshift-kube-conformance.yaml --plugin /tmp/openshift-conformance-validated.yaml
-```
+See [BYO Plugin](./byo-plugin.md).
 
 ## Project Documentation  <a name="dev-project-docs"></a>
 
@@ -234,8 +217,8 @@ The documentation is available in the directory `docs/`. You can render it as HT
 
 To run locally you should be using `python >= 3.8`, and install the `mkdocs` running:
 
-```
-pip install hack/docs-requirements.txt
+```sh
+pip install docs/requirements.txt
 ```
 
 Then, under the root of the project, run:

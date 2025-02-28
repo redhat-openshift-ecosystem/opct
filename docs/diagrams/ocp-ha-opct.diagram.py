@@ -7,18 +7,19 @@ from diagrams.k8s.infra import ( Node )
 
 from diagrams.azure.network import DNSZones
 
-with Diagram("OCP/OKD Cluster", show=False, filename="./ocp-ha-opct.diagram"):
+
+with Diagram("OpenShift/OKD Cluster", show=False, filename="./ocp-ha-opct.diagram"):
     dnsApiExt = DNSZones("api.<cluster>.<domain>")
     dnsApsExt = DNSZones("*.apps.<cluster>.<domain>")
 
     with Cluster("VPC/Network"):
 
         with Cluster("Public subnets"):
-            lbe_api = ELB("LB API-Ext")
-            lbe_apps = ELB("LB Apps-Ext")
+            lbe_api = ELB("LoadBalancer API-Ext")
+            lbe_apps = ELB("LoadBalancer Apps-Ext")
         
         with Cluster("Private subnets"):
-            lbi_api = ELB("LB API-Int")
+            lbi_api = ELB("LoadBalancer API-Int")
             dnsApiInt = DNSZones("api-int.<cluster>.<domain>")
             with Cluster("Control Plane Pool"):
                 cp_group = [EC2Instances("master-0{1,2,3}")]

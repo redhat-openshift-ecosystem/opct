@@ -1,9 +1,8 @@
-
 # Dev Guide - Updating OPCT components
 
 OPCT project delivers the following components:
 
-- OPCT CLI: client-side utility to orchestrate the conformance workflow. It is delivered by binary and Contianer image.
+- OPCT CLI: client-side utility to orchestrate the conformance workflow. It is delivered by binary and Container image.
 - Aggregator server: the aggregator server is the Sonobuoy service responsible to handle the status of the workflow steps, and aggregate the results. It is delivered as a Container image to a repository in OPCT registry, mirroring from the supported version by OPCT
 - OPCT Plugins: Plugins are step definition used by the workflow created by CLI. The steps are Kubernetes Pod definitions delivered as container images in quay.io/opct repository, and manifest defined in the CLI. Currently the following steps have it's own build definitions, and are released together in the plugins monorepo:
     - openshift-tests plugin
@@ -19,8 +18,8 @@ The table below summarizes the components:
 | sonobuoy (mirror) | [mirror info][sb-mirror] | [quay.io/opct/sonobuoy](https://quay.io/repository/opct/sonobuoy?tab=tags) |
 | utility: tools | [source][tools] | [quay.io/opct/tools](https://quay.io/repository/opct/opct?tab=tags) |
 | plugin: openshift-tests | [source][pl-ot] | [quay.io/opct/plugin-openshift-tests](https://quay.io/repository/opct/plugin-openshift-tests?tab=tags) |
-| plugin: artifacts-collector | [source][pl-ac] | [quay.io/opct/lugin-artifacts-collector](https://quay.io/repository/opct/plugin-artifacts-collector?tab=tags) |
-| plugin: must-gather-monitoring | [source][pl-mgm] | [quay.io/opct/lugin-artifacts-collector](https://quay.io/repository/opct/must-gather-monitoring?tab=tags) |
+| plugin: artifacts-collector | [source][pl-ac] | [quay.io/opct/plugin-artifacts-collector](https://quay.io/repository/opct/plugin-artifacts-collector?tab=tags) |
+| plugin: must-gather-monitoring | [source][pl-mgm] | [quay.io/opct/plugin-must-gather-monitoring](https://quay.io/repository/opct/must-gather-monitoring?tab=tags) |
 
 [opct-src]: https://github.com/redhat-openshift-ecosystem/opct
 [opct-repo]: https://quay.io/repository/opct/opct?tab=tags
@@ -30,7 +29,7 @@ The table below summarizes the components:
 [pl-mgm]: https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/tree/main/must-gather-monitoring
 [tools]: https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/build.sh#L60
 
-The following sections describes the steps of how to release each component.
+The following sections describe the steps of how to release each component.
 
 Table of Contents:
 
@@ -41,9 +40,9 @@ Table of Contents:
 
 ## Container Image OS version update
 
-The project standarize to use the same version across all images shipped by the project: `quay.io/fedora/fedora-minimal:${MAJOR}$`
+The project standardizes to use the same version across all images shipped by the project: `quay.io/fedora/fedora-minimal:${MAJOR}$`
 
-When the `${MAJOR}` need to be changed, it's a practice to be changed across the following images:
+When the `${MAJOR}` needs to be changed, it's a practice to be changed across the following images:
 
 - [OPCT cli](https://github.com/redhat-openshift-ecosystem/opct/blob/main/hack/Containerfile)
 - Plugins monorepo:
@@ -84,7 +83,7 @@ Those plugins are used by the images:
 
 Steps to build the `tools` image:
 
-- step 1) Update required utilitieis (eg, bump jq, oc, etc) for each dependency in `build.sh` script
+- step 1) Update required utilities (eg, bump jq, oc, etc) for each dependency in `build.sh` script
 
 - step 2) Update the static version of tools image:
 

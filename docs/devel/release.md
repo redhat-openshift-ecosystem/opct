@@ -1,6 +1,6 @@
 # Dev Guide - Release components
 
-This guides describes how to release a new version of OPCT considering all the project dependencies.
+This guide describes how to release a new version of OPCT considering all the project dependencies.
 
 
 ### Plugins images
