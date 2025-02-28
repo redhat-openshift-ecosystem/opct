@@ -1,0 +1,19 @@
+Launches the provider validation environment inside of an already running OpenShift cluster
+
+Usage:
+  opct run [flags]
+
+Flags:
+      --dev-count string           Developer Mode only: run small random set of tests. Default: 0 (disabled) (default "0")
+      --devel-limit-tests string   Developer Mode only: run small random set of tests. Default: 0 (disabled) (default "0")
+      --devel-skip-checks          Developer Mode only: skip checks
+  -h, --help                       help for run
+      --image-repository string    Image repository containing required images test environment. Example: openshift-provider-cert-tool --mirror-repository mirror.repository.net/ocp-cert
+      --mode string                Run mode: Availble: regular, upgrade (default "regular")
+      --timeout int                Execution timeout in seconds (default 21600)
+      --upgrade-to-image string    Target OpenShift Release Image. Example: oc adm release info 4.11.18 -o jsonpath={.image}
+  -w, --watch                      Keep watch status after running
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")

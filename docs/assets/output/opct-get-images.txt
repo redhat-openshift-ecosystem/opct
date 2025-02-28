@@ -1,0 +1,12 @@
+Print images used by OPCT.
+
+Usage:
+  opct get images [flags]
+
+Flags:
+  -h, --help                   help for images
+      --to-repository string   Show images with format to mirror to repository. Example: registry.example.io:5000
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")

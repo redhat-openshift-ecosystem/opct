@@ -1,0 +1,16 @@
+Generate administrative commands
+
+Usage:
+  opct adm generate [command]
+
+Available Commands:
+  checks-docs Generate markdown documentation for checks
+
+Flags:
+  -h, --help   help for generate
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")
+
+Use "opct adm generate [command] --help" for more information about a command.

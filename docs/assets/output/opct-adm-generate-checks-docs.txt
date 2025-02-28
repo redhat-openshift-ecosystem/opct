@@ -1,0 +1,12 @@
+Generate markdown documentation for checks used to build the OPCT documentation.
+
+Usage:
+  opct adm generate checks-docs [flags]
+
+Flags:
+  -h, --help          help for checks-docs
+      --path string   Path to the documentation file (default "docs/review/rules.md")
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")

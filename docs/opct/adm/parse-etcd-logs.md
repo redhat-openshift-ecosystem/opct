@@ -2,6 +2,12 @@
 
 Extract information from etcd logs from pods collected by must-gather.
 
+## Options
+
+```txt
+--8<-- "docs/assets/output/opct-adm-parse-etcd-logs.txt"
+```
+
 ## Usage
 
 - Added to OPCT in release: v0.5.0-alpha.3
@@ -10,7 +16,7 @@ Extract information from etcd logs from pods collected by must-gather.
 Options:
 
 - `--aggregator`: choose aggregator (all, day, hour, minute). Default: hour
-- `--skip-error-counter`: flag to skip the error counter calculatio to a faster report. Default: false
+- `--skip-error-counter`: flag to skip the error counter calculation to a faster report. Default: false
 
 Args:
 

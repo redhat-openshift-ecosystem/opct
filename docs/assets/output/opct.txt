@@ -1,0 +1,25 @@
+OpenShift/OKD Provider Compatibility Tool is used to validate an OpenShift installation on a provider or hardware using standard conformance suites
+
+Usage:
+  opct [command]
+
+Available Commands:
+  adm         Administrative commands.
+  completion  Generate the autocompletion script for the specified shell
+  destroy     Destroy current validation environment
+  get         Get tool information.
+  help        Help about any command
+  report      Create a report from results.
+  results     Inspect plugin results.
+  retrieve    Collect results from validation environment
+  run         Run the suite of tests for provider validation
+  sonobuoy    Generate reports on your Kubernetes cluster by running plugins
+  status      Show the current status of the validation tool
+  version     Print provider validation tool version
+
+Flags:
+  -h, --help                help for opct
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")
+
+Use "opct [command] --help" for more information about a command.

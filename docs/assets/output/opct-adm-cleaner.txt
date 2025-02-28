@@ -1,0 +1,16 @@
+Utility to apply pre-defined patches to existing result archive.
+
+Usage:
+  opct adm cleaner [flags]
+
+Examples:
+opct adm cleaner --input ./results.tar.gz --output ./results-cleaned.tar.gz
+
+Flags:
+  -h, --help            help for cleaner
+      --input string    Input archive file. Example: ./opct-xyz.tar.gz
+      --output string   Output archive file. Example: ./opct-cleaned.tar.gz
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")

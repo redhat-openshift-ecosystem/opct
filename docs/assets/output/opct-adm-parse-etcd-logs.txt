@@ -1,0 +1,16 @@
+Parse ETCD logs.
+
+Usage:
+  opct adm parse-etcd-logs [flags]
+
+Examples:
+opct adm parse-etcd-logs --aggregator hour
+
+Flags:
+      --aggregator string    Aggregator. Valid: all, day, hour, minute. Default: all (default "hour")
+  -h, --help                 help for parse-etcd-logs
+      --skip-error-counter   Skip calculation of error counter. Increase speed. Default: false
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")

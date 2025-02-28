@@ -1,0 +1,11 @@
+Print provider validation tool version
+
+Usage:
+  opct version [flags]
+
+Flags:
+  -h, --help   help for version
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")

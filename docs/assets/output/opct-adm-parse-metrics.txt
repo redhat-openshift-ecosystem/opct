@@ -1,0 +1,16 @@
+Process the metrics collected by OPCT and create a HTML report graph.
+
+Usage:
+  opct adm parse-metrics [flags]
+
+Examples:
+opct adm parse-metrics --input ./metrics.tar.xz --output /tmp/metrics
+
+Flags:
+  -h, --help            help for parse-metrics
+      --input string    Input metrics file. Example: metrics.tar.xz
+      --output string   Output directory. Example: /tmp/metrics
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")

@@ -1,6 +1,12 @@
 # opct adm parse-metrics
 
-Process Prometheus metrics plotting HTML charts.
+Process Prometheus metrics collected by artifacts collector step, plotting those as HTML charts.
+
+## Options
+
+```txt
+--8<-- "docs/assets/output/opct-adm-parse-etcd-logs.txt"
+```
 
 ## Usage
 
@@ -17,7 +23,7 @@ Options:
 
 The metrics can be collected into two different ways:
 
-- OPCT archive (version v0.5.3-alha.3+)
+- OPCT archive (version v0.5.3-alpha.3+)
 - must-gather-monitoring utility
 
 

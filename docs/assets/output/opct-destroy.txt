@@ -1,0 +1,14 @@
+Destroys resources used for conformance testing inside of the target OpenShift cluster. This will not destroy OpenShift cluster.
+
+Usage:
+  opct destroy [flags]
+
+Aliases:
+  destroy, delete
+
+Flags:
+  -h, --help   help for destroy
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")

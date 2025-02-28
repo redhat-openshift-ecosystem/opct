@@ -1,0 +1,16 @@
+Show the current status of the validation tool
+
+Usage:
+  opct status [flags]
+
+Examples:
+opct status --watch
+
+Flags:
+  -h, --help                 help for status
+  -w, --watch                Keep watch status after running
+      --watch-interval int   Interval to watch the status and print in the stdout (default 10)
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")

@@ -1,0 +1,11 @@
+Downloads the results archive from the validation environment
+
+Usage:
+  opct retrieve [flags]
+
+Flags:
+  -h, --help   help for retrieve
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")

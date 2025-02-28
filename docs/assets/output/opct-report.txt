@@ -1,0 +1,22 @@
+Create a report from results.
+
+Usage:
+  opct report archive.tar.gz [flags]
+
+Flags:
+  -b, --baseline string         [DEPRECATED] Baseline result archive file. Example: -b file.tar.gz
+  -d, --diff string             [DEPRECATED] Diff results from a baseline archive file. Example: --diff file.tar.gz
+      --embed-data              Force to embed the data into HTML report, allwoing the use of file protocol/CORS in the browser.
+  -f, --force                   Force to continue the execution, skipping deprecation warnings.
+  -h, --help                    help for report
+      --json                    Show report in json format
+      --save-only               Save data and exit. Requires --save-to. Example: -s ./results --save-only
+  -s, --save-to string          Extract and Save Results to disk. Example: -s ./results
+      --server-address string   HTTP server address to serve files when --save-to is used. Example: --server-address 0.0.0.0:9090 (default "0.0.0.0:9090")
+      --skip-baseline-api       Set to disable the BsaelineAPI call to get the baseline results injected in the failure filter pipeline.
+      --skip-server             HTTP server address to serve files when --save-to is used. Example: --server-address 0.0.0.0:9090
+  -v, --verbose                 Show test details of test failures
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")

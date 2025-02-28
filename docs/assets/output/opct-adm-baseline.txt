@@ -1,0 +1,27 @@
+Administrative commands to manipulate baseline results.
+	Baseline results are used to compare the results of the validation tests.
+	Those are CI results from reference installations which are used to compare
+	the results from custom executions targeting to inference persistent failures,
+	helping to isolate:
+	- Flaky tests
+	- Permanent failures
+	- Test environment issues
+
+Usage:
+  opct adm baseline [flags]
+  opct adm baseline [command]
+
+Available Commands:
+  get         Get a baseline result to be used in the review process.
+  indexer     (Administrative usage) Rebuild the indexer for baseline in the backend.
+  list        List all available baseline results by OpenShift version, provider and platform type.
+  publish     Publish a baseline result to be used in the review process.
+
+Flags:
+  -h, --help   help for baseline
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")
+
+Use "opct adm baseline [command] --help" for more information about a command.

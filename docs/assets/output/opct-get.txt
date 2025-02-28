@@ -1,0 +1,17 @@
+Get tool information.
+
+Usage:
+  opct get [flags]
+  opct get [command]
+
+Available Commands:
+  images      Print images used by OPCT.
+
+Flags:
+  -h, --help   help for get
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")
+
+Use "opct get [command] --help" for more information about a command.

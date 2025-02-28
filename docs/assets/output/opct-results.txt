@@ -1,0 +1,15 @@
+Inspect plugin results.
+
+Usage:
+  opct results archive.tar.gz [flags]
+
+Flags:
+  -h, --help            help for results
+  -m, --mode string     Modifies the format of the output. Valid options are report, detailed, readable, or dump. (default "report")
+  -n, --node string     Traverse results starting at the node with the given name. Defaults to the real root.
+  -p, --plugin string   Which plugin to show results for. Defaults to printing them all.
+  -s, --skip-prefix     When printing items linking to files, only print the file contents.
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")
