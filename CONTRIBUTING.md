@@ -8,7 +8,7 @@ resources to make it easier to get your contribution accepted.
 ## Code of Conduct
 
 This project and everyone participating in it is governed by the [OPCT Code of
-Conduct](,/CODE_OF_CONDUCT.md).
+Conduct](./CODE_OF_CONDUCT.md).
 
 ## Certificate of Origin
 
@@ -29,14 +29,16 @@ Details [here][security].
 
 ## Getting Started
 
-- Fork the repository on GitHub
-- Install [build dependencies](docs/dev/dependencies.md).
-- Read the [README](README.md) for build and test instructions
-- Play with the project, submit bugs, submit patches!
+- Read the [Documentation](https://redhat-openshift-ecosystem.github.io/opct)
+- Read the [Development Guide](https://redhat-openshift-ecosystem.github.io/opct/devel/guide.md)
+  and the [Development FAQ](https://redhat-openshift-ecosystem.github.io/opct/devel/FAQ.md)
+  for build and test instructions
+- Play with the project, submit documentation updates, bug reports, and patches!
 
 ### Contribution Flow
 
 Anyone may [file issues][new-issue].
+
 For contributors who want to work up pull requests, the workflow is roughly:
 
 1. Create a topic branch from where you want to base your work (usually main).

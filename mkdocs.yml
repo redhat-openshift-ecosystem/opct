@@ -1,4 +1,4 @@
-site_name: OpenShift Provider Compatibility Tool | OPCT
+site_name: OPCT
 site_description: OpenShift Provider Compatibility Tool
 site_url: https://redhat-openshift-ecosystem.github.io/opct
 repo_url: https://github.com/redhat-openshift-ecosystem/opct
@@ -6,6 +6,90 @@ edit_uri: edit/main/docs/
 docs_dir: ./docs
 dev_addr: 127.0.0.1:8000
 
+# ###############
+# Page Navigation
+#
+
+nav:
+  #
+  # Welcome
+  # This section documents summary of the project, Quick start, FAQ, etc
+  #
+  - Introduction: README.md
+  - Welcome:
+    - Getting Started: getting-started.md
+
+  #
+  # User Guides
+  #
+  - Validation User Guide:
+    - guides/cluster-validation/index.md
+    - Installation Checklist: guides/cluster-validation/installation-checklist.md
+    - Installation Review: guides/cluster-validation/installation-review.md
+    - Disconnected Installations: guides/cluster-validation/installation-disconnected.md
+
+  #
+  # Review Guides
+  #
+  - Review Guides:
+    - review/index.md
+    - OPCT Rules: review/rules.md
+    - Support Guide: guides/support-guide.md
+    - Troubleshooting: review/troubleshooting.md
+
+  #
+  # CLI Reference
+  #
+  - CLI Reference:
+    #- Getting started: getting-started.md
+    - opct:
+      - opct/index.md
+      - get images: opct/get.md
+      - run: opct/run.md
+      - retrieve: opct/retrieve.md
+      - report: opct/report.md
+      - results: opct/results.md
+      - status: opct/status.md
+      - destroy: opct/destroy.md
+      - adm:
+        - adm: opct/adm/index.md
+        - setup-node: opct/adm/setup-node.md
+        - generate: opct/adm/generate.md
+        - generate checks-docs: opct/adm/generate-checks-docs.md
+        - parse-etcd-logs: opct/adm/parse-etcd-logs.md
+        - parse-metrics: opct/adm/parse-metrics.md
+        - cleaner: opct/adm/cleaner.md
+        - baseline: opct/adm/baseline.md
+      - version: opct/version.md
+
+  #
+  # References
+  #
+  - Overview:
+    - FAQ Tool: FAQ.md
+    - FAQ Contributing: devel/FAQ.md
+  #
+  # Contributing
+  #
+  - Contributing:
+    - Release Guide: devel/release.md
+    - Update Guide: devel/update.md
+    - Quick Start: devel/CONTRIBUTING.md
+    - Development Guide: devel/guide.md
+    #- Workflow: devel/contribution-workflow.md
+    - OPCT Documentation (this site): devel/docs.md
+    - Architecture/Diagrams:
+      - diagrams/index.md
+      - diagrams/opct-sequence.md
+      - "Reference Architecture": diagrams/ocp-architecture-reference.md
+    - BYO Plugin: devel/byo-plugin.md
+    #- Repositories: devel/repositories.md
+    - Architectures: devel/arch-support.md
+    #- Changelog: devel/CHANGELOG.md
+
+# ##########
+# Page setup
+#
 markdown_extensions:
   - admonition
   - pymdownx.superfences:
@@ -13,6 +97,8 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.snippets:
+      check_paths: true
 
 plugins:
   - diagrams:
@@ -27,26 +113,11 @@ theme:
     - yaml
   features:
     #- toc.integrate
+    # add button to return to top
     - navigation.top
-
-nav:
-  - User Guides:
-    - "User Guide": "user.md"
-    - "Installation Checklist": user-installation-checklist.md
-    - "Installation Review": user-installation-review.md
-    - "Disconnected Installations": user-installation-disconnected.md
-    - "Troubleshooting": troubleshooting-guide.md
-  - Support Guides:
-    - Support Guide: support-guide.md
-  - Review:
-    - review/index.md
-    - OPCT Rules: review/rules.md
-  - Developer Guides:
-    - Development Guide: dev.md
-    - Release Guide: dev/release.md
-    - Update Guide: dev/update.md
-    - Diagrams:
-      - diagrams/index.md
-      - diagrams/opct-sequence.md
-      - "Reference Architecture": diagrams/ocp-architecture-reference.md
-  - CHANGELOG: CHANGELOG.md
+    # use sections
+    - navigation.sections
+    # expand subsections by default
+    - navigation.expand
+    # show path of page on top
+    - navigation.path

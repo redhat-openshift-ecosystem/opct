@@ -1,7 +1,7 @@
 # OpenShift Provider Compatibility Tool (`opct`)
 
 OpenShift Provider Compatibility Tool (OPCT) is used to orchestrate workflows for conformance
-test suites on OpenShift/OKD installation on a cloud provider or hardware.
+test suites on OpenShift/OKD installations on cloud providers or hardware.
 
 ## Documentation
 

@@ -693,7 +693,7 @@ $ grep -B 5 'Creating failed JUnit' \
 			return res
 		},
 		DocumentationSpec: CheckDocumentationSpec{
-			Description: `The etcd logs must generate the average of slow requests lower than 500 milisseconds.
+			Description: `The etcd logs must generate the average of slow requests lower than 500 milliseconds.
 The slow requests are a metric that helps to understand the health of the etcd. The slow requests are a relative value
 and they are based on the observed values in known, and tested, cloud providers/platforms.`,
 			Action:   `Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.`,
