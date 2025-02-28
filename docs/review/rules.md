@@ -75,12 +75,12 @@ $ grep -B 5 'Creating failed JUnit' \
 - **Name**: OpenShift Conformance [20-openshift-conformance-validated]: Pass ratio must be >=98.5%
 - **Description**: OpenShift Conformance suite must not report a high number of failures in the base execution.
 Ideally, the lower is better, but the e2e tests are frequently being updated/improved fixing bugs and eventually,
-the tested release could be impacted by those issues. The reference of 1.5% error budged is a reference used as basedline
+the tested release could be impacted by those issues. The reference of 1.5% error budget is a reference used as baseline
 from several executions in known platforms.
 Higher failure ratio could be related to errors in the tested environment, cluster configuration, and/or infrastructure issues.
 Check the test logs to isolate the issues.
 When applying to cluster validation with Red Hat teams, this check must be reviewed immediately before submitting the results as
-it is a potential problem in the infrastructure or missconfiguration.
+it is a potential problem in the infrastructure or misconfiguration.
 Review the [OpenShift documentation for installing in agnostic platforms](https://docs.openshift.com/container-platform/latest/installing/installing_platform_agnostic/installing-platform-agnostic.html)
 - **Action**: Check the failures section <code>Test failures [high priority]</code> and review the logs for each failed test.
 - **Expected**:
@@ -110,47 +110,46 @@ Check the test logs for OpenShift conformance suite, Priority section, to isolat
 	3. the remainging failures must be reviewed individually to achieve a successfull installation. Root cause of individual failures must be identified.
 
 - **Expected**:
-Error budget under acceptance criteria. Errors in the budget must be reviewed and root cause identified.
+Error budget under acceptance criteria. Errors in the budget must be reviewed and the root cause identified.
 
 ### OPCT-005B
 
 - **Name**: OpenShift Conformance Validation [20]: Required to Pass After Filters
 - **Description**: OpenShift Conformance suite must report passing after applying filters removing common/well-known issues.
-- **Action**: Check the failures section `Test failures [high priority]`. Dependencies must be passing prior this check.
+- **Action**: Check the failures section `Test failures [high priority]`. Dependencies must be passing prior to this check.
 - **Dependencies**: [OPCT-004](#opct-004), [OPCT-005](#opct-005)
 
 ### OPCT-010
 
-- **Name**: The cluster logs generates accepted error budget
-- **Description**: The cluster logs, must-gather event logs, should generate fewer error in the logs. The error budget are a metric that helps to isolate the
-health of the cluster. The error counters are a relative value and it is based on the observed values in CI executions in tested providers/platforms.
-- **Action**: Check the errors section in the report, explore the logs for each service in must-gather - using tools like omc, omg, grep, etc (must-gather readers/explorer).
+- **Name**: The cluster logs generate an accepted error budget
+- **Description**: The cluster logs, must-gather event logs, should generate fewer errors in the logs. The error budget is a metric that helps to understand the
+health of the cluster. The error counters are a relative value and are based on the observed values in CI executions in tested providers/platforms.
+- **Action**: Check the errors section in the report, explore the logs for each service in must-gather - using tools like omc, omg, grep (must-gather readers/explorers).
 - **Expected**:
-The error events in must-gather are a relative value and it is based on the observed values in known platforms.
+The error events in must-gather are a relative value and they are based on the observed values in known platforms.
 - **Troubleshoot**:
 Open the error events section in the report and review the rank of failed keywords, then check the rank by namespace and services for each failure.
-Error budgets helps to focus in specific services that may contribute to the cluster failures.
+Error budgets help to focus on specific services that may contribute to the cluster failures.
 
 To check the error counter by e2e test using HTML report navigate to <code>Workload Errors</code> in the left menu.
-The table <code>Error Counters by Namespace</code> shows the namespace reporting a high number of errors, rank by the higher,
-you can start exploring the logs in that namespace.
+The table <code>Error Counters by Namespace</code> shows the namespace reporting a high number of errors, ranked by the highest; you can start exploring the logs in that namespace.
 
 The table <code>Error Counters by Pod and Pattern</code> in <code>Workload Errors</code> menu also report the pods
-you also can use that information to isolate any issue in your environment.
+you can use that information to isolate any issue in your environment.
 
 To explore the logs, you can extract the must-gather collected by the plugin <code>99-openshift-artifacts-collector</code>:
 
 ~~~sh
-# extract must-gather from the results
+# extract must-gather from the results.
 tar xfz artifact.tar.gz \
     plugins/99-openshift-artifacts-collector/results/global/artifacts_must-gather.tar.xz
 
-# extract must-gather
+# extract must-gather.
 mkdir must-gather && \
 tar xfJ plugins/99-openshift-artifacts-collector/results/global/artifacts_must-gather.tar.xz \
 -C must-gather
 
-# check workload logs with 'omc' (example etcd)
+# check workload logs with 'omc' (example etcd).
 omc use must-gather
 omc logs -n openshift-etcd etcd-control-plane-0 -c etcd
 ~~~
@@ -161,7 +160,7 @@ omc logs -n openshift-etcd etcd-control-plane-0 -c etcd
 - **Name**: etcd logs: slow requests: average should be under 500ms
 - **Description**: The etcd logs must generate the average of slow requests lower than 500 milisseconds.
 The slow requests are a metric that helps to understand the health of the etcd. The slow requests are a relative value
-and it is based on the observed values in known, and tested, cloud providers/platforms.
+and they are based on the observed values in known, and tested, cloud providers/platforms.
 - **Action**: Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.
 - **Expected**:
 The slow requests in etcd logs are a relative value and it is based on the observed values in known platforms.
@@ -251,8 +250,8 @@ Open the error budget section in the report and review the logs for each failed 
 - **Expected**:
 All nodes must be healthy.
 - **Troubleshoot**:
-One or more nodes have been detected as unhealth when the aggregator server collected the cluster state (end of job).
-Unhealth nodes can cause test failures. This check can be used as a helper while investigating test failures. This check can be skipped
+One or more nodes have been detected as unhealthy when the aggregator server collected the cluster state (end of job).
+Unhealthy nodes can cause test failures. This check can be used as a helper while investigating test failures. This check can be skipped
 if it is not causing failures in the conformance tests.
 Check the unhealthy nodes in the cluster:
 ~~~sh
@@ -273,7 +272,7 @@ $ omc describe node <node_name>
 - **Expected**:
 Pods Healthy must report higher than 98%.
 - **Troubleshoot**:
-One or more pods have been detected as unhealth when the aggregator server collected the cluster state (end of job).
+One or more pods have been detected as unhealthy when the aggregator server collected the cluster state (end of job).
 Run the CLI command <code>opct results archive.tar.gz</code> to review the failed pods.
 Explore the logs for each pods in must-gather available in the collector plugin.
 Check the unhealthy pods:
