@@ -4,36 +4,36 @@ title: Website architecture
 
 ## Technology
 
-We use [mkdocs](https://www.mkdocs.org/) for static site generation.
+OPCT documentation uses [mkdocs](https://www.mkdocs.org/) for static site generation.
 
 ## Source Code
 
-The website lives in `docs/` directory of [opct repository](https://github.com/redhat-openshift-ecosystem/provider-certification-tool).
+The website is located in the `docs/` directory of the [opct repository](https://github.com/redhat-openshift-ecosystem/provider-certification-tool).
 
 ## Theme
 
 This site is based on [@material](https://squidfunk.github.io/mkdocs-material/) theme, with
-customization defined under `theme` section defined on the `mkdocs.yaml` file under the root
+customizations defined under the `theme` section in the `mkdocs.yaml` file under the root
 directory of the repository.
 
 ## Navigation
 
-Left menu is configured in `nav` section on `mkdocs.yaml`.
+The left menu is configured in the `nav` section of `mkdocs.yaml`.
 
-## Diagram as a code
+## Diagrams as code
 
-`mkdocs` plugins are defined under `plugins` section on `mkdocs.yaml`.
+`mkdocs` plugins are defined under the `plugins` section in `mkdocs.yaml`.
 
 ### Using `diagrams`
 
-You can write diagram as a code using python language with library
-[`diagrams`](https://diagrams.mingrammer.com/), the python file must be under
-`docs/` directory and have suffix `.diagram.py`.
+You can write diagrams as code using the Python language with the library
+[`diagrams`](https://diagrams.mingrammer.com/), the Python file must be located in the
+`docs/` directory and have the suffix `.diagram.py`.
 
-The image defined in `filename` can be used directly in your markdown file, it is
+The image defined in `filename` can be used directly in your markdown file; it is
 rendered when the site is built or served locally.
 
-For example, define the image name in the attribute `filename` of your `Diagram` of a
+For example, define the image name in the `filename` attribute of your `Diagram` in a
 file `docs/diagrams/my-diagram.diagram.py`:
 
 ```py
@@ -53,11 +53,9 @@ You can reference the image in your markdown file `docs/diagrams/my-doc.md`, suc
 You also can draw diagram as a code with [`Mermaid.js`](https://mermaid.js.org/)
 directly in markdown files.
 
-
-allows you to write diagrams as a code, in python language,
-
 The mkdocs plugins [`diagrams`](https://squidfunk.github.io/mkdocs-material/reference/diagrams/)
 enables native support for Mermaid.js diagrams.
+
 Material for MkDocs will automatically initialize the JavaScript
 runtime when a page includes a mermaid code block
 
@@ -84,8 +82,8 @@ mkdocs serve
 ```
 
 And navigate to `http://localhost:8000` after successful build.
-There is no need to restart mkdocs server almost for all changes: it supports hot reload.
-Also, there is no need to refresh a webpage: hot reload updates changed content on the open page.
+There is no need to restart mkdocs server almost for all changes as it supports hot reload.
+Also, there is no need to refresh a webpage as hot reload updates changed content on the open page.
 
 ## Website Build
 
