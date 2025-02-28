@@ -10,7 +10,7 @@
 - [Review guide: exploring the failed tests](#review-process)
     - [Exploring the failures](#review-process-exploring)
     - [Extracting the failures to the local directory](#review-process-extracting)
-    - [Explaning the extracted files](#review-process-explain)
+    - [Explaining the extracted files](#review-process-explain)
     - [Review Guidelines](#review-process-guidelines)
 - [Review guide: y-stream upgrade](#upgrade-review-process)
 
@@ -18,13 +18,13 @@
 
 ### New Support Cases <a name="check-list-new-case"></a>
 
-Check-list to require when **new** support case has been opened:
+Checklist to require when **new** support case has been opened:
 
 - Documentation: Installing Steps containing the flavors/size of the Infrastructure and the steps to install OCP
 - Documentation: Diagram of the Architecture including zonal deployment
 - Archive with Conformance results
 - Archive with must-gather
-- [Installation Checklist (file `user-installation-checklist.md`)](./user-installation-checklist.md) with the partner's update to sign off post-instalation items
+- [Installation Checklist](./cluster-validation/installation-checklist.md) with the partner's update to sign off post-installation items
 
 ### New Executions <a name="check-list-new-executions"></a>
 
@@ -34,19 +34,17 @@ The assets below, conformance assets, should be updated when certain conditions 
 - Must Gather
 - Install Documentation (when any item/flavor/configuration has been modified)
 
-
 The following conditions require new conformance assets:
 
 - The version of the OpenShift Container Platform has been updated
-- Any Infrastructure component(s) (e.g.: server size, disk category, ELB type/size/config) or cluster dependencies (e.g.: external storage backend for image registry) have been modified
-
+- Any Infrastructure component(s) (e.g., server size, disk category, Load Balancer type/size/config) or cluster dependencies (e.g., external storage backend for image registry) have been modified
 
 ## Review Environment <a name="setup"></a>
 
 ### Install Tools <a name="setup-install"></a>
 
-- Download the [opct](./user.md#install): OPCT
-- Download the [`omg`](https://github.com/kxr/o-must-gather): tool to analyse Must-gather archive
+- Download the [opct](./cluster-validation/index.md#install): OPCT
+- Download the [`omg`](https://github.com/kxr/o-must-gather): tool to analyze Must-gather archive
 ```bash
 pip3 install o-must-gather --user
 ```
@@ -80,7 +78,7 @@ $ file 4.11.13-20221125.tar.gz
 
 The steps below use the subcommand `report` to apply filters on the failed tests and help to keep the initial focus of the investigation on the failures exclusively on the partner's results.
 
-The filters use only tests included in the respective suite, isolating from common failures identified on the Baseline results or Flakes from CI. To see more details about the filters, read the [dev documentation describing filters flow](./dev.md#dev-diagram-filters).
+The filters use only tests included in the respective suite, isolating from common failures identified on the Baseline results or Flakes from CI. To see more details about the filters, read the [dev documentation describing filters flow](./../devel/guide.md#dev-diagram-filters).
 
 Required to use this section:
 
