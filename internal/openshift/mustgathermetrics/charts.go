@@ -11,6 +11,7 @@ import (
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/utils/ptr"
 )
 
 type MetricValue struct {
@@ -99,7 +100,7 @@ func (mmm *MustGatherChart) processMetric(in *readMetricInput) *charts.Line {
 			Title:    in.title,
 			Subtitle: in.subtitle,
 		}),
-		charts.WithTooltipOpts(opts.Tooltip{Show: true, Trigger: "axis"}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: ptr.To(true), Trigger: "axis"}),
 	)
 
 	allTimestamps := []string{}
@@ -139,7 +140,7 @@ func (mmm *MustGatherChart) processMetric(in *readMetricInput) *charts.Line {
 	// sort.Strings(allTimestamps)
 	line.SetXAxis(allTimestamps).
 		SetSeriesOptions(charts.WithLineChartOpts(
-			opts.LineChart{Smooth: false, ShowSymbol: true, SymbolSize: 15, Symbol: "diamond"},
+			opts.LineChart{Smooth: ptr.To(false), ShowSymbol: ptr.To(true), SymbolSize: 15, Symbol: "diamond"},
 		))
 	for _, chart := range chartData {
 		line.AddSeries(chart.Label, chart.DataPoints)
@@ -161,7 +162,7 @@ func (mmm *MustGatherChart) processMetrics(in *readMetricInput) []*charts.Line {
 				Title:    in.title,
 				Subtitle: in.subtitle,
 			}),
-			charts.WithTooltipOpts(opts.Tooltip{Show: true, Trigger: "axis"}),
+			charts.WithTooltipOpts(opts.Tooltip{Show: ptr.To(true), Trigger: "axis"}),
 		)
 		dataPoints := make([]opts.LineData, 0)
 		for _, datapoints := range res.Values {
@@ -183,7 +184,7 @@ func (mmm *MustGatherChart) processMetrics(in *readMetricInput) []*charts.Line {
 		}
 		line.SetXAxis(allTimestamps).
 			SetSeriesOptions(charts.WithLineChartOpts(
-				opts.LineChart{Smooth: false, ShowSymbol: true, SymbolSize: 15, Symbol: "diamond"},
+				opts.LineChart{Smooth: ptr.To(false), ShowSymbol: ptr.To(true), SymbolSize: 15, Symbol: "diamond"},
 			))
 		line.AddSeries(res.Metric[in.label], dataPoints)
 		lines = append(lines, line)
