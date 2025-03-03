@@ -6,7 +6,7 @@ set -o pipefail
 set -o nounset
 set -o errexit
 
-export SONOBUOY_VERSION=${SONOBUOY_VERSION:-v0.57.1}
+export SONOBUOY_VERSION=${SONOBUOY_VERSION:-v0.57.3}
 export SONOBUOY_REPO=docker.io/sonobuoy/sonobuoy
 export MIRROR_REPO=${MIRROR_REPO:-quay.io/opct/sonobuoy}
 export PLATFORM_IMAGES=""
