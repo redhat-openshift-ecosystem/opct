@@ -92,9 +92,18 @@ OPCT is tested in the following topologies. Any topology flagged as TBD is not c
 
 OpenShift Platform Type supported by OPCT on Red Hat OpenShift validation program:
 
-| Platform Type | OCP Supported versions |
-| --            | --                     |
-| External      | v0.5+                  |
+| Platform Type | Installation method   | Documentation |
+| --            | --                    | --            |
+| `External`    | `openshift-install`   | [OpenShift Product][ocp-agn] [Providers][ocp-prov] |
+| `None`*        | Assisted Installer: `User-managed` network mode | [OpenShift Product][ai-none] |
+| `External`    | Agent Based Installer | [OpenShift Product][abi-external] |
+
+*platform type `None` should be used only in clusters installed with Assisted Installer  with `User-Managed` networking mode only when it is required, otherwise use options with platform type `External`.
+
+[ocp-agn]: https://docs.openshift.com/container-platform/latest/installing/installing_platform_agnostic/installing-platform-agnostic.html
+[ocp-prov]: https://docs.providers.openshift.org/platform-external/installing/
+[ai-none]: https://docs.openshift.com/container-platform/latest/installing/installing_on_prem_assisted/installing-on-prem-assisted.html
+[abi-external]: https://docs.openshift.com/container-platform/latest/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html
 
 !!! info "Unsupported Platform Type"
     You can run the tool in other platform types if the required configuration is set.
