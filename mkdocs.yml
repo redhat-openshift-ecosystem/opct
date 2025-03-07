@@ -85,7 +85,9 @@ nav:
     - BYO Plugin: devel/byo-plugin.md
     #- Repositories: devel/repositories.md
     - Architectures: devel/arch-support.md
-    #- Changelog: devel/CHANGELOG.md
+  - Release Notes:
+    # TODO: Create release note file document with summary updates by release.
+    - CHANGELOG.md
 
 # ##########
 # Page setup
