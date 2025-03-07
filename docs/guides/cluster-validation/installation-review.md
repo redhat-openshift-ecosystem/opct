@@ -130,7 +130,7 @@ The command `opct adm parse-etcd-logs` reads the logs, aggregates the requests a
 
 `opct adm parse-etcd-logs` is the utility to help troubleshoot the slow requests in the cluster, and help make decisions like changing the flavor of the block device used by the control plane, increasing IOPS, changing the flavor of the instances, etc.
 
-See the command [`opct adm parse-etcd-logs`](./opct/adm/parse-etcd-logs.md) for more information.
+See the command [`opct adm parse-etcd-logs`](../../opct/adm/parse-etcd-logs.md) for more information.
 
 #### Mount /var/lib/etcd in separate disk <a name="components-etcd-mount"></a>
 
