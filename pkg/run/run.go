@@ -20,7 +20,9 @@ import (
 	"github.com/vmware-tanzu/sonobuoy/pkg/config"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/loader"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/manifest"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/redhat-openshift-ecosystem/opct/pkg"
 	"github.com/redhat-openshift-ecosystem/opct/pkg/client"
@@ -28,6 +30,7 @@ import (
 	"github.com/redhat-openshift-ecosystem/opct/pkg/wait"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	kresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -463,6 +466,65 @@ func (r *RunOptions) PreRunSetup(kclient kubernetes.Interface) error {
 		return errors.Wrap(err, "error creating privileged ClusterRoleBinding")
 	}
 	log.Infof("Created %s ClusterRoleBinding", pkg.PrivilegedClusterRoleBinding)
+
+	// Create the Deployment of dedicated-e2e-controller.
+	// The controller watches for new pods failed to schedule, and apply
+	// tolerations.
+	// TODO(mtulio): change the image registry to dynamic to support disconnected setup.
+	if r.dedicated {
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pkg.DedicatedControllerName,
+				Namespace: pkg.CertificationNamespace,
+				Labels:    pkg.SonobuoyDefaultLabels,
+			},
+			Spec: appsv1.DeploymentSpec{
+				Replicas: ptr.To[int32](1),
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"app": pkg.DedicatedControllerName,
+					},
+				},
+				Template: v1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							"app": pkg.DedicatedControllerName,
+						},
+					},
+					Spec: v1.PodSpec{
+						ServiceAccountName: pkg.SonobuoyServiceAccountName,
+						Containers: []v1.Container{
+							{
+								Name:            "controller",
+								Image:           pkg.ControllerImage,
+								ImagePullPolicy: v1.PullAlways,
+								Command: []string{
+									"opct",
+									"adm",
+									"e2e-dedicated",
+									"controller",
+								},
+								Resources: v1.ResourceRequirements{
+									Limits: v1.ResourceList{
+										v1.ResourceCPU:    kresource.MustParse("128m"),
+										v1.ResourceMemory: kresource.MustParse("256Mi"),
+									},
+									Requests: v1.ResourceList{
+										v1.ResourceMemory: kresource.MustParse("64Mi"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		_, err := kclient.AppsV1().Deployments(pkg.CertificationNamespace).Create(context.TODO(), deployment, metav1.CreateOptions{})
+		if err != nil {
+			return errors.Wrap(err, "error creating e2e-dedicated-controller deployment")
+		}
+	}
 
 	return nil
 }
