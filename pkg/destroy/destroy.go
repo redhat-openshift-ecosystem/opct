@@ -44,20 +44,18 @@ func NewCmdDestroy() *cobra.Command {
 				return err
 			}
 
-			err = o.DeleteSonobuoyEnv(sclient)
-			if err != nil {
+			log.Info("removing opct namespace...")
+			if err := o.DeleteSonobuoyEnv(sclient); err != nil {
 				log.Warn(err)
 			}
 
-			log.Info("removing non-openshift NS...")
-			err = o.DeleteTestNamespaces(kclient)
-			if err != nil {
+			log.Info("removing stale e2e namespaces...")
+			if err := o.DeleteTestNamespaces(kclient); err != nil {
 				log.Warn(err)
 			}
 
 			log.Info("restoring privileged environment...")
-			err = o.RestoreSCC(kclient)
-			if err != nil {
+			if err := o.RestoreSCC(kclient); err != nil {
 				log.Warn(err)
 			}
 
