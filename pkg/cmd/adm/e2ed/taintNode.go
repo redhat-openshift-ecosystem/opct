@@ -137,5 +137,4 @@ func taintNodeRun(cmd *cobra.Command, args []string) {
 	if err := applyTaintToNode(kclient, taintNodeArgs.nodeName); err != nil {
 		log.Fatalf("Failed to apply taint to node: %v", err)
 	}
-	log.Infof("Successfully applied taint to node %s", taintNodeArgs.nodeName)
 }

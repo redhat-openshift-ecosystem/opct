@@ -19,10 +19,12 @@ const (
 	SonobuoyLabelComponentName     = "component"
 	SonobuoyLabelComponentValue    = "sonobuoy"
 	DefaultToolsRepository         = "quay.io/opct"
+	ControllerImage                = "quay.io/opct/opct:v0.6.0-alpha.1"
 	PluginsImage                   = "plugin-openshift-tests:v0.5.2"
 	CollectorImage                 = "plugin-artifacts-collector:v0.5.2"
 	MustGatherMonitoringImage      = "must-gather-monitoring:v0.5.2"
 	OpenShiftTestsImage            = "image-registry.openshift-image-registry.svc:5000/openshift/tests"
+	DedicatedControllerName        = "opct-dedicated-e2e-controller"
 )
 
 var (

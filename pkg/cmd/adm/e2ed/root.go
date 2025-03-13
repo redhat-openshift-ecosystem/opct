@@ -11,6 +11,7 @@ func NewCommandE2eDedicated() *cobra.Command {
 		Short: "Administrative commands for e2e-dedicated node configuration",
 	}
 
+	cmd.AddCommand(newCmdE2eDedicatedController())
 	cmd.AddCommand(taintNodeCmd)
 
 	return cmd
