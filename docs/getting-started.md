@@ -24,15 +24,15 @@ chmod u+x ~/bin/opct
 
 ## Setup <a name="setup"></a>
 
-Select a [dedicated compute node](./opct/adm/setup-node.md) to be used to host the test environment:
+Select a [dedicated compute node](./opct/adm/e2e-dedicated-taint-node.md) to be used to host the test environment:
 ```sh
-opct adm setup-node
+opct adm e2e-dedicated taint-node
 ```
 
 !!! info "See Also"
-    - `opct adm setup-node`
-    - Reference Diagram
-    - Cluster Validation User Guide
+    - [`opct adm e2e-dedicated taint-node` CLI reference](./opct/adm/e2e-dedicated-taint-node.md)
+    - [Reference Diagram](./diagrams/ocp-architecture-reference.md)
+    - [Cluster Validation User Guide](./guides/cluster-validation/index.md)
 
 ## Run <a name="run"></a>
 

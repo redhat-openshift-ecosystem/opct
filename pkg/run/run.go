@@ -252,7 +252,7 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 		}
 		if len(nodes.Items) == 0 {
 			return fmt.Errorf(`missing dedicated node. Set the label %q to a node and try again
-Check the documentation[1] or run 'opct adm setup-node' to set the label and taints.
+Check the documentation[1] or run 'opct adm e2e-dedicated taint-node' to set the label and taints.
 [1] https://redhat-openshift-ecosystem.github.io/provider-certification-tool/user/#standard-env-setup-node`, pkg.DedicatedNodeRoleLabelSelector)
 		}
 		if len(nodes.Items) > 2 {

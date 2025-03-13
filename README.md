@@ -22,7 +22,7 @@ chmod u+x /usr/local/bin/opct
 - Setup a dedicated node to run the test environment (preferred to prevent disruption)
 
 ```bash
-opct adm setup-node
+opct adm e2e-dedicated taint-node
 ```
 
 - Run regular conformance tests

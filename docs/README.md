@@ -32,7 +32,7 @@ The following diagram illustrates an example of a typical OpenShift cluster inst
 2) [Download OPCT](./getting-started.md#install) and set up the dedicated node:
 
 ```sh
-./opct adm setup-node
+./opct adm e2e-dedicated taint-node
 ```
 
 3) [Schedule](./getting-started.md#run) the conformance jobs:

@@ -88,7 +88,7 @@ This section describes how to rnu OPCT in an OpenShift cluster.
 - Setup test node:
 
 ```bash
-opct adm setup-node --yes
+opct adm e2e-dedicated taint-node --yes
 ```
 
 - Run OPCT and retrieve results when finished:

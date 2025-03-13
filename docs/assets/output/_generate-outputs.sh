@@ -30,7 +30,7 @@ OUTPUT_DIR=${OUTPUT_OVERRIDE:-${DOC_ASSET_OUTPUT}}
 ./build/opct-linux-amd64 adm parse-etcd-logs --help > "${OUTPUT_DIR}"/opct-adm-parse-etcd-logs.txt
 ./build/opct-linux-amd64 adm parse-metrics --help > "${OUTPUT_DIR}"/opct-adm-parse-metrics.txt
 ./build/opct-linux-amd64 adm parse-junit --help > "${OUTPUT_DIR}"/opct-adm-parse-junit.txt
-./build/opct-linux-amd64 adm setup-node --help > "${OUTPUT_DIR}"/opct-adm-setup-node.txt
+./build/opct-linux-amd64 adm e2e-dedicated taint-node --help > "${OUTPUT_DIR}"/opct-adm-e2e-dedicated-taint-node.txt
 
 
 # TODO(mtulio): move to a map variable and create a function to generate the outputs,

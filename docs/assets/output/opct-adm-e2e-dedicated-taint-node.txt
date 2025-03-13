@@ -1,0 +1,22 @@
+Administrative commands.
+
+Usage:
+  opct adm [flags]
+  opct adm [command]
+
+Available Commands:
+  baseline        Administrative commands to manipulate baseline results.
+  cleaner         Utility to apply pre-defined patches to existing result archive.
+  generate        Generate administrative commands
+  parse-etcd-logs Parse ETCD logs.
+  parse-metrics   Process the metrics collected by OPCT and create a HTML report graph.
+  setup-node      Setup the node for the validation process.
+
+Flags:
+  -h, --help   help for adm
+
+Global Flags:
+      --kubeconfig string   kubeconfig for target OpenShift cluster
+      --log-level string    logging level (default "info")
+
+Use "opct adm [command] --help" for more information about a command.

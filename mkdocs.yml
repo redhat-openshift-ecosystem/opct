@@ -53,7 +53,7 @@ nav:
       - destroy: opct/destroy.md
       - adm:
         - adm: opct/adm/index.md
-        - setup-node: opct/adm/setup-node.md
+        - e2e-dedicated taint-node: opct/adm/e2e-dedicated-taint-node.md
         - generate: opct/adm/generate.md
         - generate checks-docs: opct/adm/generate-checks-docs.md
         - parse-etcd-logs: opct/adm/parse-etcd-logs.md

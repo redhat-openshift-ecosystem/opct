@@ -152,10 +152,16 @@ oc label node <node_name> node-role.kubernetes.io/tests=""
 oc adm taint node <node_name> node-role.kubernetes.io/tests="":NoSchedule
 ```
 
-Starting on v0.5+ you can use a command to find the best node and apply the required taint:
+Starting on v0.5.z you can use a command to find the best node and apply the required taint (deprecated in v0.6+):
 
 ```sh
 opct adm setup-node
+```
+
+Starting on v0.6+, the new command path:
+
+```sh
+opct adm e2e-dedicated taint-node
 ```
 
 #### Setup MachineConfigPool for upgrade tests <a name="standard-env-setup-mcp"></a>
