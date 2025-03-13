@@ -2,6 +2,7 @@ package adm
 
 import (
 	"github.com/redhat-openshift-ecosystem/opct/pkg/cmd/adm/baseline"
+	"github.com/redhat-openshift-ecosystem/opct/pkg/cmd/adm/e2ed"
 	"github.com/redhat-openshift-ecosystem/opct/pkg/cmd/adm/generate"
 
 	log "github.com/sirupsen/logrus"
@@ -23,10 +24,10 @@ var admCmd = &cobra.Command{
 func init() {
 	admCmd.AddCommand(parseMetricsCmd)
 	admCmd.AddCommand(parseEtcdLogsCmd)
-	admCmd.AddCommand(setupNodeCmd)
 	admCmd.AddCommand(cleanerCmd)
 	admCmd.AddCommand(baseline.NewCmdBaseline())
 	admCmd.AddCommand(generate.NewCommandGenerate())
+	admCmd.AddCommand(e2ed.NewCommandE2eDedicated())
 }
 
 func NewCmdAdm() *cobra.Command {
