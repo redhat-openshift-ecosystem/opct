@@ -228,3 +228,39 @@ mkdocs serve
 ```
 
 Then you will be able to access the docs locally on the address: http://127.0.0.1:8000/
+
+
+## e2e-dedicated controller
+
+The e2e-dedicated controller is used to watch pods failing
+to schedule and apply tolerations to allow scheduling in
+the OPCT dedicated node, preventing false positives caused
+by the required OPCT environment (dedicated worker node).
+
+### Checking Logs in a Live Cluster
+
+You can check the logs in a live cluster using the following command:
+
+```sh
+oc logs -n opct -l app=opct-dedicated-e2e-controller -f
+```
+
+### Inspecting the Logs in the Archive File
+
+Alternatively you can inspect the controller logs from the archive
+collected in the artifacts collector step:
+
+```sh
+mkdir results-raw results-must-gather
+result_file=opct_202503132124_1899a26c-1564-4eab-b51a-2a39ca6caee4.tar.gz
+mustgather_file=results-raw/plugins/99-openshift-artifacts-collector/results/global/artifacts_must-gather.tar.xz
+
+# Extract the raw results
+tar xfz ${result_file} -C results-raw
+
+# Extracts the must-gather
+tar xfJ ${mustgather_file} -C results-must-gather/
+
+# Inspect the logs
+less results-must-gather/must-gather-opct/inspect-opct/namespaces/opct/pods/opct-dedicated-e2e-controller-*/controller/controller/logs/current.log
+```
