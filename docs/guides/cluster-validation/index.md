@@ -98,7 +98,7 @@ OpenShift Platform Type supported by OPCT on Red Hat OpenShift validation progra
 | `None`*        | Assisted Installer: `User-managed` network mode | [OpenShift Product][ai-none] |
 | `External`    | Agent Based Installer | [OpenShift Product][abi-external] |
 
-*platform type `None` should be used only in clusters installed with Assisted Installer  with `User-Managed` networking mode only when it is required, otherwise use options with platform type `External`.
+*platform type `None` should be used only when required to install OpenShift cluster with Assisted Installer  using `User-Managed` networking mode, otherwise use options with platform type `External`.
 
 [ocp-agn]: https://docs.openshift.com/container-platform/latest/installing/installing_platform_agnostic/installing-platform-agnostic.html
 [ocp-prov]: https://docs.providers.openshift.org/platform-external/installing/
