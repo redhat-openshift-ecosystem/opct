@@ -42,25 +42,54 @@ Table Of Contents:
 
 ## Process Overview <a name="process"></a>
 
-This section describes the steps for submitting the results to Red Hat Partner.
+This section outlines the steps for partners to submit conformance results to the Red Hat Connect Portal.
+
 If you do not plan to share the results with Red Hat, you can skip this section.
 
-Overview of the process for applying the results to the Red Hat Partner support case:
+The following diagram provides an overview of the process:
 
-0. Install an OpenShift cluster on **the version desired** to be validated
-1. Prepare the OpenShift cluster to run the validated environment
-2. Download and install the OPCT
-3. Run the OPCT
-4. Monitor tests
-5. Gather results
-6. Share the results archive with Red Hat Partner support case
+```mermaid
+%%{init: {"flowchart": {"useMaxWidth": false}}}%%
 
-It's not uncommon for specific tests to fail occasionally. As a result, you may be asked
-by support engineers to repeat the process a few times, depending on the results.
+flowchart TD
+    subgraph "(A) Partner + Red Hat PTAM"
+        A1[Create User Documentation to Install OpenShift in the provider infrastructure]
+        A2[Install OpenShift OCP based on the User Documentation]
+        A3[Run Conformance Tests]
+        A4["Review Conformance Tests (until no checks are failing)"]
+        A5[Create Conformance Archive for VCSP - executed on a fresh OCP installation]
+        A4 -->|Continuous Improvement| A1
+        A1 --> A2 --> A3 --> A4 --> A5
+    end
 
-Finally, you may be asked to upgrade the cluster to the next minor release.
+    subgraph "(B)  Partner + Red Hat Portal"
+        B1[Open a Ticket in the Partner Portal]
+        B2[Upload Reviewed User Documentation and Conformance Results Archive]
+        B3[Red Hat Team Reviews the Results]
+        B4[Partner Upgrades the Cluster to next minor version]
+        B3 -->|Feedback| B2
+        A5 --> B1 --> B2 --> B3 --> B4
+    end
 
-More details on each step can be found in the sections below.
+    subgraph "(C) Finish Process"
+        C1[Red Hat Teams Review Final Results and Wrap Up Process]
+        B4 --> C1
+    end
+```
+
+Summary:
+
+- (A): The partner installs an OpenShift cluster using provider-specific features and documents
+  the process in a user-guide format based on the official OpenShift documentation. Once the
+  documentation is complete and conformance tests pass, the partner must execute conformance
+  tests on a fresh installation to ensure no false positives in the final archive.
+  For assistance, contact the Red Hat Partner Ecosystem team.
+  The acceptance criteria require that no checks fail in the `opct report` command.
+- (B): The partner submits a ticket in the Red Hat Connect Portal, attaching the user
+  documentation and conformance results. The Red Hat Certification team reviews the submission
+  and provides feedback. Once the results are approved, the partner must submit an automated
+  upgrade targeting the next minor OpenShift release.
+- (C): Red Hat completes the process by reviewing the final results and closing the certification process.
 
 ## Prerequisites <a name="prerequisites"></a>
 
