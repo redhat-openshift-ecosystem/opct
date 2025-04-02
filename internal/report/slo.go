@@ -978,10 +978,10 @@ conformance suite across different releases. This test is a sanity test to ensur
 	})
 	// OpenShift / Infrastructure Object Check
 	checkSum.Checks = append(checkSum.Checks, &Check{
-		ID:   CheckIdEmptyValue,
-		Name: "Platform Type must be supported by OPCT",
+		ID:   "OPCT-031C",
+		Name: "Platform Type must be tested by OPCT",
 		Test: func() CheckResult {
-			prefix := "Check OPCT-TBD Failed"
+			prefix := "Check Failed"
 			res := CheckResult{Name: CheckResultNameFail, Target: "None|External|AWS|Azure"}
 			if re.Provider == nil || re.Provider.Infra == nil {
 				res.Message = fmt.Sprintf("%s: unable to read the infrastructure object", prefix)
@@ -1007,8 +1007,9 @@ report is made and calibrated based in the tested platforms.`,
 			Action:       `Check the platform type in the report and ensure that the platform is supported by the OPCT tool.`,
 		},
 	})
+
 	checkSum.Checks = append(checkSum.Checks, &Check{
-		ID:   CheckIdEmptyValue,
+		ID:   "OPCT-032A",
 		Name: "Cluster Version Operator must be Available",
 		Test: func() CheckResult {
 			res := CheckResult{Name: CheckResultNameFail, Target: "True"}
@@ -1033,7 +1034,7 @@ and check the logs for errors.`,
 		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
-		ID:   CheckIdEmptyValue,
+		ID:   "OPCT-032B",
 		Name: "Cluster condition Failing must be False",
 		Test: func() CheckResult {
 			res := CheckResult{Name: CheckResultNameFail, Target: "False"}
@@ -1058,7 +1059,7 @@ and check the logs for errors.`,
 		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
-		ID:   CheckIdEmptyValue,
+		ID:   "OPCT-032C",
 		Name: "Cluster upgrade must not be Progressing",
 		Test: func() CheckResult {
 			res := CheckResult{Name: CheckResultNameFail, Target: "False"}
@@ -1081,8 +1082,8 @@ and check the logs for errors.`,
 		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
-		ID:   CheckIdEmptyValue,
-		Name: "Cluster ReleaseAccepted must be True",
+		ID:   "OPCT-032D",
+		Name: "Cluster Version ReleaseAccepted must be True",
 		Test: func() CheckResult {
 			res := CheckResult{Name: CheckResultNameFail, Target: "True"}
 			if re.Provider == nil || re.Provider.Version == nil || re.Provider.Version.OpenShift == nil {
@@ -1104,8 +1105,8 @@ and check the logs for errors.`,
 		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
-		ID:   CheckIdEmptyValue,
-		Name: "Infrastructure status must have Topology=HighlyAvailable",
+		ID:   "OPCT-031A",
+		Name: "Infrastructure status must have valid Topology",
 		Test: func() CheckResult {
 			res := CheckResult{Name: CheckResultNameFail, Target: "HighlyAvailable"}
 			if re.Provider == nil || re.Provider.Infra == nil {
@@ -1127,8 +1128,8 @@ and check the logs for errors.`,
 		},
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
-		ID:   CheckIdEmptyValue,
-		Name: "Infrastructure status must have ControlPlaneTopology=HighlyAvailable",
+		ID:   "OPCT-031B",
+		Name: "Infrastructure status must have valid ControlPlaneTopology",
 		Test: func() CheckResult {
 			res := CheckResult{Name: CheckResultNameFail, Target: "HighlyAvailable"}
 			if re.Provider == nil || re.Provider.Infra == nil {
@@ -1350,6 +1351,19 @@ ___
 		}
 		doc.WriteString("\n")
 	}
+
+	doc.WriteString("___\n")
+	doc.WriteString(`## Helper Rules Group
+
+The following table describes how the check IDs are distributed.
+
+| ID  | Description   |
+| --  | --            |
+| 00X[|A-Z] | Conformance result rules |
+| 01X[|A-Z] | Runtime, Infrastructure requirements, and known issues' rules |
+| 02X[|A-Z] | Result archive annomaly detector's rules |
+| 03X[|A-Z] | OpenShift object's rules |
+`)
 
 	doc.WriteString("___\n")
 	doc.WriteString(`*<p style='text-align:center;'>Page generated automatically by <code>opct adm generate checks-docs</code></p>*`)

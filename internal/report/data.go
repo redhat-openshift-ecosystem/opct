@@ -511,7 +511,7 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 		reResult.Runtime.OpctConfig = rs.Sonobuoy.OpctConfig
 	}
 
-	// Setup/API data: Copy relevant data to me used as metadata
+	// Setup/API data: Copy relevant data to used as metadata
 	// of archive in the API.
 	if re.Setup == nil {
 		re.Setup = &ReportSetup{}
