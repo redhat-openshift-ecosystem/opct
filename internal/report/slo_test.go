@@ -118,6 +118,17 @@ Expected result for Test Check 3
 Troubleshoot for Test Check 3
 
 ___
+## Helper Rules Group
+
+The following table describes how the check IDs are distributed.
+
+| ID  | Description   |
+| --  | --            |
+| 00X[|A-Z] | Conformance result rules |
+| 01X[|A-Z] | Runtime, Infrastructure requirements, and known issues' rules |
+| 02X[|A-Z] | Result archive annomaly detector's rules |
+| 03X[|A-Z] | OpenShift object's rules |
+___
 *<p style='text-align:center;'>Page generated automatically by <code>opct adm generate checks-docs</code></p>*`
 
 	doc := checkSummary.generateDocumentation()
