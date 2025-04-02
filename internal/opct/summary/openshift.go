@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/pkg/errors"
@@ -48,6 +49,7 @@ type SummaryClusterVersionOutput struct {
 	CondRetrievedUpdates              string `json:"conditionUpdates,omitempty"`
 	CondImplicitlyEnabledCapabilities string `json:"conditionImplicitlyEnabledCapabilities,omitempty"`
 	CondReleaseAccepted               string `json:"conditionReleaseAccepted,omitempty"`
+	HistoryCompletionTime             string `json:"historyCompletionTime,omitempty"`
 }
 
 type SummaryClusterOperatorOutput struct {
@@ -171,7 +173,15 @@ func (os *OpenShiftSummary) GetClusterVersion() (*SummaryClusterVersionOutput, e
 			continue
 		}
 	}
-	// TODO navigate through history and fill Previous
+	// Get the oldest completionTime as string
+	oldestTime := time.Now()
+	for _, hist := range os.ClusterVersion.Status.History {
+		if hist.CompletionTime.Compare(oldestTime) == -1 {
+			oldestTime = hist.CompletionTime.Time
+		}
+	}
+	resp.HistoryCompletionTime = oldestTime.String()
+
 	resp.Previous = "TODO"
 	return &resp, nil
 }
