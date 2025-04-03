@@ -1149,6 +1149,52 @@ and check the logs for errors.`,
 and check the logs for errors.`,
 		},
 	})
+	checkSum.Checks = append(checkSum.Checks, &Check{
+		ID:   "OPCT-040",
+		Name: "RHOCP Validation: cluster must be installed with supported platform type",
+		Test: func() CheckResult {
+			res := CheckResult{
+				Name:   CheckResultNameFail,
+				Target: "install/PlatformType",
+			}
+			if re.Provider == nil || re.Provider.Infra == nil {
+				return res
+			}
+			// Evaluate valid providers
+			res.Actual = fmt.Sprintf("%s/%s", *re.Provider.InstallInvoker, re.Provider.Infra.PlatformType)
+
+			// TODO: "assisted-installer/None" must be removed when
+			// Assisted Service UI allows to install platform type External to any provider.
+			// Currently only Oracle Cloud allows to install "assisted-installer/External".
+			switch res.Actual {
+			case "user/External", "assisted-installer/External", "assisted-installer/None", "agent-installer/External":
+				res.Name = CheckResultNamePass
+			default:
+				res.Name = CheckResultNameFail
+			}
+			return res
+		},
+		DocumentationSpec: CheckDocumentationSpec{
+			Description: `**This check is valid only for partners applying to validation the provider in the Red Hat Connect Portal**:
+The installation method used to install OpenShift must match the supported platform type
+of the Red Hat OpenShift validation requirements.`,
+			Expected: `The following matrix are valid when applying to the validation program:
+| Installation Method | Platform Type | Attributes |
+| -- | -- | -- |
+| openshift-install     | External | -- |
+| Assisted Installer    | None* | User-managed Networking Mode |
+| Assisted Installer    | External | Only Oracle Cloud Infrastructure* |
+| Agent-Based Installer | External | -- |
+
+*platform type External will be the only one supported starting from OpenShift version 4.14.
+
+For more details, refer to the Documentations:
+	- [OpenShift Documentation](https://docs.openshift.com/container-platform/latest/)
+	- [OpenShift Provider Documentation](https://docs.providers.openshift.org/platform-external/).`,
+			Troubleshoot: `Review the installation method and supported platform type.`,
+			Action:       `Re-install a cluster with supported installation method and platform type.`,
+		},
+	})
 	// TODO(network): podConnectivityChecks must not have outages
 
 	// TODO:
