@@ -9,6 +9,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/pkg/errors"
 	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -19,6 +20,7 @@ type OpenShiftSummary struct {
 	ClusterOperators *configv1.ClusterOperatorList
 	ClusterNetwork   *configv1.Network
 	Nodes            []*Node
+	InstallInvoker   string
 
 	// Plugin Results
 	PluginResultK8sConformance     *plugin.OPCTPluginSummary
@@ -71,6 +73,10 @@ type Node struct {
 	CapacityMemGB     string            `json:"capacityMemGB,omitempty"`
 	Labels            map[string]string `json:"labels,omitempty"`
 	ControlPlane      bool              `json:"controlPlane,omitempty"`
+}
+
+type SummaryOpenShiftConfig struct {
+	InstallManifestInvoker string `json:"installManifestInvoker,omitempty"`
 }
 
 func NewOpenShiftSummary() *OpenShiftSummary {
@@ -313,6 +319,41 @@ func (os *OpenShiftSummary) SetPluginResult(in *plugin.OPCTPluginSummary) error 
 	default:
 		// return fmt.Errorf("unable to Set Plugin results: Plugin not found: %s", in.Name)
 		return nil
+	}
+	return nil
+}
+
+// ExtractOpenShiftConfigMap processes a list of ConfigMaps and extracts specific
+// information related to OpenShift installation. It looks for a ConfigMap with
+// the name "openshift-install-manifests" and retrieves the value of the "invoker"
+// key from its data, storing it in the InstallInvoker field of the OpenShiftSummary
+// struct.
+//
+// Parameters:
+//   - in: A pointer to a v1.ConfigMapList containing the ConfigMaps to be processed.
+//
+// Returns:
+//   - An error if any issues occur during processing.
+//
+// Notes:
+//   - If the provided ConfigMapList is nil or contains no items, the function logs
+//     a debug message and returns nil without performing any further processing.
+func (os *OpenShiftSummary) ExtractOpenShiftConfigMap(in *v1.ConfigMapList) error {
+	if in == nil || len(in.Items) == 0 {
+		log.Debugf("unable to read OPCT config map. ConfigMapList not found: %v", in)
+		return nil
+	}
+
+	// Extract desired data from ConfigMaps
+	for _, cm := range in.Items {
+		if cm.ObjectMeta.Name != "openshift-install-manifests" {
+			continue
+		}
+		// Extract only required information: invoker
+		if invoker, ok := cm.Data["invoker"]; ok {
+			os.InstallInvoker = invoker
+		}
+		break
 	}
 	return nil
 }

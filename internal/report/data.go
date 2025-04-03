@@ -59,6 +59,7 @@ type ReportResult struct {
 	ErrorCounters    *archive.ErrorCounter    `json:"errorCounters,omitempty"`
 	Runtime          *ReportRuntime           `json:"runtime,omitempty"`
 	Nodes            []*summary.Node          `json:"nodes,omitempty"`
+	InstallInvoker   *string                  `json:"installInvoker,omitempty"`
 }
 
 func (rt *ReportResult) GetPlugins() []string {
@@ -430,6 +431,9 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 		APIServerInternalURL: string(infra.Status.APIServerInternalURL),
 		NetworkType:          string(sdn.Spec.NetworkType),
 	}
+
+	// InstallInvoker
+	reResult.InstallInvoker = &rs.GetOpenShift().InstallInvoker
 
 	// Cluster Operators
 	co, err := rs.GetOpenShift().GetClusterOperator()
