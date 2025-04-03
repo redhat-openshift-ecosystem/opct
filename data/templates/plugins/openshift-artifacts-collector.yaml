@@ -36,6 +36,8 @@ spec:
       value: "80-openshift-tests-replay"
     - name: IMAGE_OVERRIDE_MUST_GATHER
       value: "{{ .MustGatherMonitoringImage }}"
+    - name: SKIP_KUBE_BURNER
+      value: "false"
     - name: ENV_NODE_NAME
       valueFrom:
         fieldRef:
