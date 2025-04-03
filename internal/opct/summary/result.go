@@ -299,8 +299,9 @@ func (rs *ResultSummary) extractAndLoadData() error {
 		pathPluginDefinition10 = "plugins/10-openshift-kube-conformance/definition.json"
 		pathPluginDefinition20 = "plugins/20-openshift-conformance-validated/definition.json"
 
-		pathResourceNSOpctConfigMap = "resources/ns/openshift-provider-certification/core_v1_configmaps.json"
+		pathResourceNSOpctConfigMap = "resources/ns/opct/core_v1_configmaps.json"
 		pathResourceNsKubeConfigMap = "resources/ns/kube-system/core_v1_configmaps.json"
+		pathResourceNsOcpConfigMap  = "resources/ns/openshift-config/core_v1_configmaps.json"
 
 		// artifacts collector locations on archive file
 		pathPluginArtifactTestsK8S     = "plugins/99-openshift-artifacts-collector/results/global/artifacts_e2e-tests_openshift-kube-conformance.txt"
@@ -334,6 +335,7 @@ func (rs *ResultSummary) extractAndLoadData() error {
 	ocpCN := configv1.NetworkList{}
 	opctConfigMapList := v1.ConfigMapList{}
 	kubeSystemConfigMapList := v1.ConfigMapList{}
+	openshiftConfigMapList := v1.ConfigMapList{}
 	nodes := v1.NodeList{}
 
 	pluginDef10 := SonobuoyPluginDefinition{}
@@ -384,6 +386,9 @@ func (rs *ResultSummary) extractAndLoadData() error {
 			return errors.Wrap(err, fmt.Sprintf("extracting file '%s': %v", path, err))
 		}
 		if err := results.ExtractFileIntoStruct(pathResourceNsKubeConfigMap, path, info, &kubeSystemConfigMapList); err != nil {
+			return errors.Wrap(err, fmt.Sprintf("extracting file '%s': %v", path, err))
+		}
+		if err := results.ExtractFileIntoStruct(pathResourceNsOcpConfigMap, path, info, &openshiftConfigMapList); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("extracting file '%s': %v", path, err))
 		}
 		// Extract raw files
@@ -465,6 +470,9 @@ func (rs *ResultSummary) extractAndLoadData() error {
 	}
 	if err := rs.GetOpenShift().SetNodes(&nodes); err != nil {
 		log.Warnf("Processing results/Populating/Populating Summary/Processing/Object/Nodes: %v", err)
+	}
+	if err := rs.GetOpenShift().ExtractOpenShiftConfigMap(&openshiftConfigMapList); err != nil {
+		log.Warnf("Processing results/Populating/Populating Summary/Processing/Object/OpenShiftConfigInstallManifest: %v", err)
 	}
 	if err := rs.Suites.KubernetesConformance.Load(pathPluginArtifactTestsK8S, &testsSuiteK8S); err != nil {
 		log.Warnf("Processing results/Populating/Populating Summary/Processing/Plugin/kube: %v", err)
