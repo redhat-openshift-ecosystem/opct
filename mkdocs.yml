@@ -86,6 +86,7 @@ nav:
     - BYO Plugin: devel/byo-plugin.md
     #- Repositories: devel/repositories.md
     - Architectures: devel/arch-support.md
+    - "Devel Guide: Creating cluster with platform type External": devel/create-cluster-external.md
   - Release Notes:
     # TODO: Create release note file document with summary updates by release.
     - CHANGELOG.md
