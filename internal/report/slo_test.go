@@ -122,12 +122,15 @@ ___
 
 The following table describes how the check IDs are distributed.
 
-| ID  | Description   |
-| --  | --            |
-| 00X[|A-Z] | Conformance result rules |
-| 01X[|A-Z] | Runtime, Infrastructure requirements, and known issues' rules |
-| 02X[|A-Z] | Result archive annomaly detector's rules |
-| 03X[|A-Z] | OpenShift object's rules |
+| ID | Description |
+| -- | --|
+| 00X[\|A-Z] | Conformance result rules |
+| 01X[\|A-Z] | Runtime, Infrastructure requirements, and known issues' rules |
+| 02X[\|A-Z] | Result archive anomaly detector's rules |
+| 03X[\|A-Z] | OpenShift object's rules |
+| 04X[\|A-Z] | Red Hat OpenShift validation program's rules |
+
+
 ___
 *<p style='text-align:center;'>Page generated automatically by <code>opct adm generate checks-docs</code></p>*`
 

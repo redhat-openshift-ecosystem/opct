@@ -7,7 +7,7 @@ test suites on OpenShift/OKD installations on cloud providers or hardware.
 
 - [OPCT Overview](https://redhat-openshift-ecosystem.github.io/opct/)
 - [User Guide](https://redhat-openshift-ecosystem.github.io/opct/user/)
-- [Development Guide](https://redhat-openshift-ecosystem.github.io/opct/dev)
+- [Development Guide](https://redhat-openshift-ecosystem.github.io/opct/devel/guide)
 
 ## Getting started
 

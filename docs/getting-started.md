@@ -61,7 +61,7 @@ opct report --save-to ./results opct*.tar.gz
 ```
 
 <a name="explore"></a>
-Explore the results by navigating to the [Web UI](./opct/report.md) to review the [checks](./review/rules), recommendations, and e2e logs.
+Explore the results by navigating to the [Web UI](./opct/report.md) to review the [checks](review/rules.md), recommendations, and e2e logs.
 
 ## Destroy <a name="destroy"></a>
 [Destroy](./opct/destroy.md) the test environment:

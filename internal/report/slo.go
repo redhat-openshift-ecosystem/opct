@@ -806,7 +806,7 @@ The maximum value is the highest value of slow requests reported in the etcd log
 `,
 			Action:       "Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.",
 			Expected:     "The slow requests in etcd logs are a relative value and it is based on the observed values in known platforms.",
-			Troubleshoot: "Review Dependencies: [Troubleshooting section of OPCT-010A](#opct-010A)",
+			Troubleshoot: "Review Dependencies: [Troubleshooting section of OPCT-010A](#opct-010a)",
 			Dependencies: []string{"OPCT-010A"},
 		},
 	})
@@ -1252,6 +1252,7 @@ and check the logs for errors.`,
 The installation method used to install OpenShift must match the supported platform type
 of the Red Hat OpenShift validation requirements.`,
 			Expected: `The following matrix are valid when applying to the validation program:
+
 | Installation Method | Platform Type | Attributes |
 | -- | -- | -- |
 | openshift-install     | External | -- |
@@ -1429,15 +1430,17 @@ ___
 
 The following table describes how the check IDs are distributed.
 
-| ID  | Description   |
-| --  | --            |
-| 00X[|A-Z] | Conformance result rules |
-| 01X[|A-Z] | Runtime, Infrastructure requirements, and known issues' rules |
-| 02X[|A-Z] | Result archive annomaly detector's rules |
-| 03X[|A-Z] | OpenShift object's rules |
+| ID | Description |
+| -- | --|
+| 00X[\|A-Z] | Conformance result rules |
+| 01X[\|A-Z] | Runtime, Infrastructure requirements, and known issues' rules |
+| 02X[\|A-Z] | Result archive anomaly detector's rules |
+| 03X[\|A-Z] | OpenShift object's rules |
+| 04X[\|A-Z] | Red Hat OpenShift validation program's rules |
+
 `)
 
-	doc.WriteString("___\n")
+	doc.WriteString("\n___\n")
 	doc.WriteString(`*<p style='text-align:center;'>Page generated automatically by <code>opct adm generate checks-docs</code></p>*`)
 
 	return doc.String()

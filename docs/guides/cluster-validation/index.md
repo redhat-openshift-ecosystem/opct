@@ -9,10 +9,7 @@ in conformance with standard test suites.
 !!! info "Red Hat Partners"
     Use this guide if you are applying to a Red Hat OpenShift validation program.
 
-    Users not applying to a Red Hat program can explore the [Getting Started guide][getting-started].
-
-[getting-started]: /opct/getting-started
-
+    Users not applying to a Red Hat program can explore the [Getting Started guide](/opct/getting-started).
 
 Table Of Contents:
 
@@ -24,13 +21,11 @@ Table Of Contents:
         - [Testing in a Disconnected Environment](#disconnected-env-setup)
     - [Privilege Requirements](#priv-requirements)
 - [Install](#install)
-    - [Prebuilt Binary](#install-bin)
-    - [Build from Source](#install-source)
 - [Usage](#usage)
-    - [Run tool](#usage-run)
-        - [Default Run mode](#usage-run-regular)
-        - [Run 'upgrade' mode](#usage-run-upgrade)
-        - [Optional parameters](#usage-run-optional)
+    - [Run conformance workflows](#usage-run)
+        - [Run the default conformance workflow](#usage-run-regular)
+        - [Run the upgrade workflow](#usage-run-upgrade)
+        - [Run default conformance workflow in disconnected environments](#usage-run-disconnected)
     - [Check status](#usage-check)
     - [Collect the results](#usage-retrieve)
     - [Check the Results](#usage-results)
@@ -142,7 +137,7 @@ OpenShift Platform Type supported by OPCT on Red Hat OpenShift validation progra
 
 The matrix below describes the OpenShift and OPCT versions supported:
 
-| OPCT [version](releases) | OCP tested versions | OPCT Execution mode                |
+| OPCT [version][releases] | OCP tested versions | OPCT Execution mode                |
 | --                       | --                  | --                                |
 | v0.5.x                   | 4.14-4.18           | regular, upgrade, disconnected     |
 | v0.4.x                   | 4.10-4.13           | regular, upgrade, disconnected     |
@@ -151,8 +146,6 @@ The matrix below describes the OpenShift and OPCT versions supported:
 | v0.1.x                   | 4.9-4.11            | regular                            |
 
 It is highly recommended to use the latest OPCT version.
-
-[releases]: https://github.com/redhat-openshift-ecosystem/opct/releases
 
 ### Standard Environment <a name="standard-env"></a>
 
@@ -255,13 +248,27 @@ chmod u+x ./opct
 
 ## Usage <a name="usage"></a>
 
-### Run conformance tests <a name="usage-run"></a>
+### Run conformance workflows <a name="usage-run"></a>
+
+To start the conformance workflow, use the `run` command in the target
+configuration (execution mode).
+
+The following are valid execution modes:
+
+| Mode | Required options | Description |
+| -- | -- | -- |
+| `default` | (no extra parameters) | Validate connected clusters |
+| `upgrade` | `--mode=upgrade` and `--upgrade-to-image` | Validate upgrade on connected clusters |
+| `disconnected` | `--image-repository` | Validate disconnected clusters |
 
 **Requirements:**
-- A dedicated node
+
+- A dedicated node properly configured
 - OPCT installed locally
 
-#### Run the default execution mode <a name="usage-run-regular"></a>
+#### Default workflow <a name="usage-run-regular"></a>
+
+Schedule the default conformance workflow in connected environments:
 
 ```sh
 ./opct run
@@ -273,19 +280,30 @@ To watch execution progress:
 ./opct run --watch
 ```
 
-#### Run the `upgrade` mode <a name="usage-run-upgrade"></a>
+#### Upgrade workflow <a name="usage-run-upgrade"></a>
 
-`upgrade` mode upgrades the cluster to a specified 4.Y+1 release, then runs conformance suites to validate the upgraded cluster:
+The `upgrade` mode upgrades the cluster to a specified 4.Y+1 release, monitoring the progress, then runs conformance suites to validate the upgraded cluster.
+
+*Prerequisites*:
+
+  - The `MachineConfigPool` with name `opct`. See section ["Setup MachineConfigPool for upgrade tests"](#standard-env-setup-mcp)
+  - OpenShift client (`oc`)
+
+*Steps*:
 
 ```sh
 ./opct run --mode=upgrade --upgrade-to-image=$(oc adm release info 4.Y+1.Z -o jsonpath={.image})
 ```
 
-**Note**: Before running upgrade mode, you must have created the `MachineConfigPool` named `opct` and installed the `oc` client.
+#### Default in disconnected environments<a name="usage-run-disconnected"></a>
 
-#### Run with Disconnected Mirror registry<a name="usage-run-disconnected"></a>
+If you have a disconnected mirror registry configured
 
-If you have a disconnected mirror registry configured, run:
+*Prerequisites*:
+
+- Local registry with images mirrored. See the section ["Testing in a Disconnected Environment"](#disconnected-env-setup)
+
+*Steps*:
 
 ```sh
 ./opct run --image-repository ${TARGET_REPO}
@@ -358,7 +376,7 @@ When validation is complete, destroy the conformance environment:
 
 You must manually remove the OpenShift cluster afterward.
 
-## Troubleshooting Helper
+## Troubleshooting Helper <a name="troubleshooting"></a>
 
 For issues or investigating test failures, see:
 
@@ -376,3 +394,4 @@ If you are undergoing a partner validation process, contact your Red Hat Partner
 [installation-review]: ./installation-review.md
 [troubleshooting-guide]: ./../../review/troubleshooting.md
 [opct-new-issue]: https://github.com/redhat-openshift-ecosystem/opct/issues/new
+[releases]: https://github.com/redhat-openshift-ecosystem/opct/releases

@@ -1,6 +1,6 @@
 # How to Contribute
 
-OPCT projects are [Apache 2.0 licensed](LICENSE) and accept contributions via
+OPCT projects are [Apache 2.0 licensed](https://github.com/redhat-openshift-ecosystem/opct/blob/main/LICENSE) and accept contributions via
 GitHub pull requests. This document outlines some of the conventions on
 development workflow, commit message formatting, contact points and other
 resources to make it easier to get your contribution accepted.
@@ -15,12 +15,12 @@ Conduct](./CODE_OF_CONDUCT.md).
 By contributing to this project you agree to the Developer Certificate of
 Origin (DCO). This document was created by the Linux Kernel community and is a
 simple statement that you, as a contributor, have the legal right to make the
-contribution. See the [DCO](DCO) file for details.
+contribution. See the [DCO](https://github.com/redhat-openshift-ecosystem/opct/blob/main/DCO) file for details.
 
 ## Signing Commits
 
 To contribute to OPCT projects, you must sign the commits. To setup
-signing commits see the [Github Guide Signing commits](github-signing-commits).
+signing commits see the [Github Guide Signing commits][signing-commits].
 
 ## Security Response
 
@@ -53,7 +53,7 @@ For contributors who want to work up pull requests, the workflow is roughly:
     make tests
     ```
 7. Submit a pull request to the original repository.
-8. The [repo](OWNERS) [owners](OWNERS_ALIASES) will respond to your issue promptly, following [the ususal Prow workflow][prow-review].
+8. The [repo owners](https://github.com/redhat-openshift-ecosystem/opct/blob/main/OWNERS) will respond to your issue promptly, following [the ususal Prow workflow][prow-review].
 
 Thanks for your contributions!
 

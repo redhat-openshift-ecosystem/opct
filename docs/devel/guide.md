@@ -10,7 +10,7 @@ Table of Contents:
     - [Integration with Sonobuoy CLI](#dev-integration-cli)
     - [Mirror sonobuoy images](#dev-image-mirror-sonobuoy)
 - [Sonobuoy Plugins](#dev-sonobuoy-plugins)
-- [Diagrams](#dev-diagrams)
+- [Diagrams](#diagrams)
 - [CLI Result filters](#dev-diagram-filters)
 - [Running Customized Plugins](#dev-running-custom-plugins)
 - [Project Documentation](#dev-project-docs)
@@ -179,7 +179,7 @@ The Plugins source code is available on the project [provider-certification-plug
 
 ## Diagrams <a name="diagrams"></a>
 
-The diagrams are available under the page [Diagrams](./diagrams).
+The diagrams are available under the page [Diagrams](../diagrams/index.md).
 
 ## CLI Result filters <a name="dev-diagram-filters"></a>
 
