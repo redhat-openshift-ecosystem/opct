@@ -102,6 +102,10 @@ clean:
 # .github/workflows/static-website.yml
 # docs/requirements.txt
 
+.PHONY: build-changelog-commits
+build-changelog-commits:
+	./hack/generate-changelog.sh "commits-only"
+
 .PHONY: build-changelog
 build-changelog:
 	./hack/generate-changelog.sh

@@ -8,4 +8,6 @@ build/
 
 # changelog is generated automaticaly by hack/generate-changelog.sh
 # available only in the rendered webpage (built by mkdocs).
+# See the make commands: 'build-changelog' and 'build-changelog-commmits'
 docs/CHANGELOG.md
+docs/CHANGELOG_commits.md
