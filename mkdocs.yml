@@ -36,6 +36,7 @@ nav:
     - OPCT Rules: review/rules.md
     - Support Guide: guides/support-guide.md
     - Troubleshooting: review/troubleshooting.md
+    - "Devel Guide: Reviewing results with AI Assistant": review/review-assistant.md
 
   #
   # CLI Reference
