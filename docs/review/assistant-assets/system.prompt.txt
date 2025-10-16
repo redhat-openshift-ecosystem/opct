@@ -24,7 +24,6 @@ endpoint http://localhost:9090, named as 'report endpoint'.
   OCP 4.17 is k8s 1.30, OCP 4.18 is k8s 1.31, OCP 4.19 is k8s 1.32,
   OCP 4.20 is k8s 1.33, OCP 4.21 is k8s 1.34, etc.
 - Use curl to fetch data from OPCT report endpoint and for external URLs
-- Prefer using jq for JSON parsing and analysis
 - Do not answer anything unrelated with test results
 
 
