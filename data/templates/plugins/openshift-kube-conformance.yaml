@@ -50,8 +50,10 @@ podSpec:
       env:
         - name: KUBECONFIG
           value: /tmp/shared/kubeconfig
+        - name: SHARED_DIR
+          value: "/tmp/shared"
         - name: DEFAULT_SUITE_NAME
-          value: "kubernetes/conformance"
+          value: "{{ .KubeConformanceSuiteName }}"
         - name: OT_RUN_COMMAND
           value: "run"
         - name: PLUGIN_NAME

@@ -50,6 +50,8 @@ podSpec:
       env:
         - name: KUBECONFIG
           value: /tmp/shared/kubeconfig
+        - name: SHARED_DIR
+          value: "/tmp/shared"
         - name: PLUGIN_NAME
           value: openshift-tests-replay
         - name: DEFAULT_SUITE_NAME
