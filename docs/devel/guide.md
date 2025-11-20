@@ -186,7 +186,7 @@ The diagrams are available under the page [Diagrams](../diagrams/index.md).
 The CLI currently implements a few filters to help the reviewers (Partners, Support, Engineering teams) to find the root cause of the failures. The filters consumes the data sources below to improve the feedback, by plugin level, when using the command `process`:
 
 - A. `"Provider's Result"`: This is the original list of failures by the plugin available on the command `results`
-- B. `"Suite List"`: This is the list of e2e tests available on the respective suite. For example: plugin `openshift-kubernetes-conformance` uses the suite `kubernetes/conformance`
+- B. `"Suite List"`: This is the list of e2e tests available on the respective suite. For example: plugin `openshift-kubernetes-conformance` uses the suite `kubernetes/conformance` (for OCP < 4.20) or `kubernetes/conformance/parallel` (for OCP >= 4.20)
 - C. `"Baseline's Result"`: This is the list of e2e tests that failed in the baseline provider. That list is built from the same Certification Environment (OCP Agnostic Installation) in a known/supported platform (for example AWS and vSphere). Red Hat has many teams dedicated to reviewing and improving the thousands of e2e tests running in CI, that list is constantly reviewed for improvement to decrease the number of false negatives and help to look for the root cause.
 - D. `"Sippy"`: Sippy is the system used to extract insights from the CI jobs. It can provide individual e2e test statistics of failures across the entire CI ecosystem, providing one picture of the failures happening in the provider's environment. The filter will check for each failed e2e if has an occurrence of failures in the version used to be validated.
 

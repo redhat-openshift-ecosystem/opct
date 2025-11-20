@@ -86,6 +86,8 @@ spec:
   env:
     - name: KUBECONFIG
       value: /tmp/shared/kubeconfig
+    - name: DEFAULT_SUITE_NAME
+      value: "{{ .KubeConformanceSuiteName }}"
     - name: PLUGIN_NAME
       value: "openshift-kube-conformance"
     - name: PLUGIN_ID

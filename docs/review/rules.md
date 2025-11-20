@@ -14,7 +14,7 @@ ___
 ### OPCT-001
 
 - **Name**: Kubernetes Conformance [10-openshift-kube-conformance] must pass 100%
-- **Description**: Kubernetes Conformance suite (defined as `kubernetes/conformance` in `openshift-tests`) implements e2e required by Kubernetes Certification. Those tests are base tests for an operational Kubernetes cluster. All tests must be passed prior reviewing OpenShift Conformance suite.
+- **Description**: Kubernetes Conformance suite implements e2e required by Kubernetes Certification. For OCP < 4.20, this uses the `kubernetes/conformance` suite in `openshift-tests`. For OCP >= 4.20, this uses the `kubernetes/conformance/parallel` suite as the suite was reorganized into parallel and serial sub-suites. These tests are base tests for an operational Kubernetes cluster. All tests must be passed prior reviewing OpenShift Conformance suite.
 - **Action**: Review the logs for each failed test in the Kubernetes conformance suite.
 - **Expected**:
 ~~~

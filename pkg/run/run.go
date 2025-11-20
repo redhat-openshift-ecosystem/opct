@@ -50,6 +50,12 @@ type RunOptions struct {
 	MustGatherMonitoringImage string
 	OpenshiftTestsImage       string
 
+	// KubeConformanceSuiteName
+	// defines the suite name for Kubernetes conformance tests.
+	// This is version-dependent: "kubernetes/conformance" for OCP < 4.20,
+	// "kubernetes/conformance/parallel" for OCP >= 4.20.
+	KubeConformanceSuiteName string
+
 	timeout      int
 	watch        bool
 	mode         string
@@ -194,6 +200,50 @@ func NewCmdRun() *cobra.Command {
 	return cmd
 }
 
+// setKubeConformanceSuiteName determines the appropriate suite name for Kubernetes
+// conformance tests based on the cluster version. Starting with OCP 4.20, the
+// kubernetes/conformance suite was reorganized into sub-suites (parallel, serial,
+// and minimal variants).
+func (r *RunOptions) setKubeConformanceSuiteName(oc *coclient.Clientset) error {
+	// Default to kubernetes/conformance for backward compatibility
+	r.KubeConformanceSuiteName = "kubernetes/conformance"
+
+	// Get the cluster version
+	cv, err := oc.ConfigV1().ClusterVersions().Get(context.TODO(), "version", metav1.GetOptions{})
+	if err != nil {
+		log.Warnf("Failed to get cluster version, defaulting to kubernetes/conformance suite: %v", err)
+		return nil
+	}
+
+	// Extract the version string
+	version := cv.Status.Desired.Version
+	if version == "" {
+		log.Warn("Cluster version is empty, defaulting to kubernetes/conformance suite")
+		return nil
+	}
+
+	log.Debugf("Detected cluster version: %s", version)
+
+	// Parse the version to check if it's >= 4.20
+	// Version format is typically "4.20.0" or "4.20.0-rc.1"
+	var major, minor int
+	_, err = fmt.Sscanf(version, "%d.%d", &major, &minor)
+	if err != nil {
+		log.Warnf("Failed to parse cluster version %q, defaulting to kubernetes/conformance suite: %v", version, err)
+		return nil
+	}
+
+	// For OCP 4.20+, use the parallel sub-suite
+	if major == 4 && minor >= 20 {
+		r.KubeConformanceSuiteName = "kubernetes/conformance/parallel"
+		log.Infof("Using kubernetes/conformance/parallel suite for OCP %d.%d", major, minor)
+	} else {
+		log.Infof("Using kubernetes/conformance suite for OCP %d.%d", major, minor)
+	}
+
+	return nil
+}
+
 // PreRunCheck performs some checks before kicking off Sonobuoy
 func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	coreClient := kclient.CoreV1()
@@ -205,6 +255,12 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 	}
 	oc, err := coclient.NewForConfig(restConfig)
 	if err != nil {
+		return err
+	}
+
+	// Determine the appropriate suite name for Kubernetes conformance tests
+	// based on cluster version
+	if err := r.setKubeConformanceSuiteName(oc); err != nil {
 		return err
 	}
 
