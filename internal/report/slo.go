@@ -253,7 +253,7 @@ $ omc get pods -A |egrep -v '(Running|Completed)'
 			return res
 		},
 		DocumentationSpec: CheckDocumentationSpec{
-			Description: "Kubernetes Conformance suite implements e2e required by Kubernetes Certification. For OCP < 4.20, this uses the `kubernetes/conformance` suite in `openshift-tests`. For OCP >= 4.20, this uses the `kubernetes/conformance/parallel` suite as the suite was reorganized into parallel and serial sub-suites. These tests are base tests for an operational Kubernetes cluster. All tests must be passed prior reviewing OpenShift Conformance suite.",
+			Description: "Kubernetes Conformance suite implements e2e required by Kubernetes Certification. For OCP < 4.20, this uses the `kubernetes/conformance` suite via `openshift-tests`. For OCP >= 4.20, this uses the `kubernetes/conformance/parallel` suite via `k8s-tests-ext` binary (extracted from the hyperkube image in the release payload), as the suite was reorganized into parallel and serial sub-suites. These tests are base tests for an operational Kubernetes cluster. All tests must be passed prior reviewing OpenShift Conformance suite.",
 			Action:      "Review the logs for each failed test in the Kubernetes conformance suite.",
 			Expected: `~~~
  - 10-openshift-kube-conformance:

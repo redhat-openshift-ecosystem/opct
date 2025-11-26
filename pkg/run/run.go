@@ -56,6 +56,12 @@ type RunOptions struct {
 	// "kubernetes/conformance/parallel" for OCP >= 4.20.
 	KubeConformanceSuiteName string
 
+	// UseK8sTestsExt
+	// indicates whether to use k8s-tests-ext binary instead of openshift-tests
+	// for Kubernetes conformance testing.
+	// This is version-dependent: false for OCP < 4.20, true for OCP >= 4.20.
+	UseK8sTestsExt bool
+
 	timeout      int
 	watch        bool
 	mode         string
@@ -200,25 +206,26 @@ func NewCmdRun() *cobra.Command {
 	return cmd
 }
 
-// setKubeConformanceSuiteName determines the appropriate suite name for Kubernetes
-// conformance tests based on the cluster version. Starting with OCP 4.20, the
-// kubernetes/conformance suite was reorganized into sub-suites (parallel, serial,
-// and minimal variants).
+// setKubeConformanceSuiteName determines the appropriate suite name and test binary
+// for Kubernetes conformance tests based on the cluster version. Starting with OCP 4.20,
+// the kubernetes/conformance suite was reorganized into sub-suites (parallel, serial,
+// and minimal variants), and we switch to using k8s-tests-ext binary directly.
 func (r *RunOptions) setKubeConformanceSuiteName(oc *coclient.Clientset) error {
 	// Default to kubernetes/conformance for backward compatibility
 	r.KubeConformanceSuiteName = "kubernetes/conformance"
+	r.UseK8sTestsExt = false
 
 	// Get the cluster version
 	cv, err := oc.ConfigV1().ClusterVersions().Get(context.TODO(), "version", metav1.GetOptions{})
 	if err != nil {
-		log.Warnf("Failed to get cluster version, defaulting to kubernetes/conformance suite: %v", err)
+		log.Warnf("Failed to get cluster version, defaulting to kubernetes/conformance suite with openshift-tests: %v", err)
 		return nil
 	}
 
 	// Extract the version string
 	version := cv.Status.Desired.Version
 	if version == "" {
-		log.Warn("Cluster version is empty, defaulting to kubernetes/conformance suite")
+		log.Warn("Cluster version is empty, defaulting to kubernetes/conformance suite with openshift-tests")
 		return nil
 	}
 
@@ -229,16 +236,17 @@ func (r *RunOptions) setKubeConformanceSuiteName(oc *coclient.Clientset) error {
 	var major, minor int
 	_, err = fmt.Sscanf(version, "%d.%d", &major, &minor)
 	if err != nil {
-		log.Warnf("Failed to parse cluster version %q, defaulting to kubernetes/conformance suite: %v", version, err)
+		log.Warnf("Failed to parse cluster version %q, defaulting to kubernetes/conformance suite with openshift-tests: %v", version, err)
 		return nil
 	}
 
-	// For OCP 4.20+, use the parallel sub-suite
+	// For OCP 4.20+, use k8s-tests-ext binary with parallel sub-suite
 	if major == 4 && minor >= 20 {
 		r.KubeConformanceSuiteName = "kubernetes/conformance/parallel"
-		log.Infof("Using kubernetes/conformance/parallel suite for OCP %d.%d", major, minor)
+		r.UseK8sTestsExt = true
+		log.Infof("Using kubernetes/conformance/parallel suite with k8s-tests-ext for OCP %d.%d", major, minor)
 	} else {
-		log.Infof("Using kubernetes/conformance suite for OCP %d.%d", major, minor)
+		log.Infof("Using kubernetes/conformance suite with openshift-tests for OCP %d.%d", major, minor)
 	}
 
 	return nil

@@ -39,6 +39,64 @@ podSpec:
       volumeMounts:
         - mountPath: /tmp/shared
           name: shared
+{{- if .UseK8sTestsExt }}
+    - name: extract-k8s-tests
+      image: "{{ .OpenshiftTestsImage }}"
+      imagePullPolicy: Always
+      command:
+        - "/bin/bash"
+        - "-c"
+        - |
+          set -euo pipefail
+
+          echo "Extracting k8s-tests-ext from hyperkube image..."
+
+          # Get release image from cluster
+          RELEASE_IMAGE=$(oc get clusterversion version -o jsonpath='{.status.desired.image}')
+          echo "Release image: ${RELEASE_IMAGE}"
+
+          # Extract image-references
+          oc image extract "${RELEASE_IMAGE}" \
+            --path=/release-manifests/image-references:/tmp/refs \
+            --confirm
+
+          # Parse hyperkube image reference using python
+          HYPERKUBE_IMAGE=$(python3 -c "
+          import json, sys
+          with open('/tmp/refs/image-references') as f:
+              data = json.load(f)
+              for tag in data.get('spec', {}).get('tags', []):
+                  if tag.get('name') == 'hyperkube':
+                      print(tag.get('from', {}).get('name', ''))
+                      sys.exit(0)
+              sys.exit(1)
+          ")
+
+          if [ -z "$HYPERKUBE_IMAGE" ]; then
+              echo "ERROR: Failed to find hyperkube image in release payload"
+              exit 1
+          fi
+
+          echo "Hyperkube image: ${HYPERKUBE_IMAGE}"
+
+          # Extract k8s-tests-ext.gz
+          oc image extract "${HYPERKUBE_IMAGE}" \
+            --path=/usr/bin/k8s-tests-ext.gz:/tmp/shared \
+            --confirm
+
+          # Decompress and make executable
+          gunzip /tmp/shared/k8s-tests-ext.gz
+          chmod +x /tmp/shared/k8s-tests-ext
+
+          echo "k8s-tests-ext extracted successfully"
+          /tmp/shared/k8s-tests-ext info || echo "Warning: k8s-tests-ext info command failed (may be expected)"
+      env:
+        - name: KUBECONFIG
+          value: "/tmp/shared/kubeconfig"
+      volumeMounts:
+        - mountPath: /tmp/shared
+          name: shared
+{{- end }}
   containers:
     - name: tests
       image: "{{ .OpenshiftTestsImage }}"
@@ -54,6 +112,8 @@ podSpec:
           value: "/tmp/shared"
         - name: DEFAULT_SUITE_NAME
           value: "{{ .KubeConformanceSuiteName }}"
+        - name: USE_K8S_TESTS_EXT
+          value: "{{ .UseK8sTestsExt }}"
         - name: OT_RUN_COMMAND
           value: "run"
         - name: PLUGIN_NAME
@@ -88,6 +148,8 @@ spec:
       value: /tmp/shared/kubeconfig
     - name: DEFAULT_SUITE_NAME
       value: "{{ .KubeConformanceSuiteName }}"
+    - name: USE_K8S_TESTS_EXT
+      value: "{{ .UseK8sTestsExt }}"
     - name: PLUGIN_NAME
       value: "openshift-kube-conformance"
     - name: PLUGIN_ID
