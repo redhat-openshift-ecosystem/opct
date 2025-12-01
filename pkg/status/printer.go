@@ -63,6 +63,12 @@ func (s *Status) getPrintableRunningStatus() PrintableStatus {
 				podStatus = err.Error()
 			} else {
 				podStatus = getPodStatusString(pod)
+				// If pod is in NotReady or error state, append error details from events
+				if podStatus == "NotReady" || podStatus == "Pending" || podStatus == "Failed" {
+					if eventMsg := getPodEventsMessage(s.kclient, pkg.CertificationNamespace, pod.Name); eventMsg != "" {
+						podStatus = fmt.Sprintf("%s (%s)", podStatus, eventMsg)
+					}
+				}
 			}
 			message = fmt.Sprintf("waiting for jobs initialization=PodStatus(%s)", podStatus)
 		}

@@ -1,10 +1,13 @@
 package run
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -60,6 +63,9 @@ type RunOptions struct {
 
 	// Dedicated node
 	dedicated bool
+
+	// dryRun flag - when true, only run preflight checks without creating resources
+	dryRun bool
 }
 
 const (
@@ -68,6 +74,7 @@ const (
 	defaultUpgradeImage      = ""
 	defaultDedicatedFlag     = true
 	defaultRunWatchFlag      = false
+	defaultDryRunFlag        = false
 )
 
 func newRunOptions() *RunOptions {
@@ -177,6 +184,7 @@ func NewCmdRun() *cobra.Command {
 	// Flags use for maitainance / development / CI. Those are intentionally hidden.
 	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times. (default plugins can be reviewed with assets subcommand)")
 	cmd.Flags().BoolVar(&o.dedicated, "dedicated", defaultDedicatedFlag, "Setup plugins to run in dedicated test environment.")
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", defaultDryRunFlag, "Run preflight checks only without creating resources")
 	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
 
 	hideOptionalFlags(cmd, "plugin")
@@ -239,6 +247,26 @@ func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
 			return fmt.Errorf("openShift Image Registry must deployed before validation can run")
 		}
 		log.Warn("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping unmanaged image registry check")
+	}
+
+	// Check if all configured container images are accessible
+	imagesToCheck := []string{
+		r.PluginsImage,
+		r.OpenshiftTestsImage,
+		r.CollectorImage,
+		r.MustGatherMonitoringImage,
+		pkg.ControllerImage,
+	}
+	if errs := checkPluginImages(imagesToCheck); errs != nil {
+		errorMessages := []string{}
+		for _, err := range errs {
+			errorMessages = append(errorMessages, err.Error())
+		}
+		log.Errorf("Preflights checks failed: configured images are not accessible: %v", errorMessages)
+		if !r.devSkipChecks {
+			return fmt.Errorf("all configured container images must be accessible before validation can run")
+		}
+		log.Warnf("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping image accessibility checks: %v", errs)
 	}
 
 	if r.dedicated {
@@ -582,6 +610,13 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 		log.Warn("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping preflight checks")
 	}
 
+	// If dry-run mode is enabled, exit after preflight checks
+	if r.dryRun {
+		log.Info("Dry-run mode enabled: all preflight checks passed successfully")
+		log.Info("Exiting without creating resources (use 'opct run' without --dry-run to execute tests)")
+		return nil
+	}
+
 	// Create version information ConfigMap
 	if err := r.createConfigMap(kclient, sclient, &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -716,4 +751,31 @@ func checkRegistry(irClient irclient.Interface) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// checkPluginImages validates that all required container images are accessible
+func checkPluginImages(images []string) []error {
+	var result []error
+
+	for _, image := range images {
+		if image == "" {
+			continue
+		}
+
+		log.Infof("Validating image accessibility: %s", image)
+		// Use oc image info to validate image exists and is accessible
+		cmd := exec.Command("oc", "image", "info", image)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+
+		if err := cmd.Run(); err != nil {
+			errMsg := strings.TrimSpace(stderr.String())
+			if errMsg == "" {
+				errMsg = err.Error()
+			}
+			result = append(result, fmt.Errorf("image %s is not accessible: %s", image, errMsg))
+		}
+	}
+
+	return result
 }
