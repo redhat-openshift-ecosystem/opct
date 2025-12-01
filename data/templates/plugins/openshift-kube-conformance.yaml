@@ -17,6 +17,76 @@ podSpec:
       volumeMounts:
         - mountPath: /tmp/shared
           name: shared
+    - name: extract-k8s-conformance-tests
+      image: "{{ .OpenshiftTestsImage }}"
+      imagePullPolicy: Always
+      command:
+        - "/bin/bash"
+        - "-ec"
+        - |
+          set -o pipefail
+          echo "Extracting Kubernetes conformance test list from OTE binary..."
+
+          # Get the hyperkube image from the release
+          TESTS_IMAGE_K8S=$(
+            oc adm release info --image-for=hyperkube 2>/dev/null || echo ""
+          )
+
+          if [ -z "$TESTS_IMAGE_K8S" ]; then
+            echo "Warning: Unable to get hyperkube image"
+            echo "  Will rely on default suite"
+            exit 0
+          fi
+
+          echo "Hyperkube image: $TESTS_IMAGE_K8S"
+
+          # Extract k8s-tests-ext binary
+          K8S_EXT_FILE="/usr/bin/k8s-tests-ext.gz"
+          K8S_EXT_PATH="$K8S_EXT_FILE:/tmp/shared/"
+          if ! oc image extract "$TESTS_IMAGE_K8S" \
+            --file="$K8S_EXT_FILE" \
+            --path="$K8S_EXT_PATH" 2>/dev/null; then
+            echo "Warning: Failed to extract k8s-tests-ext.gz"
+            echo "  Will rely on default suite"
+            exit 0
+          fi
+
+          # Decompress and make executable
+          if [ -f /tmp/shared/k8s-tests-ext.gz ]; then
+            gunzip /tmp/shared/k8s-tests-ext.gz
+            chmod u+x /tmp/shared/k8s-tests-ext
+
+            # Extract conformance test list and save to file
+            echo "Extracting conformance tests list..."
+            OUT_FILE="/tmp/shared/k8s-conformance-tests.list"
+            JQ_FILTER='.[] | select(.name | contains("[Conformance]")).name'
+            /tmp/shared/k8s-tests-ext list \
+              | jq -r "$JQ_FILTER" > "$OUT_FILE" 2>/dev/null || {
+              echo "Warning: Failed to extract with jq, trying grep..."
+              JSON_FILE="/tmp/shared/k8s-conformance-tests.json"
+              /tmp/shared/k8s-tests-ext list > "$JSON_FILE"
+              GREP_PATTERN='"name":"[^"]*\[Conformance\][^"]*"'
+              grep -o "$GREP_PATTERN" "$JSON_FILE" \
+                | sed 's/"name":"//;s/"$//' > "$OUT_FILE" || {
+                echo "Warning: Failed to extract conformance tests"
+                echo "  Will rely on default suite"
+                exit 0
+              }
+            }
+
+            TEST_COUNT=$(wc -l < /tmp/shared/k8s-conformance-tests.list)
+            echo "Extracted $TEST_COUNT conformance tests"
+
+            if [ "$TEST_COUNT" -gt 0 ]; then
+              echo "Kubernetes conformance test extraction successful"
+            fi
+          fi
+      env:
+        - name: KUBECONFIG
+          value: "/tmp/shared/kubeconfig"
+      volumeMounts:
+        - mountPath: /tmp/shared
+          name: shared
     - name: login
       image: "{{ .OpenshiftTestsImage }}"
       imagePullPolicy: Always
@@ -64,9 +134,9 @@ sonobuoy-config:
   description: |
     OPCT plugin to schedule e2e tests using openshift-tests tool to validate
     an OpenShift Container Platform cluster installed in a specific provider.
-  source-url:
-    "https://github.com/redhat-openshift-ecosystem/opct/\
-    blob/main/manifests/openshift-kube-conformance.yaml"
+  source-url: >-
+    https://github.com/redhat-openshift-ecosystem/opct/
+    blob/main/manifests/openshift-kube-conformance.yaml
   skipCleanup: true
 spec:
   name: plugin
