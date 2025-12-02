@@ -548,7 +548,7 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 		},
 	}
 
-	// If dry-run mode is enabled, exit after preflight checks
+	// If dry-run mode is enabled, exit before running tests
 	if r.dryRun {
 		log.Debugf("Dry-run mode enabled: exiting before running tests")
 		return nil
