@@ -47,6 +47,12 @@ func loadPluginManifests(r *RunOptions) ([]*manifest.Manifest, error) {
 			log.Errorf("error processing configuration for plugin %s: %v", m, err)
 			return nil, err
 		}
+
+		// Print rendered manifest if flag is enabled
+		if r.verbose {
+			fmt.Printf("\n---\n# Rendered manifest for: %s\n---\n%s\n", m, string(pluginManifest))
+		}
+
 		asset, err := loader.LoadDefinition(pluginManifest)
 		if err != nil {
 			log.Errorf("error loading configuration for plugin %s: %v", m, err)

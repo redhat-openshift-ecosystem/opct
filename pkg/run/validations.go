@@ -28,7 +28,7 @@ func (r *RunOptions) PreRunValidations(kclient kubernetes.Interface) []error {
 	// Get ConfigV1 client for Cluster Operators
 	restConfig, err := client.CreateRestConfig()
 	if err != nil {
-		log.Errorf("error creating rest config: %w", err)
+		log.Errorf("error creating rest config: %v", err)
 		return []error{err}
 	}
 
@@ -174,7 +174,7 @@ func validateImageRegistry(r *RunOptions, restConfig *rest.Config) []error {
 // validateDedicatedNode validates that the dedicated node is set and has the required label and taints
 func validateDedicatedNode(r *RunOptions, coreClient corev1.CoreV1Interface) []error {
 	msgPrefix := "Validating Dedicated Node"
-	log.Debugf(msgPrefix)
+	log.Debug(msgPrefix)
 	var result []error
 
 	if !r.dedicated {
@@ -218,7 +218,7 @@ Check the documentation[1] or run 'opct adm e2e-dedicated taint-node' to set the
 // validateOpctNamespace validates if the opct namespace not exists.
 func validateOpctNamespace(r *RunOptions, coreClient corev1.CoreV1Interface) []error {
 	checkMsgPrefix := "Validating OPCT namespace"
-	log.Debugf(checkMsgPrefix)
+	log.Debug(checkMsgPrefix)
 	var result []error
 
 	p, err := coreClient.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})

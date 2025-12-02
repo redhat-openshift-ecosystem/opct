@@ -4,10 +4,10 @@ import (
 	"testing"
 )
 
-// TestCheckPluginImages tests the checkPluginImages function
+// TestValidateContainerImagesAccessibility tests the validateContainerImagesAccessibility function
 // Note: This function executes 'oc image info' which requires the oc binary
 // to be available in the PATH. Full testing would be done in integration tests.
-func TestCheckPluginImages(t *testing.T) {
+func TestValidateContainerImagesAccessibility(t *testing.T) {
 	tests := []struct {
 		name          string
 		images        []string
@@ -50,30 +50,30 @@ func TestCheckPluginImages(t *testing.T) {
 				return
 			}
 
-			errs := checkPluginImages(tt.images)
+			errs := validateContainerImagesAccessibility(tt.images)
 
 			if tt.expectErrors && len(errs) == 0 {
-				t.Errorf("checkPluginImages() expected errors but got none")
+				t.Errorf("validateContainerImagesAccessibility() expected errors but got none")
 			}
 
 			if !tt.expectErrors && len(errs) > 0 {
-				t.Errorf("checkPluginImages() unexpected errors: %v", errs)
+				t.Errorf("validateContainerImagesAccessibility() unexpected errors: %v", errs)
 			}
 
 			if tt.errorCount > 0 && len(errs) != tt.errorCount {
-				t.Errorf("checkPluginImages() expected %d errors, got %d", tt.errorCount, len(errs))
+				t.Errorf("validateContainerImagesAccessibility() expected %d errors, got %d", tt.errorCount, len(errs))
 			}
 		})
 	}
 }
 
-// TestCheckPluginImages_EmptyStrings verifies that empty image strings are skipped
-func TestCheckPluginImages_EmptyStrings(t *testing.T) {
+// TestValidateContainerImagesAccessibility_EmptyStrings verifies that empty image strings are skipped
+func TestValidateContainerImagesAccessibility_EmptyStrings(t *testing.T) {
 	images := []string{"", "", ""}
-	errs := checkPluginImages(images)
+	errs := validateContainerImagesAccessibility(images)
 
 	if len(errs) > 0 {
-		t.Errorf("checkPluginImages() should skip empty strings without errors, got: %v", errs)
+		t.Errorf("validateContainerImagesAccessibility() should skip empty strings without errors, got: %v", errs)
 	}
 }
 

@@ -61,6 +61,9 @@ type RunOptions struct {
 
 	// dryRun flag - when true, only run preflight checks without creating resources
 	dryRun bool
+
+	// verbose flag - when true, print rendered plugin manifests to stdout
+	verbose bool
 }
 
 const (
@@ -70,6 +73,7 @@ const (
 	defaultDedicatedFlag     = true
 	defaultRunWatchFlag      = false
 	defaultDryRunFlag        = false
+	defaultVerboseFlag       = false
 )
 
 func newRunOptions() *RunOptions {
@@ -185,6 +189,7 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().StringArrayVar(o.plugins, "plugin", nil, "Override default conformance plugins to use. Can be used multiple times. (default plugins can be reviewed with assets subcommand)")
 	cmd.Flags().BoolVar(&o.dedicated, "dedicated", defaultDedicatedFlag, "Setup plugins to run in dedicated test environment.")
 	cmd.Flags().BoolVar(&o.dryRun, "dry-run", defaultDryRunFlag, "Run preflight checks only without creating resources")
+	cmd.Flags().BoolVarP(&o.verbose, "verbose", "v", defaultVerboseFlag, "Print rendered plugin manifests to stdout")
 	cmd.Flags().StringVar(&o.devCount, "dev-count", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
 
 	hideOptionalFlags(cmd, "plugin")
@@ -493,6 +498,16 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 		// User provided their own plugins at command line
 		log.Debugf("Loading plugins specific at command line")
 		for _, p := range *r.plugins {
+			// Print custom plugin manifest if flag is enabled
+			if r.verbose {
+				pluginData, err := os.ReadFile(p)
+				if err != nil {
+					log.Warnf("Unable to read plugin file for printing: %s: %v", p, err)
+				} else {
+					fmt.Printf("\n---\n# Custom plugin manifest: %s\n---\n%s\n", p, string(pluginData))
+				}
+			}
+
 			asset, err := loader.LoadDefinitionFromFile(p)
 			if err != nil {
 				return err
