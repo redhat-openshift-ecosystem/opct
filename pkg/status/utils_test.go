@@ -233,3 +233,182 @@ func TestGetPodEventsMessage(t *testing.T) {
 		})
 	}
 }
+
+func TestGetPodContainerFailureMessage(t *testing.T) {
+	tests := []struct {
+		name            string
+		pod             *kcorev1.Pod
+		expectedMessage string
+	}{
+		{
+			name:            "nil pod",
+			pod:             nil,
+			expectedMessage: "",
+		},
+		{
+			name: "container exited with error",
+			pod: &kcorev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Status: kcorev1.PodStatus{
+					ContainerStatuses: []kcorev1.ContainerStatus{
+						{
+							Name: "tests",
+							State: kcorev1.ContainerState{
+								Terminated: &kcorev1.ContainerStateTerminated{
+									ExitCode: 1,
+									Reason:   "Error",
+									Message:  "Container 'tests' exited with code 1",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedMessage: "Error (exit 1): Container 'tests' exited with code 1",
+		},
+		{
+			name: "container exited successfully",
+			pod: &kcorev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Status: kcorev1.PodStatus{
+					ContainerStatuses: []kcorev1.ContainerStatus{
+						{
+							Name: "success-container",
+							State: kcorev1.ContainerState{
+								Terminated: &kcorev1.ContainerStateTerminated{
+									ExitCode: 0,
+									Reason:   "Completed",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedMessage: "",
+		},
+		{
+			name: "container waiting with error",
+			pod: &kcorev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Status: kcorev1.PodStatus{
+					ContainerStatuses: []kcorev1.ContainerStatus{
+						{
+							Name: "failing-container",
+							State: kcorev1.ContainerState{
+								Waiting: &kcorev1.ContainerStateWaiting{
+									Reason:  "ImagePullBackOff",
+									Message: "Back-off pulling image \"invalid:image\"",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedMessage: "ImagePullBackOff: Back-off pulling image \"invalid:image\"",
+		},
+		{
+			name: "container waiting - pod initializing",
+			pod: &kcorev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Status: kcorev1.PodStatus{
+					ContainerStatuses: []kcorev1.ContainerStatus{
+						{
+							Name: "init-container",
+							State: kcorev1.ContainerState{
+								Waiting: &kcorev1.ContainerStateWaiting{
+									Reason:  "PodInitializing",
+									Message: "Initializing",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedMessage: "",
+		},
+		{
+			name: "init container failed",
+			pod: &kcorev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Status: kcorev1.PodStatus{
+					InitContainerStatuses: []kcorev1.ContainerStatus{
+						{
+							Name: "init",
+							State: kcorev1.ContainerState{
+								Terminated: &kcorev1.ContainerStateTerminated{
+									ExitCode: 127,
+									Reason:   "Error",
+									Message:  "Init container failed to start",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedMessage: "Error (exit 127): Init container failed to start",
+		},
+		{
+			name: "OOMKilled container",
+			pod: &kcorev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Status: kcorev1.PodStatus{
+					ContainerStatuses: []kcorev1.ContainerStatus{
+						{
+							Name: "memory-intensive",
+							State: kcorev1.ContainerState{
+								Terminated: &kcorev1.ContainerStateTerminated{
+									ExitCode: 137,
+									Reason:   "OOMKilled",
+									Message:  "Container exceeded memory limit",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedMessage: "OOMKilled (exit 137): Container exceeded memory limit",
+		},
+		{
+			name: "terminated without reason or message",
+			pod: &kcorev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Status: kcorev1.PodStatus{
+					ContainerStatuses: []kcorev1.ContainerStatus{
+						{
+							Name: "mystery-container",
+							State: kcorev1.ContainerState{
+								Terminated: &kcorev1.ContainerStateTerminated{
+									ExitCode: 2,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedMessage: "Error (exit 2): Container 'mystery-container' exited with code 2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			message := getPodContainerFailureMessage(tt.pod)
+			if message != tt.expectedMessage {
+				t.Errorf("getPodContainerFailureMessage() returned wrong message.\nExpected: %s\nGot: %s", tt.expectedMessage, message)
+			}
+		})
+	}
+}
