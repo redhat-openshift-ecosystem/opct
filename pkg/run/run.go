@@ -487,15 +487,18 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 			configMapData["mirror-registry"] = r.imageRepository
 		}
 
-		if err := r.createConfigMap(kclient, sclient, &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      pkg.PluginsVarsConfigMapName,
-				Namespace: pkg.CertificationNamespace,
-			},
-			Data: configMapData,
-		}); err != nil {
-			return err
-		}
+	if err := r.setSuiteName(configMapData); err != nil {
+		return err
+	}
+
+	if err := r.createConfigMap(kclient, sclient, &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pkg.PluginsVarsConfigMapName,
+			Namespace: pkg.CertificationNamespace,
+		},
+		Data: configMapData,
+	}); err != nil {
+		return err
 	}
 
 	if r.plugins == nil || len(*r.plugins) == 0 {
@@ -668,4 +671,56 @@ func checkRegistry(irClient irclient.Interface) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// setSuiteName sets the suiteNameKubernetesConformance in the configMapData based on the cluster version.
+func (r *RunOptions) setSuiteName(configMapData map[string]string) error {
+	// Gather cluster version to check if it is 4.20+
+	// If 4.20+, set the suiteNameKubernetesConformance in the configMapData to "kubernetes/conformance/parallel",
+	// otherwise set it to "kubernetes/conformance".
+	// https://issues.redhat.com/browse/OCPBUGS-66219
+	suiteNameKubernetesConformance := "kubernetes/conformance"
+	suiteNameKubernetesConformanceParallel := "kubernetes/conformance/parallel"
+
+	// Get the cluster version
+	restConfig, err := client.CreateRestConfig()
+	if err != nil {
+		return fmt.Errorf("error creating rest config: %w", err)
+	}
+	oc, err := coclient.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("error creating config client: %w", err)
+	}
+	cv, err := oc.ConfigV1().ClusterVersions().Get(context.TODO(), "version", metav1.GetOptions{})
+	if err != nil {
+		log.Warnf("Failed to get cluster version, defaulting to kubernetes/conformance suite with openshift-tests: %v", err)
+		return nil
+	}
+
+	// Extract the version string
+	version := cv.Status.Desired.Version
+	if version == "" {
+		log.Warn("Cluster version is empty, defaulting to kubernetes/conformance suite with openshift-tests")
+		return nil
+	}
+
+	log.Debugf("Detected cluster version: %s", version)
+
+	// Parse the version to check if it's >= 4.20
+	// Version format is typically "4.20.0" or "4.20.0-rc.1"
+	var major, minor int
+	_, err = fmt.Sscanf(version, "%d.%d", &major, &minor)
+	if err != nil {
+		log.Warnf("Failed to parse cluster version %q, defaulting to kubernetes/conformance suite with openshift-tests: %v", version, err)
+		return nil
+	}
+
+	// For OCP 4.20+, use k8s-tests-ext binary with parallel sub-suite
+	configMapData["suiteNameKubernetesConformance"] = suiteNameKubernetesConformance
+	if major == 4 && minor >= 20 {
+		configMapData["suiteNameKubernetesConformance"] = suiteNameKubernetesConformanceParallel
+	}
+	log.Infof("Setting configMapData[suiteNameKubernetesConformance] to %s for OCP %d.%d", configMapData["suiteNameKubernetesConformance"], major, minor)
+
+	return nil
 }

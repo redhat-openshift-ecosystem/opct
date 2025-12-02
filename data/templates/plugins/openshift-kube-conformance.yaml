@@ -17,6 +17,28 @@ podSpec:
       volumeMounts:
         - mountPath: /tmp/shared
           name: shared
+    - name: login
+      image: "{{ .OpenshiftTestsImage }}"
+      imagePullPolicy: Always
+      command:
+        - "/bin/bash"
+        - "-c"
+        - |
+          /usr/bin/oc login "${KUBE_API_URL}" \
+            --token="$(cat "${SA_TOKEN_PATH}")" \
+            --certificate-authority="${SA_CA_PATH}";
+      env:
+        - name: KUBECONFIG
+          value: "/tmp/shared/kubeconfig"
+        - name: KUBE_API_URL
+          value: "https://kubernetes.default.svc:443"
+        - name: SA_TOKEN_PATH
+          value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        - name: SA_CA_PATH
+          value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+      volumeMounts:
+        - mountPath: /tmp/shared
+          name: shared
     - name: extract-k8s-conformance-tests
       image: "{{ .OpenshiftTestsImage }}"
       imagePullPolicy: Always
@@ -25,6 +47,15 @@ podSpec:
         - "-ec"
         - |
           set -o pipefail
+
+          # We want to skip the extraction on OCP early 4.20 releases,
+          # so that we can rely on the default suite.
+          DEFAULT_SUITE_NAME="${DEFAULT_SUITE_NAME:-kubernetes/conformance}"
+          if [ "${DEFAULT_SUITE_NAME}" == "kubernetes/conformance" ]; then
+            echo "Skipping extraction of Kubernetes conformance test list from OTE binary..."
+            exit 0
+          fi
+
           echo "Extracting Kubernetes conformance test list from OTE binary..."
 
           # Get the hyperkube image from the release
@@ -84,28 +115,11 @@ podSpec:
       env:
         - name: KUBECONFIG
           value: "/tmp/shared/kubeconfig"
-      volumeMounts:
-        - mountPath: /tmp/shared
-          name: shared
-    - name: login
-      image: "{{ .OpenshiftTestsImage }}"
-      imagePullPolicy: Always
-      command:
-        - "/bin/bash"
-        - "-c"
-        - |
-          /usr/bin/oc login "${KUBE_API_URL}" \
-            --token="$(cat "${SA_TOKEN_PATH}")" \
-            --certificate-authority="${SA_CA_PATH}";
-      env:
-        - name: KUBECONFIG
-          value: "/tmp/shared/kubeconfig"
-        - name: KUBE_API_URL
-          value: "https://kubernetes.default.svc:443"
-        - name: SA_TOKEN_PATH
-          value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
-        - name: SA_CA_PATH
-          value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        - name: DEFAULT_SUITE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: plugins-config
+              key: suiteName
       volumeMounts:
         - mountPath: /tmp/shared
           name: shared
@@ -121,7 +135,10 @@ podSpec:
         - name: KUBECONFIG
           value: /tmp/shared/kubeconfig
         - name: DEFAULT_SUITE_NAME
-          value: "kubernetes/conformance"
+          valueFrom:
+            configMapKeyRef:
+              name: plugins-config
+              key: suiteNameKubernetesConformance
         - name: OT_RUN_COMMAND
           value: "run"
         - name: PLUGIN_NAME
@@ -186,3 +203,8 @@ spec:
           name: plugins-config
           key: mirror-registry
           optional: true
+    - name: DEFAULT_SUITE_NAME
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: suiteName
