@@ -1,0 +1,64 @@
+# Build artifacts
+build/
+dist/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Documentation (not needed in container)
+docs/
+*.md
+!README.md
+
+# Test files and test data
+test/
+*_test.go
+testdata/
+
+# Development and CI files
+hack/
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Python virtual environments
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Log files
+*.log
+opct.log
+
+# Generated files
+docs/CHANGELOG.md
+docs/CHANGELOG_commits.md
+docs/CHANGELOG_summary.md
+
+# Configuration files not needed in container
+kubeconfig
+*.kubeconfig
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# MkDocs build files
+site/
+.mkdocs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

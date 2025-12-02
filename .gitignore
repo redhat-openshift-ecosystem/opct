@@ -11,3 +11,4 @@ build/
 # See the make commands: 'build-changelog' and 'build-changelog-commmits'
 docs/CHANGELOG.md
 docs/CHANGELOG_commits.md
+opct.log

@@ -12,7 +12,45 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func CreateRestConfig() (*rest.Config, error) {
+// Client is the interface to store kubernetes and sonobuoy client instances.
+type Client struct {
+	// KClient is the kubernetes client instance.
+	KClient kubernetes.Interface
+	// SClient is the sonobuoy client instance.
+	SClient client.Interface
+	// RestConfig is the rest config for the kubernetes client.
+	RestConfig *rest.Config
+}
+
+// NewClient creates a new client instance.
+func NewClient() (*Client, error) {
+	clientConfig, err := createRestConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error creating rest config: %v", err)
+	}
+	cli := &Client{
+		RestConfig: clientConfig,
+	}
+
+	cli.KClient, err = kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		return cli, fmt.Errorf("error creating kube client: %v", err)
+	}
+
+	skc, err := sonodynamic.NewAPIHelperFromRESTConfig(clientConfig)
+	if err != nil {
+		return cli, fmt.Errorf("error creating sonobuoy rest helper: %v", err)
+	}
+
+	cli.SClient, err = client.NewSonobuoyClient(clientConfig, skc)
+	if err != nil {
+		return cli, fmt.Errorf("error creating sonobuoy client: %v", err)
+	}
+
+	return cli, nil
+}
+
+func createRestConfig() (*rest.Config, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if len(kubeconfig) == 0 {
 		kubeconfig = viper.GetString("kubeconfig")
@@ -28,29 +66,4 @@ func CreateRestConfig() (*rest.Config, error) {
 
 	clientConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	return clientConfig, err
-}
-
-// CreateClients creates kubernetes and sonobuoy client instances
-func CreateClients() (kubernetes.Interface, client.Interface, error) {
-	clientConfig, err := CreateRestConfig()
-	if err != nil {
-		return nil, nil, fmt.Errorf("error creating kube client config: %v", err)
-	}
-
-	clientset, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error creating kube client: %v", err)
-	}
-
-	skc, err := sonodynamic.NewAPIHelperFromRESTConfig(clientConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error creating sonobuoy rest helper: %v", err)
-	}
-
-	sonobuoyClient, err := client.NewSonobuoyClient(clientConfig, skc)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error creating sonobuoy client: %v", err)
-	}
-
-	return clientset, sonobuoyClient, nil
 }

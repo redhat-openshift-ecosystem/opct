@@ -116,15 +116,15 @@ func applyTaintToNode(kclient kubernetes.Interface, nodeName string) error {
 }
 
 func taintNodeRun(cmd *cobra.Command, args []string) {
-	kclient, _, err := client.CreateClients()
+	cli, err := client.NewClient()
 	if err != nil {
-		log.Fatalf("Failed to create Kubernetes client: %v", err)
+		log.WithError(err).Fatalf("Failed to create client")
 	}
 
 	if taintNodeArgs.nodeName == "" {
-		taintNodeArgs.nodeName, err = discoverNode(kclient)
+		taintNodeArgs.nodeName, err = discoverNode(cli.KClient)
 		if err != nil {
-			log.Fatalf("Failed to discover node: %v", err)
+			log.WithError(err).Fatalf("Failed to discover node")
 		}
 	}
 	log.Infof("Setting up node %s...", taintNodeArgs.nodeName)
@@ -134,7 +134,7 @@ func taintNodeRun(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	if err := applyTaintToNode(kclient, taintNodeArgs.nodeName); err != nil {
-		log.Fatalf("Failed to apply taint to node: %v", err)
+	if err := applyTaintToNode(cli.KClient, taintNodeArgs.nodeName); err != nil {
+		log.WithError(err).Fatalf("Failed to apply taint to node")
 	}
 }

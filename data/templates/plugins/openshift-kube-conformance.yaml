@@ -119,7 +119,7 @@ podSpec:
           valueFrom:
             configMapKeyRef:
               name: plugins-config
-              key: suiteName
+              key: suiteNameKubernetesConformance
       volumeMounts:
         - mountPath: /tmp/shared
           name: shared
@@ -207,4 +207,4 @@ spec:
       valueFrom:
         configMapKeyRef:
           name: plugins-config
-          key: suiteName
+          key: suiteNameKubernetesConformance

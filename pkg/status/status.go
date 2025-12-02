@@ -56,19 +56,20 @@ func NewStatus(in *StatusInput) *Status {
 	if in.IntervalSeconds != 0 {
 		s.waitInterval = time.Duration(in.IntervalSeconds) * time.Second
 	}
-	kclient, sclient, err := client.CreateClients()
+	cli, err := client.NewClient()
 	if err != nil {
-		log.WithError(err).Errorf("error creating clients: %v", err)
+		log.WithError(err).Errorf("error creating client: %v", err)
 		return s
 	}
 	s.kclient = in.KClient
 	if s.kclient == nil {
-		s.kclient = kclient
+		s.kclient = cli.KClient
 	}
 	s.sclient = in.SClient
 	if s.sclient == nil {
-		s.sclient = sclient
+		s.sclient = cli.SClient
 	}
+
 	return s
 }
 

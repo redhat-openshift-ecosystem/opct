@@ -12,7 +12,6 @@ import (
 	irclient "github.com/openshift/client-go/imageregistry/clientset/versioned"
 	mcfgclientset "github.com/openshift/client-go/machineconfiguration/clientset/versioned"
 	"github.com/redhat-openshift-ecosystem/opct/pkg"
-	"github.com/redhat-openshift-ecosystem/opct/pkg/client"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,16 +21,9 @@ import (
 )
 
 // PreRunValidations performs some validations before running the environment
-func (r *RunOptions) PreRunValidations(kclient kubernetes.Interface) []error {
+func (r *RunOptions) PreRunValidations(kclient kubernetes.Interface, restConfig *rest.Config) []error {
 	log.Info("Starting preflight validations")
 	allErrors := []error{}
-
-	// Get ConfigV1 client for Cluster Operators
-	restConfig, err := client.CreateRestConfig()
-	if err != nil {
-		log.Errorf("error creating rest config: %v", err)
-		return []error{err}
-	}
 
 	// Validate if all configured container images are accessible
 	errImages := validateContainerImagesAccessibility([]string{

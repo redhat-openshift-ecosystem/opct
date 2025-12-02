@@ -38,24 +38,24 @@ func NewCmdDestroy() *cobra.Command {
 			log.Info("Starting the destroy flow...")
 
 			// Client setup
-			kclient, sclient, err := client.CreateClients()
+			cli, err := client.NewClient()
 			if err != nil {
 				log.Error(err)
 				return err
 			}
 
 			log.Info("removing opct namespace...")
-			if err := o.DeleteSonobuoyEnv(sclient); err != nil {
+			if err := o.DeleteSonobuoyEnv(cli.SClient); err != nil {
 				log.Warn(err)
 			}
 
 			log.Info("removing stale e2e namespaces...")
-			if err := o.DeleteTestNamespaces(kclient); err != nil {
+			if err := o.DeleteTestNamespaces(cli.KClient); err != nil {
 				log.Warn(err)
 			}
 
 			log.Info("restoring privileged environment...")
-			if err := o.RestoreSCC(kclient); err != nil {
+			if err := o.RestoreSCC(cli.KClient); err != nil {
 				log.Warn(err)
 			}
 
