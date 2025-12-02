@@ -1,19 +1,15 @@
 package run
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	coclient "github.com/openshift/client-go/config/clientset/versioned"
 	irclient "github.com/openshift/client-go/imageregistry/clientset/versioned"
-	mcfgclientset "github.com/openshift/client-go/machineconfiguration/clientset/versioned"
 	"github.com/redhat-openshift-ecosystem/opct/pkg/version"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -31,7 +27,6 @@ import (
 	"github.com/redhat-openshift-ecosystem/opct/pkg/status"
 	"github.com/redhat-openshift-ecosystem/opct/pkg/wait"
 	rbacv1 "k8s.io/api/rbac/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	kresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -108,12 +103,12 @@ func NewCmdRun() *cobra.Command {
 				return err
 			}
 
-			// Pre-checks and setup
-			if err = o.PreRunCheck(kclient); err != nil {
-				log.WithError(err).Error("pre-run failed when checking dependencies")
-				return err
+			// Pre-run validations
+			if errs := o.PreRunValidations(kclient); len(errs) > 0 {
+				return fmt.Errorf("pre-run validation failed with %d errors, fix it and try again", len(errs))
 			}
 
+			// Pre-run setup
 			if err = o.PreRunSetup(kclient); err != nil {
 				log.WithError(err).Error("pre-run failed when initializing the environment")
 				return err
@@ -125,6 +120,11 @@ func NewCmdRun() *cobra.Command {
 			if err := o.Run(kclient, sclient); err != nil {
 				log.WithError(err).Errorf("execution finished with errors.")
 				return err
+			}
+
+			if o.dryRun {
+				log.Info("Exiting without creating resources (use 'opct run' without --dry-run to execute tests)")
+				return nil
 			}
 
 			log.Info("Jobs scheduled! Waiting for resources be created...")
@@ -201,180 +201,14 @@ func NewCmdRun() *cobra.Command {
 	return cmd
 }
 
-// PreRunCheck performs some checks before kicking off Sonobuoy
-func (r *RunOptions) PreRunCheck(kclient kubernetes.Interface) error {
-	coreClient := kclient.CoreV1()
-
-	// Get ConfigV1 client for Cluster Operators
-	restConfig, err := client.CreateRestConfig()
-	if err != nil {
-		return err
-	}
-	oc, err := coclient.NewForConfig(restConfig)
-	if err != nil {
-		return err
-	}
-
-	// Check if Cluster Operators are stable
-	if errs := checkClusterOperators(oc); errs != nil {
-		errorMessages := []string{}
-		for _, err := range errs {
-			errorMessages = append(errorMessages, err.Error())
-		}
-		log.Errorf("Preflights checks failed: operators are not in ready state, check the status with 'oc get clusteroperator': %v", errorMessages)
-		if !r.devSkipChecks {
-			return fmt.Errorf("all Cluster Operators must be available, not progressing, and not degraded before validation can run")
-		}
-		log.Warnf("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping Cluster Operator checks: %v", errs)
-	}
-
-	// Get ConfigV1 client for Cluster Operators
-	irClient, err := irclient.NewForConfig(restConfig)
-	if err != nil {
-		return err
-	}
-
-	// Check if Registry is in managed state or exit
-	managed, err := checkRegistry(irClient)
-	if err != nil {
-		if !r.devSkipChecks {
-			return err
-		}
-		log.Warn("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping Image registry check: %w", err)
-	}
-	if !managed {
-		if !r.devSkipChecks {
-			return fmt.Errorf("openShift Image Registry must deployed before validation can run")
-		}
-		log.Warn("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping unmanaged image registry check")
-	}
-
-	// Check if all configured container images are accessible
-	imagesToCheck := []string{
-		r.PluginsImage,
-		r.OpenshiftTestsImage,
-		r.CollectorImage,
-		r.MustGatherMonitoringImage,
-		pkg.ControllerImage,
-	}
-	if errs := checkPluginImages(imagesToCheck); errs != nil {
-		errorMessages := []string{}
-		for _, err := range errs {
-			errorMessages = append(errorMessages, err.Error())
-		}
-		log.Errorf("Preflights checks failed: configured images are not accessible: %v", errorMessages)
-		if !r.devSkipChecks {
-			return fmt.Errorf("all configured container images must be accessible before validation can run")
-		}
-		log.Warnf("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping image accessibility checks: %v", errs)
-	}
-
-	if r.dedicated {
-		log.Info("Ensuring required node label and taints exists")
-		nodes, err := coreClient.Nodes().List(context.TODO(), metav1.ListOptions{
-			LabelSelector: pkg.DedicatedNodeRoleLabelSelector,
-		})
-		if err != nil {
-			return fmt.Errorf("error getting the Node list: %w", err)
-		}
-		if len(nodes.Items) == 0 {
-			return fmt.Errorf(`missing dedicated node. Set the label %q to a node and try again
-Check the documentation[1] or run 'opct adm e2e-dedicated taint-node' to set the label and taints.
-[1] https://redhat-openshift-ecosystem.github.io/provider-certification-tool/user/#standard-env-setup-node`, pkg.DedicatedNodeRoleLabelSelector)
-		}
-		if len(nodes.Items) > 2 {
-			return fmt.Errorf("too many nodes with label %q. Set the label to only one node and try again", pkg.DedicatedNodeRoleLabelSelector)
-		}
-		node := nodes.Items[0]
-		found := false
-		for _, taint := range node.Spec.Taints {
-			if taint.Key == pkg.DedicatedNodeRoleLabel {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return fmt.Errorf("missing taint \"%s='':NoSchedule\" in the dedicated node %q. Set the taint and try again", pkg.DedicatedNodeRoleLabel, node.Name)
-		}
-	}
-
-	// Check if namespace already exists
-	p, err := coreClient.Namespaces().Get(context.TODO(), pkg.CertificationNamespace, metav1.GetOptions{})
-	if err != nil {
-		// If error is due to namespace not being found, we continue.
-		if !kerrors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	if p.Name != "" {
-		return fmt.Errorf("%s namespace already exists. You must run 'destroy' to clean the environment and try again", pkg.CertificationNamespace)
-	}
-
-	// Check if MachineConfigPool exists when upgrade mode is set.:
-	// - node selectors: node-role.kubernetes.io/tests=''
-	// - paused: true
-	// Check MachineConfigPool when upgrade.
-	if r.mode == "upgrade" {
-		mcpName := "opct"
-		machineConfigClient, err := mcfgclientset.NewForConfig(restConfig)
-		if err != nil {
-			return err
-		}
-		poolList, err := machineConfigClient.MachineconfigurationV1().MachineConfigPools().List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			return fmt.Errorf("getting MachineConfigPools failed: %w", err)
-		}
-		// Should we need to create it when not found?
-		mcpCreateInstructions := func() {
-			log.Println("MachineConfigPool not found, create it with the following instructions:")
-			fmt.Println(`$ cat << EOF  | oc apply -f -
----
-apiVersion: machineconfiguration.openshift.io/v1
-kind: MachineConfigPool
-metadata:
-  name: opct
-spec:
-  machineConfigSelector:
-    matchExpressions:
-      - key: machineconfiguration.openshift.io/role
-        operator: In
-        values: [worker,opct]
-  nodeSelector:
-    matchLabels:
-      node-role.kubernetes.io/tests: ""
-  paused: true
-EOF`)
-		}
-		if len(poolList.Items) == 0 {
-			fmt.Println()
-			return fmt.Errorf("machineConfigPool %q not found, create it and try again", mcpName)
-		}
-		isFound := false
-		isPaused := false
-		for _, pool := range poolList.Items {
-			if pool.Name == mcpName {
-				isFound = true
-				if !pool.Spec.Paused {
-					log.Errorf("MachineConfigPool %q is not paused", mcpName)
-				}
-				isPaused = true
-			}
-		}
-		if !isFound {
-			mcpCreateInstructions()
-			return fmt.Errorf("machineConfigPool %q not found, create it and try again", mcpName)
-		}
-		if !isPaused {
-			return fmt.Errorf("machineConfigPool %q is not paused, set `spec.pause=true` and try again", mcpName)
-		}
-	}
-
-	return nil
-}
-
 // PreRunSetup performs setup required by OPCT environment.
 func (r *RunOptions) PreRunSetup(kclient kubernetes.Interface) error {
+
+	if r.dryRun {
+		log.Warnf("Dry-run mode enabled: skipping setup, resources will not be created")
+		return nil
+	}
+
 	rbacClient := kclient.RbacV1()
 
 	namespace := &v1.Namespace{
@@ -610,47 +444,42 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 		log.Warn("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping preflight checks")
 	}
 
-	// If dry-run mode is enabled, exit after preflight checks
-	if r.dryRun {
-		log.Info("Dry-run mode enabled: all preflight checks passed successfully")
-		log.Info("Exiting without creating resources (use 'opct run' without --dry-run to execute tests)")
-		return nil
-	}
-
 	// Create version information ConfigMap
-	if err := r.createConfigMap(kclient, sclient, &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pkg.VersionInfoConfigMapName,
-			Namespace: pkg.CertificationNamespace,
-		},
-		Data: map[string]string{
-			"cli-version":      version.Version.Version,
-			"cli-commit":       version.Version.Commit,
-			"sonobuoy-version": buildinfo.Version,
-			"sonobuoy-image":   r.sonobuoyImage,
-		},
-	}); err != nil {
-		return err
-	}
+	if !r.dryRun {
+		if err := r.createConfigMap(kclient, sclient, &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pkg.VersionInfoConfigMapName,
+				Namespace: pkg.CertificationNamespace,
+			},
+			Data: map[string]string{
+				"cli-version":      version.Version.Version,
+				"cli-commit":       version.Version.Commit,
+				"sonobuoy-version": buildinfo.Version,
+				"sonobuoy-image":   r.sonobuoyImage,
+			},
+		}); err != nil {
+			return err
+		}
 
-	configMapData := map[string]string{
-		"dev-count":             r.devCount,
-		"run-mode":              r.mode,
-		"upgrade-target-images": r.upgradeImage,
-	}
+		configMapData := map[string]string{
+			"dev-count":             r.devCount,
+			"run-mode":              r.mode,
+			"upgrade-target-images": r.upgradeImage,
+		}
 
-	if len(r.imageRepository) > 0 {
-		configMapData["mirror-registry"] = r.imageRepository
-	}
+		if len(r.imageRepository) > 0 {
+			configMapData["mirror-registry"] = r.imageRepository
+		}
 
-	if err := r.createConfigMap(kclient, sclient, &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pkg.PluginsVarsConfigMapName,
-			Namespace: pkg.CertificationNamespace,
-		},
-		Data: configMapData,
-	}); err != nil {
-		return err
+		if err := r.createConfigMap(kclient, sclient, &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pkg.PluginsVarsConfigMapName,
+				Namespace: pkg.CertificationNamespace,
+			},
+			Data: configMapData,
+		}); err != nil {
+			return err
+		}
 	}
 
 	if r.plugins == nil || len(*r.plugins) == 0 {
@@ -704,6 +533,12 @@ func (r *RunOptions) Run(kclient kubernetes.Interface, sclient sonobuoyclient.In
 		},
 	}
 
+	// If dry-run mode is enabled, exit after preflight checks
+	if r.dryRun {
+		log.Debugf("Dry-run mode enabled: exiting before running tests")
+		return nil
+	}
+
 	err := sclient.Run(runConfig)
 	return err
 }
@@ -751,31 +586,4 @@ func checkRegistry(irClient irclient.Interface) (bool, error) {
 	}
 
 	return true, nil
-}
-
-// checkPluginImages validates that all required container images are accessible
-func checkPluginImages(images []string) []error {
-	var result []error
-
-	for _, image := range images {
-		if image == "" {
-			continue
-		}
-
-		log.Infof("Validating image accessibility: %s", image)
-		// Use oc image info to validate image exists and is accessible
-		cmd := exec.Command("oc", "image", "info", image)
-		var stderr bytes.Buffer
-		cmd.Stderr = &stderr
-
-		if err := cmd.Run(); err != nil {
-			errMsg := strings.TrimSpace(stderr.String())
-			if errMsg == "" {
-				errMsg = err.Error()
-			}
-			result = append(result, fmt.Errorf("image %s is not accessible: %s", image, errMsg))
-		}
-	}
-
-	return result
 }
