@@ -2,9 +2,9 @@ package status
 
 import (
 	"fmt"
-	"html/template"
 	"os"
 	"sort"
+	"text/template"
 	"time"
 
 	"github.com/redhat-openshift-ecosystem/opct/pkg"
@@ -63,9 +63,13 @@ func (s *Status) getPrintableRunningStatus() PrintableStatus {
 				podStatus = err.Error()
 			} else {
 				podStatus = getPodStatusString(pod)
-				// If pod is in NotReady or error state, append error details from events
+				// If pod is in NotReady or error state, append error details
 				if podStatus == "NotReady" || podStatus == "Pending" || podStatus == "Failed" {
-					if eventMsg := getPodEventsMessage(s.kclient, pkg.CertificationNamespace, pod.Name); eventMsg != "" {
+					// First try to get container failure details
+					if containerMsg := getPodContainerFailureMessage(pod); containerMsg != "" {
+						podStatus = fmt.Sprintf("%s (%s)", podStatus, containerMsg)
+					} else if eventMsg := getPodEventsMessage(s.kclient, pkg.CertificationNamespace, pod.Name); eventMsg != "" {
+						// Fallback to events if no container details
 						podStatus = fmt.Sprintf("%s (%s)", podStatus, eventMsg)
 					}
 				}
@@ -88,6 +92,33 @@ func (s *Status) getPrintableRunningStatus() PrintableStatus {
 			failedCount := pl.ResultStatusCounts["failed"]
 			if passCount+failedCount != 0 {
 				message = fmt.Sprintf("Total tests processed: %d (%d pass / %d failed)", passCount+failedCount, passCount, failedCount)
+			}
+
+			// If the plugin failed, try to get detailed error information
+			if pl.Status == aggregation.FailedStatus {
+				pod, err := getPluginPod(s.kclient, pkg.CertificationNamespace, pl.Plugin)
+				if err == nil {
+					var errorDetails string
+
+					// First, check container termination status for direct failure reasons
+					if containerMsg := getPodContainerFailureMessage(pod); containerMsg != "" {
+						errorDetails = containerMsg
+					} else {
+						// Fallback to pod events if no container failure details
+						if eventMsg := getPodEventsMessage(s.kclient, pkg.CertificationNamespace, pod.Name); eventMsg != "" {
+							errorDetails = eventMsg
+						}
+					}
+
+					if errorDetails != "" {
+						// Append error details to the existing message or use as the message if empty
+						if message != "" {
+							message = fmt.Sprintf("%s | Error: %s", message, errorDetails)
+						} else {
+							message = fmt.Sprintf("Failed: %s", errorDetails)
+						}
+					}
+				}
 			}
 
 		}

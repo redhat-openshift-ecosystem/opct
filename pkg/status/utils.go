@@ -104,3 +104,48 @@ func getPodEventsMessage(kclient kubernetes.Interface, namespace string, podName
 	latestEvent := events[len(events)-1]
 	return fmt.Sprintf("%s: %s", latestEvent.Reason, latestEvent.Message)
 }
+
+// getPodContainerFailureMessage extracts failure details from terminated containers
+func getPodContainerFailureMessage(pod *kcorev1.Pod) string {
+	if pod == nil {
+		return ""
+	}
+
+	// Check all container statuses for termination reasons
+	allStatuses := append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...)
+
+	for _, containerStatus := range allStatuses {
+		if containerStatus.State.Terminated != nil {
+			terminated := containerStatus.State.Terminated
+
+			// Container exited with non-zero code
+			if terminated.ExitCode != 0 {
+				reason := terminated.Reason
+				if reason == "" {
+					reason = "Error"
+				}
+
+				message := terminated.Message
+				if message == "" {
+					message = fmt.Sprintf("Container '%s' exited with code %d", containerStatus.Name, terminated.ExitCode)
+				}
+
+				return fmt.Sprintf("%s (exit %d): %s", reason, terminated.ExitCode, message)
+			}
+		}
+
+		// Check waiting state for errors
+		if containerStatus.State.Waiting != nil {
+			waiting := containerStatus.State.Waiting
+			if waiting.Reason != "" && waiting.Reason != "PodInitializing" {
+				message := waiting.Message
+				if message == "" {
+					message = fmt.Sprintf("Container '%s' waiting", containerStatus.Name)
+				}
+				return fmt.Sprintf("%s: %s", waiting.Reason, message)
+			}
+		}
+	}
+
+	return ""
+}
