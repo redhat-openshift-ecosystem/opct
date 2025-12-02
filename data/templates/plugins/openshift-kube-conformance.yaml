@@ -52,7 +52,8 @@ podSpec:
           # so that we can rely on the default suite.
           DEFAULT_SUITE_NAME="${DEFAULT_SUITE_NAME:-kubernetes/conformance}"
           if [ "${DEFAULT_SUITE_NAME}" == "kubernetes/conformance" ]; then
-            echo "Skipping extraction of Kubernetes conformance test list from OTE binary..."
+            echo "Skipping extraction of Kubernetes conformance test list" \
+              "from OTE binary..."
             exit 0
           fi
 

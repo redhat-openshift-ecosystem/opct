@@ -24,7 +24,7 @@ func TestNewClient(t *testing.T) {
 		{
 			name: "error when no kubeconfig is set",
 			setupEnv: func() {
-				os.Unsetenv("KUBECONFIG")
+				_ = os.Unsetenv("KUBECONFIG")
 				viper.Reset()
 			},
 			cleanupEnv: func() {},
@@ -34,10 +34,10 @@ func TestNewClient(t *testing.T) {
 		{
 			name: "error when kubeconfig file does not exist",
 			setupEnv: func() {
-				os.Setenv("KUBECONFIG", "/nonexistent/kubeconfig")
+				_ = os.Setenv("KUBECONFIG", "/nonexistent/kubeconfig")
 			},
 			cleanupEnv: func() {
-				os.Unsetenv("KUBECONFIG")
+				_ = os.Unsetenv("KUBECONFIG")
 			},
 			wantErr:       true,
 			errorContains: "no such file or directory",
@@ -124,10 +124,10 @@ users:
 		{
 			name: "successful config creation with KUBECONFIG env var",
 			setupEnv: func() {
-				os.Setenv("KUBECONFIG", kubeconfigPath)
+				_ = os.Setenv("KUBECONFIG", kubeconfigPath)
 			},
 			cleanupEnv: func() {
-				os.Unsetenv("KUBECONFIG")
+				_ = os.Unsetenv("KUBECONFIG")
 			},
 			wantErr: false,
 			validateConfig: func(t *testing.T, cfg *rest.Config) {
@@ -139,7 +139,7 @@ users:
 		{
 			name: "successful config creation with viper kubeconfig",
 			setupEnv: func() {
-				os.Unsetenv("KUBECONFIG")
+				_ = os.Unsetenv("KUBECONFIG")
 				viper.Set("kubeconfig", kubeconfigPath)
 			},
 			cleanupEnv: func() {
@@ -155,7 +155,7 @@ users:
 		{
 			name: "error when KUBECONFIG env var is not set and viper is empty",
 			setupEnv: func() {
-				os.Unsetenv("KUBECONFIG")
+				_ = os.Unsetenv("KUBECONFIG")
 				viper.Reset()
 			},
 			cleanupEnv: func() {},
@@ -165,10 +165,10 @@ users:
 		{
 			name: "error when kubeconfig file does not exist (KUBECONFIG env)",
 			setupEnv: func() {
-				os.Setenv("KUBECONFIG", "/nonexistent/path/kubeconfig")
+				_ = os.Setenv("KUBECONFIG", "/nonexistent/path/kubeconfig")
 			},
 			cleanupEnv: func() {
-				os.Unsetenv("KUBECONFIG")
+				_ = os.Unsetenv("KUBECONFIG")
 			},
 			wantErr:       true,
 			errorContains: "no such file or directory",
@@ -176,7 +176,7 @@ users:
 		{
 			name: "error when kubeconfig file does not exist (viper)",
 			setupEnv: func() {
-				os.Unsetenv("KUBECONFIG")
+				_ = os.Unsetenv("KUBECONFIG")
 				viper.Set("kubeconfig", "/another/nonexistent/kubeconfig")
 			},
 			cleanupEnv: func() {
@@ -273,10 +273,10 @@ users:
 	}
 
 	// Set both KUBECONFIG env var and viper config
-	os.Setenv("KUBECONFIG", envKubeconfigPath)
+	_ = os.Setenv("KUBECONFIG", envKubeconfigPath)
 	viper.Set("kubeconfig", viperKubeconfigPath)
 	defer func() {
-		os.Unsetenv("KUBECONFIG")
+		_ = os.Unsetenv("KUBECONFIG")
 		viper.Reset()
 	}()
 
