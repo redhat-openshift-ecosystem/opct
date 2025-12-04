@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	coclient "github.com/openshift/client-go/config/clientset/versioned"
 	irclient "github.com/openshift/client-go/imageregistry/clientset/versioned"
@@ -130,19 +131,31 @@ func validateContainerImagesAccessibility(images []string) []error {
 func validateClusterOperators(r *RunOptions, restConfig *rest.Config) []error {
 	log.Debugf("Validating Cluster Operators stability")
 	var result []error
+
+	// Create OpenShift config client
 	oc, err := coclient.NewForConfig(restConfig)
 	if err != nil {
 		return []error{err}
 	}
-	errCOs := checkClusterOperators(oc)
-	if len(errCOs) > 0 {
-		log.Errorf("preflights checks failed: operators are not in ready state, check the status with 'oc get clusteroperator': %v", errCOs)
+
+	// Create context with timeout for validation
+	ctx, cancel := context.WithTimeout(context.Background(),
+		time.Duration(r.validationTimeout)*time.Second)
+	defer cancel()
+
+	// Wait for cluster operators with retry logic
+	retryInterval := time.Duration(r.validationRetryInterval) * time.Second
+	err = waitForClusterOperators(ctx, oc, retryInterval)
+
+	if err != nil {
+		log.Errorf("preflights checks failed: operators are not in ready state, check the status with 'oc get clusteroperator': %v", err)
 		if r.devSkipChecks {
-			log.Warnf("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping Cluster Operator checks: %v", errCOs)
+			log.Warnf("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping Cluster Operator checks: %v", err)
 		} else {
-			result = append(result, fmt.Errorf("operators are not in ready state: %v", errCOs))
+			result = append(result, fmt.Errorf("operators are not in ready state: %w", err))
 		}
 	}
+
 	return result
 }
 

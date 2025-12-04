@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -30,6 +31,7 @@ import (
 	kresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -52,6 +54,10 @@ type RunOptions struct {
 	mode         string
 	upgradeImage string
 
+	// Pre-run validation retry/timeout configuration
+	validationTimeout       int
+	validationRetryInterval int
+
 	// devel flags
 	devCount      string
 	devSkipChecks bool
@@ -67,13 +73,15 @@ type RunOptions struct {
 }
 
 const (
-	defaultRunTimeoutSeconds = 21600
-	defaultRunMode           = "regular"
-	defaultUpgradeImage      = ""
-	defaultDedicatedFlag     = true
-	defaultRunWatchFlag      = false
-	defaultDryRunFlag        = false
-	defaultVerboseFlag       = false
+	defaultRunTimeoutSeconds              = 21600
+	defaultRunMode                        = "regular"
+	defaultUpgradeImage                   = ""
+	defaultDedicatedFlag                  = true
+	defaultRunWatchFlag                   = false
+	defaultDryRunFlag                     = false
+	defaultVerboseFlag                    = false
+	defaultValidationTimeoutSeconds       = 600 // 10 minutes for all pre-run validations
+	defaultValidationRetryIntervalSeconds = 10  // 10 seconds between validation retries
 )
 
 func newRunOptions() *RunOptions {
@@ -172,8 +180,9 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().IntVar(&o.timeout, "timeout", defaultRunTimeoutSeconds, "Execution timeout in seconds")
 	cmd.Flags().BoolVarP(&o.watch, "watch", "w", defaultRunWatchFlag, "Keep watch status after running")
 
-	cmd.Flags().StringVar(&o.devCount, "devel-limit-tests", "0", "Developer Mode only: run small random set of tests. Default: 0 (disabled)")
-	cmd.Flags().BoolVar(&o.devSkipChecks, "devel-skip-checks", false, "Developer Mode only: skip checks")
+	// Pre-run validation retry/timeout configuration (hidden, for advanced use)
+	cmd.Flags().IntVar(&o.validationTimeout, "validation-timeout", defaultValidationTimeoutSeconds, "Timeout for pre-run validation checks in seconds (applies to all validation checks)")
+	cmd.Flags().IntVar(&o.validationRetryInterval, "validation-retry-interval", defaultValidationRetryIntervalSeconds, "Retry interval for pre-run validation checks in seconds")
 
 	// Override build-int images use by plugins/steps in the standard workflow.
 	cmd.Flags().StringVar(&o.sonobuoyImage, "sonobuoy-image", pkg.GetSonobuoyImage(), "Image override for the Sonobuoy worker and aggregator")
@@ -194,6 +203,8 @@ func NewCmdRun() *cobra.Command {
 
 	hideOptionalFlags(cmd, "plugin")
 	hideOptionalFlags(cmd, "dedicated")
+	hideOptionalFlags(cmd, "validation-timeout")
+	hideOptionalFlags(cmd, "validation-retry-interval")
 	// hideOptionalFlags(cmd, "devel-limit-tests")
 	// hideOptionalFlags(cmd, "devel-skip-checks")
 
@@ -587,6 +598,62 @@ func checkClusterOperators(configClient coclient.Interface) []error {
 	}
 
 	return result
+}
+
+// waitForClusterOperators waits for all cluster operators to be ready with retry logic.
+// It polls cluster operators at the specified interval until all are ready or timeout is reached.
+func waitForClusterOperators(ctx context.Context, configClient coclient.Interface, retryInterval time.Duration) error {
+	log.Info("Waiting for cluster operators to become ready...")
+
+	var lastErrors []error
+	attempt := 0
+
+	err := utilwait.PollUntilContextCancel(ctx, retryInterval, true, func(ctx context.Context) (bool, error) {
+		attempt++
+
+		// Check cluster operators
+		errs := checkClusterOperators(configClient)
+
+		if len(errs) == 0 {
+			// All operators are ready
+			log.Info("All cluster operators are ready")
+			return true, nil
+		}
+
+		// Store errors for final reporting
+		lastErrors = errs
+
+		// Log transient failures as warnings
+		if attempt == 1 {
+			log.Warnf("Cluster operators are not ready yet (attempt %d), will retry every %s", attempt, retryInterval)
+		} else {
+			log.Debugf("Cluster operators still not ready (attempt %d): %d operator(s) not in ready state", attempt, len(errs))
+		}
+
+		// Log details of which operators are not ready (only at debug level to avoid spam)
+		for _, err := range errs {
+			log.Debugf("  - %v", err)
+		}
+
+		// Continue polling
+		return false, nil
+	})
+
+	if err != nil {
+		// Check if it's a timeout
+		if err == context.DeadlineExceeded {
+			// Provide detailed error message with last known state
+			log.Errorf("Timeout waiting for cluster operators to become ready after %d attempts", attempt)
+			log.Error("The following operators are not in ready state:")
+			for _, opErr := range lastErrors {
+				log.Errorf("  - %v", opErr)
+			}
+			return fmt.Errorf("timeout waiting for cluster operators to become ready: %d operator(s) still not ready after %d attempts: %v", len(lastErrors), attempt, lastErrors)
+		}
+		return err
+	}
+
+	return nil
 }
 
 // Check registry is in managed state. We assume Cluster Operator is stable.
