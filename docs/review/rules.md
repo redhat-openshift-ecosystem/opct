@@ -187,7 +187,7 @@ The slow requests in etcd logs are a relative value and it is based on the obser
 Run the report with debug flag <code>--loglevel=debug</code>:
 ~~~text
 (...)
-DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010 Failed Acceptance criteria: want=[<500] got=[690.412] 
+DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010 Failed Acceptance criteria: want=[<500] got=[690.412]
 DEBU[2023-09-25T12:52:05-03:00] Check OPCT-011 Failed Acceptance criteria: want=[<1000] got=[3091.49]
 ~~~
 
@@ -279,14 +279,14 @@ Check the unhealthy pods:
 ~~~sh
 $ ./opct report archive.tar.gz
 (...)
- Health summary:              [A=True/P=True/D=True]    
+ Health summary:              [A=True/P=True/D=True]
  - Cluster Operators            : [33/0/0]
  - Node health              : 6/6  (100.00%)
  - Pods health              : 246/247  (99.00%)
-                        
+
  Failed pods:
   Namespace/PodName                     Healthy Ready   Reason      Message
-  openshift-kube-controller-manager/installer-6-control-plane-1 false   False   PodFailed   
+  openshift-kube-controller-manager/installer-6-control-plane-1 false   False   PodFailed
 (...)
 ~~~
 Explore the pods:
