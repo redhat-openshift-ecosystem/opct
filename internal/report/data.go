@@ -125,14 +125,15 @@ type ReportVersion struct {
 }
 
 type ReportInfra struct {
-	Name                 string `json:"name"`
-	PlatformType         string `json:"platformType"`
-	PlatformName         string `json:"platformName"`
-	Topology             string `json:"topology,omitempty"`
-	ControlPlaneTopology string `json:"controlPlaneTopology,omitempty"`
-	APIServerURL         string `json:"apiServerURL,omitempty"`
-	APIServerInternalURL string `json:"apiServerInternalURL,omitempty"`
-	NetworkType          string `json:"networkType,omitempty"`
+	Name                       string `json:"name"`
+	PlatformType               string `json:"platformType"`
+	PlatformName               string `json:"platformName"`
+	PlatformExternalCCMEnabled bool   `json:"platformExternalCCMEnabled,omitempty"`
+	Topology                   string `json:"topology,omitempty"`
+	ControlPlaneTopology       string `json:"controlPlaneTopology,omitempty"`
+	APIServerURL               string `json:"apiServerURL,omitempty"`
+	APIServerInternalURL       string `json:"apiServerInternalURL,omitempty"`
+	NetworkType                string `json:"networkType,omitempty"`
 }
 
 type ReportClusterOperators struct {
@@ -413,23 +414,29 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 		return err
 	}
 	platformName := ""
+	platformExternalCCMEnabled := false
 	if string(infra.Status.PlatformStatus.Type) == "External" {
 		platformName = infra.Spec.PlatformSpec.External.PlatformName
+		if infra.Status.PlatformStatus.External != nil && string(infra.Status.PlatformStatus.External.CloudControllerManager.State) == "External" {
+			platformExternalCCMEnabled = true
+		}
 	}
+
 	sdn, err := rs.GetOpenShift().GetClusterNetwork()
 	if err != nil {
 		log.Errorf("unable to get clusterNetwork object: %v", err)
 		return err
 	}
 	reResult.Infra = &ReportInfra{
-		PlatformType:         string(infra.Status.PlatformStatus.Type),
-		PlatformName:         platformName,
-		Name:                 string(infra.Status.InfrastructureName),
-		Topology:             string(infra.Status.InfrastructureTopology),
-		ControlPlaneTopology: string(infra.Status.ControlPlaneTopology),
-		APIServerURL:         string(infra.Status.APIServerURL),
-		APIServerInternalURL: string(infra.Status.APIServerInternalURL),
-		NetworkType:          string(sdn.Spec.NetworkType),
+		PlatformType:               string(infra.Status.PlatformStatus.Type),
+		PlatformName:               platformName,
+		PlatformExternalCCMEnabled: platformExternalCCMEnabled,
+		Name:                       string(infra.Status.InfrastructureName),
+		Topology:                   string(infra.Status.InfrastructureTopology),
+		ControlPlaneTopology:       string(infra.Status.ControlPlaneTopology),
+		APIServerURL:               string(infra.Status.APIServerURL),
+		APIServerInternalURL:       string(infra.Status.APIServerInternalURL),
+		NetworkType:                string(sdn.Spec.NetworkType),
 	}
 
 	// InstallInvoker

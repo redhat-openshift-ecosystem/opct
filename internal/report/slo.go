@@ -209,14 +209,14 @@ Check the unhealthy pods:
 ~~~sh
 $ ./opct report archive.tar.gz
 (...)
- Health summary:              [A=True/P=True/D=True]    
+ Health summary:              [A=True/P=True/D=True]
  - Cluster Operators            : [33/0/0]
  - Node health              : 6/6  (100.00%)
  - Pods health              : 246/247  (99.00%)
-                        
+
  Failed pods:
   Namespace/PodName                     Healthy Ready   Reason      Message
-  openshift-kube-controller-manager/installer-6-control-plane-1 false   False   PodFailed   
+  openshift-kube-controller-manager/installer-6-control-plane-1 false   False   PodFailed
 (...)
 ~~~
 Explore the pods:
@@ -491,11 +491,13 @@ To check the logs, navigate to the Plugin menu and check the logs <code>failure<
 		ID:   "OPCT-010",
 		Name: "The cluster logs generate an accepted error budget",
 		Test: func() CheckResult {
-			passLimit := 30000
-			failLimit := 100000
+			// Pass conditional: <=50k (passLimmit)
+			// Warn conditional: >50k (passLimmit)
+			// Fail conditional: error counters not defined
+			passLimit := 50000
 			res := CheckResult{
-				Name:   CheckResultNameFail,
-				Target: "W:<=30k,F:>100k",
+				Name:   CheckResultNameWarn,
+				Target: "W:>50k",
 				Actual: "N/A",
 			}
 			prefix := "Check OPCT-007 Failed"
@@ -506,33 +508,27 @@ To check the logs, navigate to the Plugin menu and check the logs <code>failure<
 				return res
 			}
 			if _, ok := re.Provider.MustGatherInfo.ErrorCounters["total"]; !ok {
-				log.Debugf("%s: OPCT-007: ErrorCounters[\"total\"]", prefix)
+				log.Debugf("%s: ErrorCounters[\"total\"] is not defined", prefix)
 				res.Name = CheckResultNameFail
 				res.Actual = "ERR !counters"
 				return res
 			}
 			// "Acceptance" are relative, the baselines is observed to set
 			// an "accepted" value considering a healthy cluster in known provider/installation.
+			// 0? really? something went wrong!
 			total := re.Provider.MustGatherInfo.ErrorCounters["total"]
 			res.Actual = fmt.Sprintf("%d", total)
-			if total > passLimit && total < failLimit {
-				res.Name = CheckResultNameWarn
-				log.Debugf("%s WARN acceptance criteria: want[<=%d] got[%d]", prefix, passLimit, total)
-				return res
-			}
-			if total >= failLimit {
-				res.Name = CheckResultNameFail
-				log.Debugf("%s FAIL acceptance criteria: want[<=%d] got[%d]", prefix, passLimit, total)
-				return res
-			}
-			// 0? really? something went wrong!
 			if total == 0 {
 				log.Debugf("%s FAIL acceptance criteria: want[!=0] got[%d]", prefix, total)
 				res.Name = CheckResultNameFail
 				res.Actual = "ERR total==0"
 				return res
 			}
-			res.Name = CheckResultNamePass
+			if total <= passLimit {
+				res.Name = CheckResultNamePass
+				log.Debugf("%s WARN acceptance criteria: want[<=%d] got[%d]", prefix, passLimit, total)
+				return res
+			}
 			return res
 		},
 		DocumentationSpec: CheckDocumentationSpec{
@@ -721,7 +717,7 @@ and they are based on the observed values in known, and tested, cloud providers/
 Run the report with debug flag <code>--loglevel=debug</code>:
 ~~~text
 (...)
-DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010 Failed Acceptance criteria: want=[<500] got=[690.412] 
+DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010 Failed Acceptance criteria: want=[<500] got=[690.412]
 DEBU[2023-09-25T12:52:05-03:00] Check OPCT-011 Failed Acceptance criteria: want=[<1000] got=[3091.49]
 ~~~
 
@@ -939,13 +935,20 @@ conformance suite across different releases. This test is a sanity test to ensur
 				res.Actual = fmt.Sprintf("Topology==%s", re.Provider.Infra.ControlPlaneTopology)
 				return res
 			}
-			// Skip when topology isn't available (no-Cloud provider information)
+			// Skip when topology isn't available (non-cloud provider information)
 			provider := re.Provider.Infra.PlatformType
 			if re.Provider.Infra.PlatformType == "None" {
 				res.Name = CheckResultNameSkip
 				res.Actual = fmt.Sprintf("Type==%s", provider)
 				return res
 			}
+			// Skip when platform type is External without CCM (similar platform None)
+			if provider == "External" && !re.Provider.Infra.PlatformExternalCCMEnabled {
+				res.Name = CheckResultNameSkip
+				res.Actual = fmt.Sprintf("Type==%s,CCM==%t", provider, re.Provider.Infra.PlatformExternalCCMEnabled)
+				return res
+			}
+
 			// Why having 2 or less nodes in HighlyAvailable?
 			if len(re.Provider.Nodes) < 3 {
 				log.Debugf("%s: two or less control plane nodes", prefix)
