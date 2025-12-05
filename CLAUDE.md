@@ -2,14 +2,17 @@
 
 This document provides structured instructions for common development activities on the OPCT project, designed for AI assistants (like Claude) to execute consistently and correctly.
 
-> **Note**: This document is intended for non-release development tasks. For release procedures, refer to [docs/devel/release.md](docs/devel/release.md) and [docs/devel/update.md](docs/devel/update.md).
-
 ## Table of Contents
 
 - [Project Structure](#project-structure)
 - [Development Tasks](#development-tasks)
   - [Go Version Bump](#go-version-bump)
   - [Dependency Management](#dependency-management)
+  - [Adding Retry Logic to Validations](#adding-retry-logic-to-validations)
+- [Release Process](#release-process)
+  - [Release Overview](#release-overview)
+  - [OPCT CLI Release](#opct-cli-release)
+  - [Plugins Release](#plugins-release)
 - [Validation Procedures](#validation-procedures)
 - [Contributing Guidelines](#contributing-guidelines)
 
@@ -361,6 +364,753 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
+### Adding Retry Logic to Validations
+
+**When to use**: Add resilient retry/timeout logic to pre-run validation checks that may experience transient failures in ephemeral environments (like CI).
+
+**Reference implementation**: Cluster Operator validation enhancement (commit example)
+
+#### Background
+
+The OPCT CLI performs pre-run validations before executing the conformance workflow. These validations check cluster readiness, including:
+- Cluster Operator stability
+- Image Registry state
+- MachineConfigPool status
+- Node configuration
+
+In ephemeral environments (especially CI), resources may not be immediately ready, causing false-positive validation failures.
+
+#### Generic Retry Configuration
+
+OPCT provides generic retry/timeout configuration in `RunOptions` that applies to **all pre-run validations**:
+
+```go
+// In pkg/run/run.go
+type RunOptions struct {
+    // ...
+    validationTimeout       int  // Total timeout for ALL pre-run validations (seconds)
+    validationRetryInterval int  // Interval between retry attempts (seconds)
+    // ...
+}
+
+const (
+    defaultValidationTimeoutSeconds       = 600  // 10 minutes
+    defaultValidationRetryIntervalSeconds = 10   // 10 seconds
+)
+```
+
+**Design principles**:
+- ✅ **Generic**: Single configuration for all validations (not per-validation)
+- ✅ **Isolated**: Separate from Sonobuoy workflow timeout (`timeout` field)
+- ✅ **Hidden**: Advanced flags hidden from users but available for CI tuning
+
+#### Implementation Pattern
+
+**Step 1: Create a wait function with retry logic**
+
+```go
+// Example: waitForClusterOperators in pkg/run/run.go:628-682
+func waitForClusterOperators(ctx context.Context, configClient coclient.Interface, retryInterval time.Duration) error {
+    log.Info("Waiting for cluster operators to become ready...")
+
+    var lastErrors []error
+    attempt := 0
+
+    // Use PollUntilContextCancel to respect context deadline
+    err := utilwait.PollUntilContextCancel(ctx, retryInterval, true, func(ctx context.Context) (bool, error) {
+        attempt++
+
+        // Perform the check
+        errs := checkClusterOperators(configClient)
+
+        if len(errs) == 0 {
+            log.Info("All cluster operators are ready")
+            return true, nil  // Success
+        }
+
+        lastErrors = errs
+
+        // Log appropriately
+        if attempt == 1 {
+            log.Warnf("Cluster operators are not ready yet (attempt %d), will retry every %s", attempt, retryInterval)
+        } else {
+            log.Debugf("Cluster operators still not ready (attempt %d): %d operator(s) not in ready state", attempt, len(errs))
+        }
+
+        return false, nil  // Continue polling
+    })
+
+    // Handle timeout
+    if err == context.DeadlineExceeded {
+        log.Errorf("Timeout waiting for cluster operators after %d attempts", attempt)
+        return fmt.Errorf("timeout waiting for cluster operators: %d still not ready after %d attempts: %v", len(lastErrors), attempt, lastErrors)
+    }
+
+    return err
+}
+```
+
+**Step 2: Update validation function to use retry logic**
+
+```go
+// Example: validateClusterOperators in pkg/run/validations.go:123-152
+func validateClusterOperators(r *RunOptions, restConfig *rest.Config) []error {
+    var result []error
+
+    // Create client
+    oc, err := coclient.NewForConfig(restConfig)
+    if err != nil {
+        return []error{err}
+    }
+
+    // Create context with timeout from configuration
+    ctx, cancel := context.WithTimeout(context.Background(),
+        time.Duration(r.validationTimeout)*time.Second)
+    defer cancel()
+
+    // Wait with retry logic
+    retryInterval := time.Duration(r.validationRetryInterval) * time.Second
+    err = waitForClusterOperators(ctx, oc, retryInterval)
+
+    if err != nil {
+        if r.devSkipChecks {
+            log.Warnf("DEVEL MODE: Skipping validation error: %v", err)
+        } else {
+            result = append(result, fmt.Errorf("operators are not in ready state: %w", err))
+        }
+    }
+
+    return result
+}
+```
+
+#### Key Implementation Details
+
+**Use `PollUntilContextCancel`, not `PollUntilContextTimeout`**:
+- ✅ `PollUntilContextCancel(ctx, interval, immediate, func)` - respects context deadline
+- ❌ `PollUntilContextTimeout(ctx, interval, timeout, immediate, func)` - requires explicit timeout parameter
+
+**Logging best practices**:
+- First attempt: Log as **WARN** with retry info
+- Subsequent attempts: Log as **DEBUG** to reduce noise
+- Success: Log as **INFO**
+- Timeout: Log as **ERROR** with details of what failed
+
+**Error handling**:
+- Check for `context.DeadlineExceeded` to detect timeout
+- Preserve last error state for detailed reporting
+- Use `%w` for error wrapping to maintain error chains
+
+#### CLI Usage
+
+**Default behavior** (automatic):
+```bash
+opct run
+# Uses 10-minute timeout, 10-second retry interval
+```
+
+**CI with custom timeout**:
+```bash
+opct run --validation-timeout=900 --validation-retry-interval=15
+# 15 minutes total, 15 seconds between retries
+```
+
+#### Applying to Other Validations
+
+The same pattern can be applied to:
+- `validateImageRegistry` - Registry reconciliation may take time
+- `validateMachineConfigPool` - MCP updates may be in progress
+- `validateContainerImagesAccessibility` - Network-dependent checks
+
+**Not recommended for**:
+- `validateDedicatedNode` - Node labels are static
+- `validateOpctNamespace` - Quick existence check
+
+---
+
+## Release Process
+
+**Reference**: [docs/devel/release.md](docs/devel/release.md) and [docs/devel/update.md](docs/devel/update.md)
+
+### Release Overview
+
+OPCT project consists of two main repositories that need to be released independently but in coordination:
+
+1. **OPCT CLI** ([github.com/redhat-openshift-ecosystem/opct](https://github.com/redhat-openshift-ecosystem/opct))
+   - Client-side CLI tool
+   - Delivered as binary and container image
+   - Repository: `quay.io/opct/opct`
+
+2. **OPCT Plugins** ([github.com/redhat-openshift-ecosystem/provider-certification-plugins](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins))
+   - Container-based workflow steps
+   - Plugin images: openshift-tests, artifacts-collector, must-gather-monitoring, tools
+   - Repository: `quay.io/opct/plugin-*`
+
+**Release branches**:
+- CLI: `release-X.Y` (e.g., `release-0.6`)
+- Plugins: `release-vX.Y` (e.g., `release-v0.6`)
+
+**Version format**: `vX.Y.Z` (e.g., `v0.6.1`)
+
+### OPCT CLI Release
+
+**Goal**: Release a new patch version (e.g., `v0.6.1`) of the OPCT CLI.
+
+#### Prerequisites
+
+- Changes are merged to `main` branch
+- Local `main` branch is up to date
+- You have write access to the repository
+
+#### Step-by-Step Process
+
+**1. Update main branch with latest changes**
+
+```bash
+git checkout main
+git pull origin main
+```
+
+**2. Create version bump PR**
+
+Update plugin image versions in `pkg/types.go`:
+
+```go
+// pkg/types.go (lines 23-25)
+PluginsImage              = "plugin-openshift-tests:v0.6.1"      // Change v0.6.0 → v0.6.1
+CollectorImage            = "plugin-artifacts-collector:v0.6.1"  // Change v0.6.0 → v0.6.1
+MustGatherMonitoringImage = "must-gather-monitoring:v0.6.1"      // Change v0.6.0 → v0.6.1
+```
+
+**Why update pkg/types.go?**
+- The CLI references specific plugin image versions
+- This PR tests that the new version works correctly in CI
+- Merging to `main` ensures the release tag will reference correct plugin versions
+
+**Create and push PR**:
+
+```bash
+# Create feature branch
+git checkout -b release/bump-v0.6.1
+
+# Edit pkg/types.go
+# Update the three image version strings
+
+# Commit changes
+git add pkg/types.go
+git commit -m "chore: bump version to v0.6.1
+
+Prepare for v0.6.1 release by updating plugin image versions
+in pkg/types.go. This ensures the CLI will reference the correct
+plugin images when v0.6.1 is released.
+
+Changes:
+- PluginsImage: v0.6.0 → v0.6.1
+- CollectorImage: v0.6.0 → v0.6.1
+- MustGatherMonitoringImage: v0.6.0 → v0.6.1
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+# Push and create PR
+git push origin release/bump-v0.6.1
+# Create PR via GitHub UI or gh CLI
+```
+
+**3. Wait for PR review and merge**
+
+- Ensure all CI checks pass
+- Request review from maintainers
+- Wait for approval and merge to `main`
+
+**4. Update main branch after merge**
+
+```bash
+git checkout main
+git pull origin main
+```
+
+**5. Update release branch from main**
+
+```bash
+# Checkout the release branch (e.g., release-0.6 for v0.6.x releases)
+git checkout release-0.6
+git pull origin release-0.6
+
+# Rebase from main to include latest changes
+git rebase main
+
+# Push updated release branch
+git push origin release-0.6
+```
+
+**6. Create and push release tag**
+
+```bash
+# Ensure you're on the updated release branch
+git checkout release-0.6
+
+# Verify the branch includes the version bump
+git log --oneline -5
+# Should show the version bump commit
+
+# Create annotated tag
+git tag -a v0.6.1 -m "Release v0.6.1
+
+This release includes:
+- [Brief description of changes]
+- [Bug fixes]
+- [New features]
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+# Push tag to origin
+git push origin v0.6.1
+```
+
+**7. CI automatically builds and publishes**
+
+Once the tag is pushed:
+- GitHub Actions workflow `.github/workflows/ci.yaml` triggers
+- Builds are created for `linux/amd64` and `linux/arm64`
+- Images are pushed to `quay.io/opct/opct:v0.6.1`
+- Binaries are attached to GitHub release
+
+**8. Verify release**
+
+```bash
+# Check image was published
+skopeo list-tags docker://quay.io/opct/opct | grep v0.6.1
+
+# Check GitHub release
+# Visit: https://github.com/redhat-openshift-ecosystem/opct/releases/tag/v0.6.1
+```
+
+#### Release Branch Strategy
+
+**When to create a new release branch**:
+- For new minor versions (e.g., `v0.7.0` → create `release-0.7`)
+- Release branches track major.minor versions (e.g., `release-0.6` for all `v0.6.x`)
+
+**For patch releases**:
+- Use existing release branch (e.g., `release-0.6` for `v0.6.1`, `v0.6.2`, etc.)
+- Rebase from `main` to pick up latest changes
+- Create new tag from updated release branch
+
+### Plugins Release
+
+**Goal**: Release new plugin container images (e.g., `v0.6.1`).
+
+**Repository**: [github.com/redhat-openshift-ecosystem/provider-certification-plugins](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins)
+
+#### Release Process
+
+The plugin release process is **identical** to the CLI release process:
+
+**1. Update main branch**
+
+```bash
+git checkout main
+git pull origin main
+```
+
+**2. Update release branch from main**
+
+```bash
+# Checkout the release branch (e.g., release-v0.6 for v0.6.x releases)
+git checkout release-v0.6
+git pull origin release-v0.6
+
+# Rebase from main to include latest changes
+git rebase main
+
+# Push updated release branch
+git push origin release-v0.6
+```
+
+**3. Create and push release tag**
+
+```bash
+# Ensure you're on the updated release branch
+git checkout release-v0.6
+
+# Create annotated tag
+git tag -a v0.6.1 -m "Release v0.6.1
+
+This release includes:
+- [Brief description of plugin changes]
+- [Bug fixes]
+- [New features]
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+# Push tag to origin
+git push origin v0.6.1
+```
+
+**4. CI automatically builds and publishes**
+
+Once the tag is pushed:
+- GitHub Actions workflow `.github/workflows/ci.yaml` triggers
+- Builds all plugin images for `linux/amd64` and `linux/arm64`
+- Images are pushed to:
+  - `quay.io/opct/plugin-openshift-tests:v0.6.1`
+  - `quay.io/opct/plugin-artifacts-collector:v0.6.1`
+  - `quay.io/opct/must-gather-monitoring:v0.6.1`
+  - `quay.io/opct/tools:v0.6.1`
+
+**5. Verify release**
+
+```bash
+# Check images were published
+skopeo list-tags docker://quay.io/opct/plugin-openshift-tests | grep v0.6.1
+skopeo list-tags docker://quay.io/opct/plugin-artifacts-collector | grep v0.6.1
+skopeo list-tags docker://quay.io/opct/must-gather-monitoring | grep v0.6.1
+```
+
+#### Key Differences from CLI Release
+
+- **No version bump PR needed**: Plugins don't have a central version file like CLI's `pkg/types.go`
+- **Release branch naming**: Uses `release-vX.Y` format (with `v` prefix)
+- **Multiple images**: Single tag publishes 4 different container images
+- **Must be released BEFORE CLI**: CLI references plugin image versions in `pkg/types.go`
+
+### Release Coordination
+
+**Recommended release order**:
+
+1. **Plugins first**: Release plugins with new tag (e.g., `v0.6.1`)
+2. **Verify plugins**: Ensure all plugin images are published
+3. **CLI second**: Update `pkg/types.go` to reference new plugin versions, then release CLI
+
+**Why this order?**
+- CLI references specific plugin image versions in `pkg/types.go`
+- If CLI is released first, it would reference plugin versions that don't exist yet
+- This order ensures all referenced images are available
+
+### Common Release Scenarios
+
+#### Scenario 1: Patch release with bug fixes in both CLI and plugins
+
+```bash
+# 1. Release plugins
+cd provider-certification-plugins
+git checkout main && git pull
+git checkout release-v0.6 && git rebase main && git push
+git tag -a v0.6.1 -m "Release v0.6.1" && git push origin v0.6.1
+
+# 2. Wait for plugin images to build (check CI)
+
+# 3. Release CLI
+cd opct
+git checkout -b release/bump-v0.6.1
+# Edit pkg/types.go to reference v0.6.1 plugin images
+git commit -m "chore: bump version to v0.6.1"
+git push origin release/bump-v0.6.1
+# Create PR, get reviewed, merge
+
+# 4. After PR merged
+git checkout main && git pull
+git checkout release-0.6 && git rebase main && git push
+git tag -a v0.6.1 -m "Release v0.6.1" && git push origin v0.6.1
+```
+
+#### Scenario 2: CLI-only changes (no plugin changes)
+
+```bash
+# 1. No plugin release needed
+
+# 2. Release CLI (referencing existing plugin version, e.g., v0.6.0)
+cd opct
+git checkout -b release/bump-v0.6.1
+# Edit pkg/types.go - plugin versions may stay at v0.6.0
+# Only update if you want to ensure latest plugins are used
+git commit -m "chore: bump version to v0.6.1"
+# Continue with normal CLI release process
+```
+
+#### Scenario 3: New minor version (v0.7.0)
+
+```bash
+# 1. Create new release branches
+cd provider-certification-plugins
+git checkout main
+git checkout -b release-v0.7
+git push origin release-v0.7
+
+cd opct
+git checkout main
+git checkout -b release-0.7
+git push origin release-0.7
+
+# 2. Follow normal release process with new branches
+```
+
+### Improved PR-Based Release Workflow
+
+**Problem with manual rebase**: The traditional process requires manually rebasing `main` to `release-X.Y`, which can:
+- Introduce merge conflicts
+- Risk force-pushing to release branches
+- Require careful git knowledge
+
+**Better approach**: Use Pull Requests from `main` to `release-X.Y` with automated tag creation.
+
+#### Benefits
+
+✅ **Reviewable**: Changes visible in PR before merging
+✅ **Safe**: No force-push required
+✅ **Automated**: CI validates before merge, tags created automatically
+✅ **Auditable**: PR history and automation logs preserved
+✅ **AI-assisted**: Claude can create the PR for you
+✅ **Secure**: Guardrails enforce permissions and branch rules
+
+#### Quick Start Prompts for Developers
+
+Use these prompts to get Claude's help with releases:
+
+**For OPCT CLI release v0.6.1:**
+```
+I want to release OPCT CLI v0.6.1. Please:
+1. Create a PR from main to release-0.6
+2. Include "Release: v0.6.1" in the PR description
+3. Use proper commit message format
+
+The plugin images are already released at v0.6.1.
+```
+
+**For Plugins release v0.6.1:**
+```
+I want to release OPCT Plugins v0.6.1. Please:
+1. Create a PR from main to release-v0.6
+2. Include "Release: v0.6.1" in the PR description
+3. Use proper commit message format
+```
+
+**For complete release (both repos):**
+```
+I want to release both OPCT Plugins and CLI at v0.6.1.
+Please guide me through the complete process:
+1. Plugins release PR
+2. CLI version bump PR (updating pkg/types.go)
+3. CLI release PR
+
+Note: Tag creation is automated when PRs are merged.
+```
+
+#### Automated Tag Creation Workflow
+
+**Workflow file**: `.github/workflows/auto-release-tag.yaml`
+
+This workflow automates tag creation when a release PR is merged to a `release-*` branch.
+
+**Security guardrails enforced**:
+
+1. ✅ **Branch validation**: Only runs when PR targets `release-*` branch from `main`
+2. ✅ **Permission check**: Only users in `OWNERS` file (approvers list) can create release PRs
+3. ✅ **Merge requirement**: Tag only created when PR is **merged** (not just closed)
+4. ✅ **Version validation**: Ensures version format is `vX.Y.Z`
+5. ✅ **Duplicate prevention**: Fails if tag already exists
+6. ✅ **Audit trail**: All validations logged in GitHub Actions
+
+**How it works**:
+
+1. Create PR from `main` to `release-X.Y`
+2. Add `Release: vX.Y.Z` to PR description (or PR title)
+3. Review and merge PR
+4. **Workflow automatically creates and pushes tag**
+
+**PR description format** (required for version detection):
+
+```markdown
+Release: v0.6.1
+
+## Changes
+- Feature: Add retry logic to cluster operator validation
+- Fix: Correct error handling in validation flow
+
+## Checklist
+- [x] Plugin images released at v0.6.1 (plugins only)
+- [x] CI passing on main
+- [x] Version bump PR merged (CLI only)
+```
+
+**Manual trigger** (for recovery if automation fails):
+
+```bash
+# Via GitHub UI
+# 1. Go to Actions → "Automatic Release Tag Creation"
+# 2. Click "Run workflow"
+# 3. Enter version (v0.6.1) and release branch (release-0.6)
+
+# Or via CLI
+gh workflow run auto-release-tag.yaml \
+  -f version=v0.6.1 \
+  -f release_branch=release-0.6
+```
+
+#### Updated Release Process (PR-Based)
+
+**OPCT CLI Release v0.6.1:**
+
+**Step 1: Version bump PR** (updates plugin references)
+```bash
+git checkout main
+git pull origin main
+git checkout -b release/bump-v0.6.1
+
+# Edit pkg/types.go to reference v0.6.1 plugin images
+# Update: PluginsImage, CollectorImage, MustGatherMonitoringImage
+
+git add pkg/types.go
+git commit -m "chore: bump version to v0.6.1"
+git push origin release/bump-v0.6.1
+
+# Create PR to main
+gh pr create --base main --head release/bump-v0.6.1 \
+  --title "chore: bump version to v0.6.1" \
+  --body "Prepare for v0.6.1 release by updating plugin image versions."
+
+# Wait for review, then merge
+```
+
+**Step 2: Create release PR** (instead of manual rebase)
+```bash
+git checkout main
+git pull origin main
+git checkout -b release/prepare-v0.6.1
+
+git push origin release/prepare-v0.6.1
+
+# Create PR from main to release-0.6
+gh pr create --base release-0.6 --head main \
+  --title "Release v0.6.1" \
+  --body "Release: v0.6.1
+
+## Changes
+- Add retry logic to cluster operator validation
+- Fix validation timeout handling
+
+## Checklist
+- [x] Plugin images released at v0.6.1
+- [x] CI passing on main
+- [x] Version bump PR merged"
+
+# Review PR, then merge
+# → Tag v0.6.1 is AUTOMATICALLY created!
+```
+
+**Step 3: Monitor automation**
+```bash
+# Watch the workflow run
+gh run watch
+
+# Verify tag was created
+git fetch --tags
+git tag -l | grep v0.6.1
+
+# Check CI build
+gh run list --limit 5
+```
+
+**OPCT Plugins Release v0.6.1:**
+
+**Step 1: Create release PR**
+```bash
+git checkout main
+git pull origin main
+
+# Create PR from main to release-v0.6
+gh pr create --base release-v0.6 --head main \
+  --title "Release v0.6.1" \
+  --body "Release: v0.6.1
+
+## Changes
+- Update openshift-tests plugin dependencies
+- Fix collector plugin error handling
+
+## Checklist
+- [x] CI passing on main"
+
+# Review PR, then merge
+# → Tag v0.6.1 is AUTOMATICALLY created!
+```
+
+**Step 2: Verify images**
+```bash
+# Wait for CI to build images
+sleep 60
+
+# Check images were published
+skopeo list-tags docker://quay.io/opct/plugin-openshift-tests | grep v0.6.1
+skopeo list-tags docker://quay.io/opct/plugin-artifacts-collector | grep v0.6.1
+skopeo list-tags docker://quay.io/opct/must-gather-monitoring | grep v0.6.1
+```
+
+#### Troubleshooting
+
+**Issue**: Workflow doesn't trigger after PR merge
+
+**Solution**:
+- Check PR description includes `Release: vX.Y.Z`
+- Verify PR was merged to `release-*` branch
+- Check workflow runs in GitHub Actions tab
+
+**Issue**: Permission check fails
+
+**Solution**:
+- Ensure PR author is in `OWNERS` file under `approvers:` section
+- Only maintainers can create release PRs
+
+**Issue**: Tag already exists
+
+**Solution**:
+- Check if tag was already created: `git tag -l`
+- Use manual trigger with different version number
+- Delete existing tag if incorrect: `git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z`
+
+**Issue**: Version not detected from PR
+
+**Solution**:
+- Add `Release: vX.Y.Z` to PR description (first line recommended)
+- Or include version in PR title: `Release v0.6.1`
+- Format must be exactly `vX.Y.Z` (e.g., `v0.6.1`)
+
+### Release Checklist (Updated with Automation)
+
+**Pre-release**:
+- [ ] All changes merged to `main` in both repositories
+- [ ] CI passing on `main` branch
+- [ ] Version numbers decided (e.g., `v0.6.1`)
+- [ ] Automated workflow installed: `.github/workflows/auto-release-tag.yaml` exists
+
+**Plugins release**:
+- [ ] Update `main` branch: `git checkout main && git pull`
+- [ ] Create release PR: `gh pr create --base release-v0.6 --head main` with `Release: v0.6.1` in description
+- [ ] Review and merge PR → **Tag automatically created**
+- [ ] Monitor workflow: `gh run watch`
+- [ ] Verify tag created: `git fetch --tags && git tag -l | grep v0.6.1`
+- [ ] Verify CI builds and publishes images
+- [ ] Verify images in registry: `skopeo list-tags docker://quay.io/opct/plugin-openshift-tests | grep v0.6.1`
+
+**CLI release**:
+- [ ] Create version bump PR updating `pkg/types.go` with new plugin versions
+- [ ] Get PR reviewed and merged to `main`
+- [ ] Update `main` branch: `git checkout main && git pull`
+- [ ] Create release PR: `gh pr create --base release-0.6 --head main` with `Release: v0.6.1` in description
+- [ ] Review and merge PR → **Tag automatically created**
+- [ ] Monitor workflow: `gh run watch`
+- [ ] Verify tag created: `git fetch --tags && git tag -l | grep v0.6.1`
+- [ ] Verify CI builds and publishes CLI image and binaries
+- [ ] Verify image in registry: `skopeo list-tags docker://quay.io/opct/opct | grep v0.6.1`
+- [ ] Verify GitHub release created with binaries
+
+---
+
 ## Validation Procedures
 
 ### Standard Validation Checklist
@@ -487,5 +1237,5 @@ This document should be updated when:
 - AI assistants encounter repeated questions or issues
 - Development workflows change significantly
 
-**Last Updated**: 2025-11-19
+**Last Updated**: 2025-12-05
 **Maintainer**: OPCT Development Team
