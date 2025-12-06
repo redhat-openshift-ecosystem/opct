@@ -59,19 +59,23 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ inputs.version }}"
           else
-            # Extract version from PR body (expects: Release: v0.6.1)
-            PR_BODY="${{ github.event.pull_request.body }}"
-            VERSION=$(echo "$PR_BODY" | grep -oP 'Release:\s*\Kv[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+            # Extract version from PR body (expects: Release: vX.Y.Z or Release: vX.Y.Z-prerelease)
+            # SemVer regex: v + MAJOR.MINOR.PATCH + optional pre-release (alpha, beta, rc) + optional build metadata
+            # Use heredoc to safely handle multiline PR body
+            VERSION=$(cat <<'EOF' | grep -oP 'Release:\s*\Kv[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?' || echo ""
+${{ github.event.pull_request.body }}
+EOF
+)
 
             # Fallback: try PR title
             if [ -z "$VERSION" ]; then
-              PR_TITLE="${{ github.event.pull_request.title }}"
-              VERSION=$(echo "$PR_TITLE" | grep -oP 'v[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+              VERSION=$(echo '${{ github.event.pull_request.title }}' | grep -oP 'v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?' || echo "")
             fi
           fi
 
           if [ -z "$VERSION" ]; then
             echo "Error: Could not parse version from PR. Add 'Release: vX.Y.Z' to PR description."
+            echo "Supported formats: v0.6.1, v0.6.1-rc.0, v0.6.1-alpha.1, v0.6.1-beta.2+build.123"
             exit 1
           fi
 
@@ -133,8 +137,11 @@ jobs:
         run: |
           VERSION="${{ steps.parse_version.outputs.version }}"
 
-          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "❌ Error: Version must match format vX.Y.Z (e.g., v0.6.1)"
+          # Validate SemVer format: vMAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
+          # Examples: v0.6.1, v0.6.1-rc.0, v0.6.1-alpha.1, v0.6.1-beta.2+build.123
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "❌ Error: Version must match SemVer format vX.Y.Z[-PRERELEASE][+BUILD]"
+            echo "   Examples: v0.6.1, v0.6.1-rc.0, v0.6.1-alpha.1, v0.6.1-beta.2+build.123"
             echo "   Found: $VERSION"
             exit 1
           fi
