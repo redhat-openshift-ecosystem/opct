@@ -86,9 +86,11 @@ jobs:
 
       - name: Validate PR source and target branches
         if: github.event_name == 'pull_request'
+        env:
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
-          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
-          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+          # Use environment variables to safely handle potentially untrusted branch names
 
           # Guardrail 1: Target must be release-X.Y branch
           if ! [[ "$BASE_BRANCH" =~ ^release- ]]; then
@@ -117,7 +119,7 @@ jobs:
 
           # Extract approvers list (YAML format)
           APPROVERS=$(awk '/^approvers:/,/^[a-z]/' OWNERS | grep '^-' | sed 's/^- //' | tr '\n' ',' | sed 's/,$//')
-          echo "approvers=$APPROVERS" >> $GITHUB_OUTPUT
+          echo "approvers=$APPROVERS" >> "$GITHUB_OUTPUT"
           echo "📋 Approvers: $APPROVERS"
 
       - name: Validate PR author permissions
