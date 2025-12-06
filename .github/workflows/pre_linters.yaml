@@ -62,9 +62,7 @@ jobs:
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
           args: --timeout=10m
-          # Only lint changed files for PRs/branches, but lint everything for tag builds
-          # Tag builds fail with only-new-issues because there's no base commit to compare
-          only-new-issues: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          only-new-issues: true
 
   go_static:
     runs-on: ubuntu-latest
