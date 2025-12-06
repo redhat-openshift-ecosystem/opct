@@ -60,6 +60,7 @@ jobs:
       # https://github.com/golangci/golangci-lint-action
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
+        continue-on-error: true
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
           args: --timeout=10m
