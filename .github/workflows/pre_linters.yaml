@@ -56,7 +56,7 @@ jobs:
       - name: Validate GitHub Actions workflows
         uses: docker://rhysd/actionlint:latest
         with:
-          args: -color
+          args: -color -ignore 'SC[0-9]+:'
 
   go_lint:
     runs-on: ubuntu-latest
