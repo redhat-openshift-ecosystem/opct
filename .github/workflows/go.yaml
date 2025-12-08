@@ -86,106 +86,106 @@ jobs:
     needs: build
     uses: ./.github/workflows/e2e.yaml
 
-#
-# Release job creates container images for latest (main) or release tags.
-# When a tag is created, a new Github Release is created with the changelog.
-#
+  #
+  # Release job creates container images for latest (main) or release tags.
+  # When a tag is created, a new Github Release is created with the changelog.
+  #
   release:
-      if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
-      runs-on: ubuntu-latest
-      needs: e2e
-      env:
-        PLATFORMS: linux/amd64
-        BUILD_EXPIRATION: never
-        PUSH: true
-        REPO_URL: https://quay.io/repository/opct/opct?tab=tags
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-          with:
-            submodules: recursive
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: e2e
+    env:
+      PLATFORMS: linux/amd64
+      BUILD_EXPIRATION: never
+      PUSH: true
+      REPO_URL: https://quay.io/repository/opct/opct?tab=tags
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-        - name: Set vars for tag
-          if: startsWith(github.ref, 'refs/tags/')
-          run: |-
-            echo "BUILD_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+      - name: Set vars for tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |-
+          echo "BUILD_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
-        - name: Set vars for main
-          if: github.ref == 'refs/heads/main'
-          run: |-
-            echo "BUILD_VERSION=latest" >> $GITHUB_ENV
+      - name: Set vars for main
+        if: github.ref == 'refs/heads/main'
+        run: |-
+          echo "BUILD_VERSION=latest" >> $GITHUB_ENV
 
-        - name: Set up QEMU
-          uses: docker/setup-qemu-action@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-        - name: Set up Docker Buildx
-          uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-        - name: Login to Docker Hub
-          uses: docker/login-action@v3
-          with:
-            registry: quay.io
-            username: ${{ secrets.QUAY_OPCT_USER }}
-            password: ${{ secrets.QUAY_OPCT_PASS }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_OPCT_USER }}
+          password: ${{ secrets.QUAY_OPCT_PASS }}
 
-        - name: "Build and push: quay.io/opct/opct"
-          uses: docker/build-push-action@v6
-          with:
-            platforms: ${{ env.PLATFORMS }}
-            push: ${{ env.PUSH }}
-            provenance: false
-            labels: |
-              quay.expires-after=${BUILD_EXPIRATION}
-            build-args: |
-              QUAY_EXPIRATION=${BUILD_EXPIRATION}
-              RELEASE_TAG=${{ env.BUILD_VERSION }}
-            tags: quay.io/opct/opct:${{ env.BUILD_VERSION }}
-            file: ./hack/Containerfile
+      - name: "Build and push: quay.io/opct/opct"
+        uses: docker/build-push-action@v6
+        with:
+          platforms: ${{ env.PLATFORMS }}
+          push: ${{ env.PUSH }}
+          provenance: false
+          labels: |
+            quay.expires-after=${BUILD_EXPIRATION}
+          build-args: |
+            QUAY_EXPIRATION=${BUILD_EXPIRATION}
+            RELEASE_TAG=${{ env.BUILD_VERSION }}
+          tags: quay.io/opct/opct:${{ env.BUILD_VERSION }}
+          file: ./hack/Containerfile
 
-        - name: Install dependencies
-          if: startsWith(github.ref, 'refs/tags/')
-          run: |
-            sudo apt-get update
-            sudo apt-get install make git -y
+      - name: Install dependencies
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          sudo apt-get update
+          sudo apt-get install make git -y
 
-        - name: Build (all OS) for Github Release
-          if: startsWith(github.ref, 'refs/tags/')
-          run: |
-            make linux-amd64-container
-            make build-linux-amd64
-            make build-windows-amd64
-            make build-darwin-amd64
-            make build-darwin-arm64
+      - name: Build (all OS) for Github Release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          make linux-amd64-container
+          make build-linux-amd64
+          make build-windows-amd64
+          make build-darwin-amd64
+          make build-darwin-arm64
 
-        # https://github.com/mikepenz/release-changelog-builder-action#configuration
-        - name: Build Changelog when tag is pushed
-          if: startsWith(github.ref, 'refs/tags/')
-          id: github_release
-          uses: mikepenz/release-changelog-builder-action@v3.7.0
-          with:
-            configuration: ".github/workflows/changelog-configuration.json"
+      # https://github.com/mikepenz/release-changelog-builder-action#configuration
+      - name: Build Changelog when tag is pushed
+        if: startsWith(github.ref, 'refs/tags/')
+        id: github_release
+        uses: mikepenz/release-changelog-builder-action@v3.7.0
+        with:
+          configuration: ".github/workflows/changelog-configuration.json"
 
-        # https://github.com/softprops/action-gh-release
-        - name: Create Release on Github when tag is pushed
-          if: startsWith(github.ref, 'refs/tags/')
-          uses: softprops/action-gh-release@v0.1.15
-          env:
-            VERSION: ${{ steps.vars.outputs.tag }}
-            REPO: quay.io/opct/opct
-          with:
-              prerelease: true
-              files: |
-                build/opct-darwin-amd64
-                build/opct-darwin-amd64.sum
-                build/opct-darwin-arm64
-                build/opct-darwin-arm64.sum
-                build/opct-linux-amd64
-                build/opct-linux-amd64.sum
-                build/opct-windows-amd64.exe
-                build/opct-windows-amd64.exe.sum
-              body: |
-                ## Changelog
-                ${{steps.github_release.outputs.changelog}}
+      # https://github.com/softprops/action-gh-release
+      - name: Create Release on Github when tag is pushed
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v0.1.15
+        env:
+          VERSION: ${{ steps.vars.outputs.tag }}
+          REPO: quay.io/opct/opct
+        with:
+          prerelease: true
+          files: |
+            build/opct-darwin-amd64
+            build/opct-darwin-amd64.sum
+            build/opct-darwin-arm64
+            build/opct-darwin-arm64.sum
+            build/opct-linux-amd64
+            build/opct-linux-amd64.sum
+            build/opct-windows-amd64.exe
+            build/opct-windows-amd64.exe.sum
+          body: |
+            ## Changelog
+            ${{steps.github_release.outputs.changelog}}
 
-                ## Images
-                - [quay.io/opct/opct:${{ env.VERSION }}](${{ env.REPO_URL }})
+            ## Images
+            - [quay.io/opct/opct:${{ env.VERSION }}](${{ env.REPO_URL }})
