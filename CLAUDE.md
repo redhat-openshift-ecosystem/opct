@@ -851,263 +851,119 @@ git push origin release-0.7
 # 2. Follow normal release process with new branches
 ```
 
-### Improved PR-Based Release Workflow
-
-**Problem with manual rebase**: The traditional process requires manually rebasing `main` to `release-X.Y`, which can:
-- Introduce merge conflicts
-- Risk force-pushing to release branches
-- Require careful git knowledge
-
-**Better approach**: Use Pull Requests from `main` to `release-X.Y` with automated tag creation.
-
-#### Benefits
-
-✅ **Reviewable**: Changes visible in PR before merging
-✅ **Safe**: No force-push required
-✅ **Automated**: CI validates before merge, tags created automatically
-✅ **Auditable**: PR history and automation logs preserved
-✅ **AI-assisted**: Claude can create the PR for you
-✅ **Secure**: Guardrails enforce permissions and branch rules
-
-#### Quick Start Prompts for Developers
-
-Use these prompts to get Claude's help with releases:
-
-**For OPCT CLI release v0.6.1:**
-```
-I want to release OPCT CLI v0.6.1. Please:
-1. Create a PR from main to release-0.6
-2. Include "Release: v0.6.1" in the PR description
-3. Use proper commit message format
-
-The plugin images are already released at v0.6.1.
-```
-
-**For Plugins release v0.6.1:**
-```
-I want to release OPCT Plugins v0.6.1. Please:
-1. Create a PR from main to release-v0.6
-2. Include "Release: v0.6.1" in the PR description
-3. Use proper commit message format
-```
-
-**For complete release (both repos):**
-```
-I want to release both OPCT Plugins and CLI at v0.6.1.
-Please guide me through the complete process:
-1. Plugins release PR
-2. CLI version bump PR (updating pkg/types.go)
-3. CLI release PR
-
-Note: Tag creation is automated when PRs are merged.
-```
-
-#### Automated Tag Creation Workflow
-
-**Workflow file**: `.github/workflows/auto-release-tag.yaml`
-
-This workflow automates tag creation when a release PR is merged to a `release-*` branch.
-
-**Security guardrails enforced**:
-
-1. ✅ **Branch validation**: Only runs when PR targets `release-*` branch from `main`
-2. ✅ **Permission check**: Only users in `OWNERS` file (approvers list) can create release PRs
-3. ✅ **Merge requirement**: Tag only created when PR is **merged** (not just closed)
-4. ✅ **Version validation**: Ensures version format is `vX.Y.Z`
-5. ✅ **Duplicate prevention**: Fails if tag already exists
-6. ✅ **Audit trail**: All validations logged in GitHub Actions
-
-**How it works**:
-
-1. Create PR from `main` to `release-X.Y`
-2. Add `Release: vX.Y.Z` to PR description (or PR title)
-3. Review and merge PR
-4. **Workflow automatically creates and pushes tag**
-
-**PR description format** (required for version detection):
-
-```markdown
-Release: v0.6.1
-
-## Changes
-- Feature: Add retry logic to cluster operator validation
-- Fix: Correct error handling in validation flow
-
-## Checklist
-- [x] Plugin images released at v0.6.1 (plugins only)
-- [x] CI passing on main
-- [x] Version bump PR merged (CLI only)
-```
-
-**Manual trigger** (for recovery if automation fails):
-
-```bash
-# Via GitHub UI
-# 1. Go to Actions → "Automatic Release Tag Creation"
-# 2. Click "Run workflow"
-# 3. Enter version (v0.6.1) and release branch (release-0.6)
-
-# Or via CLI
-gh workflow run auto-release-tag.yaml \
-  -f version=v0.6.1 \
-  -f release_branch=release-0.6
-```
-
-#### Updated Release Process (PR-Based)
-
-**OPCT CLI Release v0.6.1:**
-
-**Step 1: Version bump PR** (updates plugin references)
-```bash
-git checkout main
-git pull origin main
-git checkout -b release/bump-v0.6.1
-
-# Edit pkg/types.go to reference v0.6.1 plugin images
-# Update: PluginsImage, CollectorImage, MustGatherMonitoringImage
-
-git add pkg/types.go
-git commit -m "chore: bump version to v0.6.1"
-git push origin release/bump-v0.6.1
-
-# Create PR to main
-gh pr create --base main --head release/bump-v0.6.1 \
-  --title "chore: bump version to v0.6.1" \
-  --body "Prepare for v0.6.1 release by updating plugin image versions."
-
-# Wait for review, then merge
-```
-
-**Step 2: Create release PR** (instead of manual rebase)
-```bash
-git checkout main
-git pull origin main
-git checkout -b release/prepare-v0.6.1
-
-git push origin release/prepare-v0.6.1
-
-# Create PR from main to release-0.6
-gh pr create --base release-0.6 --head main \
-  --title "Release v0.6.1" \
-  --body "Release: v0.6.1
-
-## Changes
-- Add retry logic to cluster operator validation
-- Fix validation timeout handling
-
-## Checklist
-- [x] Plugin images released at v0.6.1
-- [x] CI passing on main
-- [x] Version bump PR merged"
-
-# Review PR, then merge
-# → Tag v0.6.1 is AUTOMATICALLY created!
-```
-
-**Step 3: Monitor automation**
-```bash
-# Watch the workflow run
-gh run watch
-
-# Verify tag was created
-git fetch --tags
-git tag -l | grep v0.6.1
-
-# Check CI build
-gh run list --limit 5
-```
-
-**OPCT Plugins Release v0.6.1:**
-
-**Step 1: Create release PR**
-```bash
-git checkout main
-git pull origin main
-
-# Create PR from main to release-v0.6
-gh pr create --base release-v0.6 --head main \
-  --title "Release v0.6.1" \
-  --body "Release: v0.6.1
-
-## Changes
-- Update openshift-tests plugin dependencies
-- Fix collector plugin error handling
-
-## Checklist
-- [x] CI passing on main"
-
-# Review PR, then merge
-# → Tag v0.6.1 is AUTOMATICALLY created!
-```
-
-**Step 2: Verify images**
-```bash
-# Wait for CI to build images
-sleep 60
-
-# Check images were published
-skopeo list-tags docker://quay.io/opct/plugin-openshift-tests | grep v0.6.1
-skopeo list-tags docker://quay.io/opct/plugin-artifacts-collector | grep v0.6.1
-skopeo list-tags docker://quay.io/opct/must-gather-monitoring | grep v0.6.1
-```
-
-#### Troubleshooting
-
-**Issue**: Workflow doesn't trigger after PR merge
-
-**Solution**:
-- Check PR description includes `Release: vX.Y.Z`
-- Verify PR was merged to `release-*` branch
-- Check workflow runs in GitHub Actions tab
-
-**Issue**: Permission check fails
-
-**Solution**:
-- Ensure PR author is in `OWNERS` file under `approvers:` section
-- Only maintainers can create release PRs
-
-**Issue**: Tag already exists
-
-**Solution**:
-- Check if tag was already created: `git tag -l`
-- Use manual trigger with different version number
-- Delete existing tag if incorrect: `git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z`
-
-**Issue**: Version not detected from PR
-
-**Solution**:
-- Add `Release: vX.Y.Z` to PR description (first line recommended)
-- Or include version in PR title: `Release v0.6.1`
-- Format must be exactly `vX.Y.Z` (e.g., `v0.6.1`)
-
-### Release Checklist (Updated with Automation)
+### Release Checklist
 
 **Pre-release**:
 - [ ] All changes merged to `main` in both repositories
 - [ ] CI passing on `main` branch
 - [ ] Version numbers decided (e.g., `v0.6.1`)
-- [ ] Automated workflow installed: `.github/workflows/auto-release-tag.yaml` exists
 
 **Plugins release**:
 - [ ] Update `main` branch: `git checkout main && git pull`
-- [ ] Create release PR: `gh pr create --base release-v0.6 --head main` with `Release: v0.6.1` in description
-- [ ] Review and merge PR → **Tag automatically created**
-- [ ] Monitor workflow: `gh run watch`
-- [ ] Verify tag created: `git fetch --tags && git tag -l | grep v0.6.1`
-- [ ] Verify CI builds and publishes images
+- [ ] Update release branch: `git checkout release-v0.6 && git pull origin release-v0.6`
+- [ ] Rebase from main: `git rebase main`
+- [ ] Push release branch: `git push origin release-v0.6`
+- [ ] Create annotated tag with comprehensive changelog (see tag creation example above)
+- [ ] Push tag: `git push origin v0.6.1`
+- [ ] Monitor CI build: `gh run watch`
 - [ ] Verify images in registry: `skopeo list-tags docker://quay.io/opct/plugin-openshift-tests | grep v0.6.1`
 
 **CLI release**:
 - [ ] Create version bump PR updating `pkg/types.go` with new plugin versions
 - [ ] Get PR reviewed and merged to `main`
 - [ ] Update `main` branch: `git checkout main && git pull`
-- [ ] Create release PR: `gh pr create --base release-0.6 --head main` with `Release: v0.6.1` in description
-- [ ] Review and merge PR → **Tag automatically created**
-- [ ] Monitor workflow: `gh run watch`
-- [ ] Verify tag created: `git fetch --tags && git tag -l | grep v0.6.1`
-- [ ] Verify CI builds and publishes CLI image and binaries
-- [ ] Verify image in registry: `skopeo list-tags docker://quay.io/opct/opct | grep v0.6.1`
+- [ ] Update release branch: `git checkout release-0.6 && git pull origin release-0.6`
+- [ ] Rebase from main: `git rebase main`
+- [ ] Push release branch: `git push origin release-0.6`
+- [ ] Create annotated tag with comprehensive changelog (see tag creation example above)
+- [ ] Push tag: `git push origin v0.6.1`
+- [ ] Monitor CI build: `gh run watch`
+- [ ] Verify CLI image in registry: `skopeo list-tags docker://quay.io/opct/opct | grep v0.6.1`
 - [ ] Verify GitHub release created with binaries
+
+### Lessons Learned from v0.6.1 Release
+
+**Date**: 2025-12-06
+
+#### What Went Wrong
+
+1. **Automated tag creation workflow was unreliable**
+   - `.github/workflows/auto-release-tag.yaml` had multiple issues
+   - Complex workflow with security guardrails that were difficult to debug
+   - Failed silently when PR description didn't match expected format
+   - Required specific PR format that was easy to forget
+
+2. **golangci-lint-action@v7 broke tag builds**
+   - Upgrade from v6 to v7 introduced breaking change with `only-new-issues` flag
+   - Flag fails on tag builds (no base commit to compare against)
+   - Error: `failed to fetch push patch: RequestError [HttpError]: Not Found`
+   - Blocked release for several hours while troubleshooting
+
+3. **Over-engineering solutions**
+   - Attempted conditional `only-new-issues` logic: `${{ !startsWith(github.ref, 'refs/tags/') }}`
+   - Created multiple PRs trying to fix the same issue
+   - Added complexity instead of simplifying
+
+4. **Force-pushing to release branches caused confusion**
+   - Multiple force-pushes to `release-0.6` during troubleshooting
+   - Lost track of which commits were in which branch
+   - Made it harder to understand the actual state
+
+#### What Worked
+
+1. **Manual tag creation is simple and reliable**
+   - Direct `git tag -a` with comprehensive changelog
+   - No complex workflows to debug
+   - Immediate feedback if something fails
+
+2. **Rebase workflow for release branches**
+   - `git rebase main` on release branches works well
+   - Keeps release branch clean and up-to-date
+   - Easy to understand what changes are being released
+
+3. **Plugin images released successfully**
+   - Plugins v0.6.1 built and published without issues
+   - Simpler workflow, fewer dependencies
+
+#### Key Takeaways
+
+1. **Keep it simple**: Manual processes are better than complex automation for infrequent tasks (releases happen ~monthly)
+2. **Don't change what works**: The v0.6.0 release process worked fine with manual tags
+3. **Test workflows thoroughly before relying on them**: Automated workflows need extensive testing
+4. **Understand root causes before implementing fixes**: golangci-lint-action version upgrade was the real issue
+5. **Use `continue-on-error` for non-critical CI steps**: Prevents one failing linter from blocking entire release
+
+#### Recommended Approach Going Forward
+
+**Manual tag creation** (current approach):
+```bash
+# 1. Update and rebase release branch
+git checkout release-X.Y
+git rebase main
+git push origin release-X.Y
+
+# 2. Create annotated tag with changelog
+git tag -a vX.Y.Z -m "Release vX.Y.Z
+
+[Comprehensive changelog here]
+
+🤖 Claude Code Assistant
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+# 3. Push tag to trigger CI
+git push origin vX.Y.Z
+```
+
+**Advantages**:
+- ✅ Simple and predictable
+- ✅ Full control over changelog content
+- ✅ Easy to troubleshoot if CI fails
+- ✅ No dependencies on complex workflows
+- ✅ Works the same way for both CLI and Plugins
+
+**Disadvantages**:
+- ⚠️ Requires manual steps (but releases are infrequent)
+- ⚠️ Requires git knowledge (but maintainers should have this)
 
 ---
 
@@ -1229,6 +1085,99 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
+## What's Next
+
+This section outlines potential improvements and opportunities for the OPCT project based on lessons learned.
+
+### Short-Term Improvements
+
+**1. Fix golangci-lint-action compatibility**
+- **Issue**: v7 action broke tag builds with `only-new-issues` flag
+- **Options**:
+  - Revert to `golangci/golangci-lint-action@v6` (simple, proven to work)
+  - Remove `only-new-issues` flag entirely (lint full codebase on every build)
+  - Use `continue-on-error: true` for tag builds (allows release to proceed)
+- **Recommended**: Revert to v6 until v7 compatibility is confirmed
+
+**2. Standardize release tag message format**
+- Create template for comprehensive changelogs
+- Include sections: Bug Fixes, New Features, Enhancements, Dependencies
+- Reference PR numbers for traceability
+- Document in this file for future releases
+
+**3. Document common CI failures**
+- Create troubleshooting guide for CI build failures
+- Include common errors and solutions
+- Add to developer documentation
+
+### Medium-Term Improvements
+
+**1. Improve CI stability**
+- Audit all CI workflows for reliability
+- Identify non-critical jobs that can use `continue-on-error`
+- Ensure critical failures are clearly distinguished from warnings
+- Test workflows on feature branches before merging to main
+
+**2. Release automation considerations**
+- **Do not** implement automated tag creation workflows (proven unreliable)
+- **Consider** simple release checklist automation (PR templates, issue templates)
+- **Focus** on improving manual process documentation and tooling
+- **Validate** that any automation is thoroughly tested before adoption
+
+**3. Version management**
+- Consider using `VERSION` file in repository root
+- Automate version bumps in `pkg/types.go` via script
+- Add validation to ensure version consistency across files
+
+### Long-Term Opportunities
+
+**1. Release process tooling**
+- Create simple CLI tool for release tasks (`opct-release`)
+- Features:
+  - Interactive changelog generation from git history
+  - Automated version consistency checks
+  - Release checklist validation
+  - Tag creation with standardized format
+- **Important**: Keep tool simple, avoid complex automation
+
+**2. Testing improvements**
+- Expand unit test coverage
+- Add integration tests for critical workflows
+- Implement pre-release testing checklist
+- Consider automated smoke tests for releases
+
+**3. Documentation enhancements**
+- Create video walkthrough of release process
+- Add diagrams for release workflows
+- Document rollback procedures
+- Expand troubleshooting guides
+
+### Anti-Patterns to Avoid
+
+Based on v0.6.1 experience:
+
+❌ **Complex GitHub Actions workflows for infrequent tasks**
+- Releases happen ~monthly, automation overhead not worth it
+- Hard to debug when they fail
+- Manual process provides better control
+
+❌ **Changing workflows without thorough testing**
+- Test on feature branches first
+- Validate in dry-run mode
+- Document expected behavior
+
+❌ **Over-engineering solutions**
+- Simple solutions are better for maintainability
+- Don't add conditional logic unless absolutely necessary
+- Prefer established patterns over novel approaches
+
+❌ **Force-pushing to shared branches**
+- Causes confusion and potential data loss
+- Use feature branches and PRs instead
+- Only force-push to personal branches
+
+---
+
 ## Document Maintenance
 
 This document should be updated when:
@@ -1237,5 +1186,5 @@ This document should be updated when:
 - AI assistants encounter repeated questions or issues
 - Development workflows change significantly
 
-**Last Updated**: 2025-12-05
+**Last Updated**: 2025-12-08
 **Maintainer**: OPCT Development Team
