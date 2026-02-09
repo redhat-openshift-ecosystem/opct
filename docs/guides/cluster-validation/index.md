@@ -95,6 +95,8 @@ on your infrastructure as if it were a production environment.
 Ensure that each feature of your infrastructure that you plan to
 support with OpenShift is configured in the cluster (e.g. Load Balancers, Storage, special hardware).
 
+### OpenShift topologies
+
 OpenShift supports the following topologies:
 
 - Highly available OpenShift Container Platform cluster (**HA**): Three control plane nodes with any number of compute nodes.
@@ -114,15 +116,46 @@ OPCT is tested in the following topologies. Any topology flagged as TBD is not c
     or have the expected results for a formal validation process when applying
     to Red Hat OpenShift programs for Partners.
 
+### OpenShift Platform Type
+
 OpenShift Platform Type supported by OPCT on Red Hat OpenShift validation program:
 
 | Platform Type | Installation method   | Documentation |
 | --            | --                    | --            |
-| `External`    | `openshift-install`   | [OpenShift Product][ocp-agn] [Providers][ocp-prov] |
-| `None`*        | Assisted Installer: `User-managed` network mode | [OpenShift Product][ai-none] |
-| `External`    | Agent Based Installer | [OpenShift Product][abi-external] |
+| `External`    | `openshift-install`   | [OpenShift Product][ocp-agn](1), [Providers Guide][ocp-prov](2) |
+| `None`*        | Assisted Installer: `User-managed` network mode | [OpenShift Product][ai-none](3) |
+| `External`    | Agent Based Installer | [OpenShift Product][abi-external](4) |
 
-*platform type `None` should be used only when required to install OpenShift cluster with Assisted Installer  using `User-Managed` networking mode, otherwise use options with platform type `External`.
+!!! warning "Platform `None` limitation"
+    Platform type `None` should be used only when required to install OpenShift cluster with Assisted Installer  using `User-Managed` networking mode, otherwise use options with platform type `External`.
+
+```mermaid
+%%{init: {"flowchart": {"useMaxWidth": false}}}%%
+
+flowchart TD
+    Start{Choose Installation Method}
+    Start --> A{Are you using<br/>Assisted Service?}
+
+    A -->|Yes| B{Is Connected<br/>Installation?}
+    A -->|No| C["> Install tool: <b>openhift-install</b></br>> Platform type: <b>External</b></br>> platformName: <b>_CHANGE_ME_</b>"]
+
+    C -->CQ{"Are you deploying <b>Cloud Controller Manager (CCM)</b>?"}
+
+    B -->|Yes| D1["> Install tool: <b>Assisted Installer</b><br/>> Platform type: <b>None</b> <br/>> Network mode: <b>User-Managed</b><br/><br/>Documentation: OpenShift Product AI(3)"]
+    B -->|No| D2["> Install tool: <b>Agent-Based Installer</b><br/>> Platform type: <b>External</b></br>> platformName: <b>_CHANGE_ME_</b><br/></br>Documentation: OpenShift Product ABI(4)"]
+
+    CQ -->|No| E1["Documentation:<br/>> OpenShift Agnostic Installation(1)<br/>> Provider Onboarding Guide(2)"]
+    CQ -->|Yes| E2["> Set <b>cloudControllerManager</b> to <b>External</b><br/>> Create CCM manifests"]
+
+    E2 --> E1
+```
+
+Documentation Reference:
+
+- 1) [OpenShift Product with Installer][ocp-agn]
+- 2) [Providers Guide][ocp-prov]
+- 3) [OpenShift Product with AI][ai-none]
+- 4) [OpenShift Product with ABI][abi-external]
 
 [ocp-agn]: https://docs.openshift.com/container-platform/latest/installing/installing_platform_agnostic/installing-platform-agnostic.html
 [ocp-prov]: https://docs.providers.openshift.org/platform-external/installing/
@@ -134,6 +167,8 @@ OpenShift Platform Type supported by OPCT on Red Hat OpenShift validation progra
     However, the reports may not be calibrated to produce the expected results,
     leading to failures in platform-specific e2e tests requiring special configuration
     or credentials.
+
+### OpenShift And OPCT Versions
 
 The matrix below describes the OpenShift and OPCT versions supported:
 
