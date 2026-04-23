@@ -48,33 +48,92 @@ podSpec:
         - |
           set -o pipefail
 
-          # Extract Kubernetes conformance test list using openshift-tests binary.
+          # Extract Kubernetes conformance test list from k8s-tests-ext binary.
           # On OCP 4.20+, the kubernetes/conformance suite was removed from
-          # openshift-tests, and conformance tests are loaded from external
-          # binaries. Using 'openshift-tests run all --dry-run' extracts tests
-          # from all sources (including external binaries) using the cluster's
-          # pull secrets for registry auth, then filters for [Conformance] tag.
+          # openshift-tests, and conformance tests are loaded from the external
+          # binary k8s-tests-ext shipped inside the hyperkube image.
+          # This init container imports the hyperkube image into the cluster's
+          # internal registry, then extracts k8s-tests-ext.gz from it, avoiding
+          # direct quay.io authentication from the pod.
           DEFAULT_SUITE_NAME="${DEFAULT_SUITE_NAME:-kubernetes/conformance}"
           if [ "${DEFAULT_SUITE_NAME}" == "kubernetes/conformance" ]; then
             echo "Skipping extraction for pre-4.20 clusters"
             exit 0
           fi
 
-          echo "Extracting Kubernetes conformance test list from openshift-tests binary..."
-          OUT_FILE="/tmp/shared/k8s-conformance-tests.list"
+          echo "Extracting Kubernetes conformance test list..."
 
-          /usr/bin/openshift-tests run all --dry-run 2>/dev/null \
-            | grep '\[Conformance\]' > "$OUT_FILE" || {
-            echo "Warning: Failed to extract conformance tests"
+          # Get the hyperkube image from the release
+          TESTS_IMAGE_K8S=$(
+            oc adm release info --image-for=hyperkube || echo ""
+          )
+          if [ -z "$TESTS_IMAGE_K8S" ]; then
+            echo "Warning: Unable to get hyperkube image"
             echo "  Will rely on default suite"
             exit 0
-          }
+          fi
+          echo "Hyperkube image: $TESTS_IMAGE_K8S"
 
-          TEST_COUNT=$(wc -l < "$OUT_FILE")
-          echo "Extracted $TEST_COUNT conformance tests"
+          # Import hyperkube into the cluster's internal registry
+          # oc import-image uses the cluster's pull secret automatically
+          if ! oc import-image hyperkube \
+            --from="$TESTS_IMAGE_K8S" \
+            -n openshift --confirm 2>/dev/null; then
+            echo "Warning: Failed to import hyperkube image"
+            echo "  Will rely on default suite"
+            exit 0
+          fi
 
-          if [ "$TEST_COUNT" -gt 0 ]; then
-            echo "Kubernetes conformance test extraction successful"
+          # Get auth token for the internal registry
+          REGISTRY_AUTH="/tmp/registry-auth.json"
+          INTERNAL_REGISTRY="image-registry.openshift-image-registry.svc:5000"
+          oc registry login \
+            --registry="$INTERNAL_REGISTRY" \
+            --insecure \
+            --to="$REGISTRY_AUTH"
+
+          # Extract k8s-tests-ext binary from the internal registry
+          K8S_EXT_FILE="/usr/bin/k8s-tests-ext.gz"
+          K8S_EXT_PATH="$K8S_EXT_FILE:/tmp/shared/"
+          if ! oc image extract \
+            "$INTERNAL_REGISTRY/openshift/hyperkube:latest" \
+            --file="$K8S_EXT_FILE" \
+            --path="$K8S_EXT_PATH" \
+            --confirm --insecure \
+            -a "$REGISTRY_AUTH"; then
+            echo "Warning: Failed to extract k8s-tests-ext.gz"
+            echo "  Will rely on default suite"
+            exit 0
+          fi
+
+          # Decompress and extract conformance test list
+          if [ -f /tmp/shared/k8s-tests-ext.gz ]; then
+            gunzip /tmp/shared/k8s-tests-ext.gz
+            chmod u+x /tmp/shared/k8s-tests-ext
+
+            echo "Extracting conformance tests list..."
+            OUT_FILE="/tmp/shared/k8s-conformance-tests.list"
+            JQ_FILTER='.[] | select(.name | contains("[Conformance]")).name'
+            /tmp/shared/k8s-tests-ext list \
+              | jq -r "$JQ_FILTER" > "$OUT_FILE" 2>/dev/null || {
+              echo "Warning: Failed to extract with jq, trying grep..."
+              JSON_FILE="/tmp/shared/k8s-conformance-tests.json"
+              /tmp/shared/k8s-tests-ext list > "$JSON_FILE"
+              GREP_PATTERN='"name":"[^"]*\[Conformance\][^"]*"'
+              grep -o "$GREP_PATTERN" "$JSON_FILE" \
+                | sed 's/"name":"//;s/"$//' > "$OUT_FILE" || {
+                echo "Warning: Failed to extract conformance tests"
+                echo "  Will rely on default suite"
+                exit 0
+              }
+            }
+
+            TEST_COUNT=$(wc -l < "$OUT_FILE")
+            echo "Extracted $TEST_COUNT conformance tests"
+
+            if [ "$TEST_COUNT" -gt 0 ]; then
+              echo "Kubernetes conformance test extraction successful"
+            fi
           fi
       env:
         - name: KUBECONFIG
