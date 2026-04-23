@@ -75,11 +75,13 @@ podSpec:
           echo "Hyperkube image: $TESTS_IMAGE_K8S"
 
           # Import hyperkube into the cluster's internal registry
-          # oc import-image uses the cluster's pull secret automatically
-          if ! oc import-image hyperkube \
+          # oc import-image uses the cluster's pull secret automatically.
+          # Use a unique tag to avoid collisions with concurrent runs.
+          IMPORT_TAG="opct-$(date +%s)"
+          if ! IMPORT_ERR=$(oc import-image "hyperkube:${IMPORT_TAG}" \
             --from="$TESTS_IMAGE_K8S" \
-            -n openshift --confirm 2>/dev/null; then
-            echo "Warning: Failed to import hyperkube image"
+            -n openshift --confirm 2>&1); then
+            echo "Warning: Failed to import hyperkube image: ${IMPORT_ERR}"
             echo "  Will rely on default suite"
             exit 0
           fi
@@ -87,16 +89,20 @@ podSpec:
           # Get auth token for the internal registry
           REGISTRY_AUTH="/tmp/registry-auth.json"
           INTERNAL_REGISTRY="image-registry.openshift-image-registry.svc:5000"
-          oc registry login \
+          if ! oc registry login \
             --registry="$INTERNAL_REGISTRY" \
             --insecure \
-            --to="$REGISTRY_AUTH"
+            --to="$REGISTRY_AUTH"; then
+            echo "Warning: Failed to login to internal registry"
+            echo "  Will rely on default suite"
+            exit 0
+          fi
 
           # Extract k8s-tests-ext binary from the internal registry
           K8S_EXT_FILE="/usr/bin/k8s-tests-ext.gz"
           K8S_EXT_PATH="$K8S_EXT_FILE:/tmp/shared/"
           if ! oc image extract \
-            "$INTERNAL_REGISTRY/openshift/hyperkube:latest" \
+            "$INTERNAL_REGISTRY/openshift/hyperkube:${IMPORT_TAG}" \
             --file="$K8S_EXT_FILE" \
             --path="$K8S_EXT_PATH" \
             --confirm --insecure \
