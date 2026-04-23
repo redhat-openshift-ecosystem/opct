@@ -128,6 +128,12 @@ podSpec:
               }
             }
 
+            # Wrap test names in quotes for openshift-tests run -f compatibility.
+            # Remove lines with embedded quotes (e.g. test names containing
+            # "cat /tmp/health") as they cause "invalid syntax" when parsed.
+            grep -v '"' "$OUT_FILE" | sed 's/^/"/;s/$/"/' > "${OUT_FILE}.tmp"
+            mv "${OUT_FILE}.tmp" "$OUT_FILE"
+
             TEST_COUNT=$(wc -l < "$OUT_FILE")
             echo "Extracted $TEST_COUNT conformance tests"
 
