@@ -119,26 +119,13 @@ podSpec:
 
             echo "Extracting conformance tests list..."
             OUT_FILE="/tmp/shared/k8s-conformance-tests.list"
-            JQ_FILTER='.[] | select(.name | contains("[Conformance]")).name'
-            /tmp/shared/k8s-tests-ext list \
-              | jq -r "$JQ_FILTER" > "$OUT_FILE" 2>/dev/null || {
-              echo "Warning: Failed to extract with jq, trying grep..."
-              JSON_FILE="/tmp/shared/k8s-conformance-tests.json"
-              /tmp/shared/k8s-tests-ext list > "$JSON_FILE"
-              GREP_PATTERN='"name":"[^"]*\[Conformance\][^"]*"'
-              grep -o "$GREP_PATTERN" "$JSON_FILE" \
-                | sed 's/"name":"//;s/"$//' > "$OUT_FILE" || {
-                echo "Warning: Failed to extract conformance tests"
-                echo "  Will rely on default suite"
-                exit 0
-              }
+            JQ_FILTER='.[] | select(.labels | has("Conformance")).name'
+            /tmp/shared/k8s-tests-ext list tests \
+              | jq "$JQ_FILTER" > "$OUT_FILE" 2>/dev/null || {
+              echo "Warning: Failed to extract conformance tests"
+              echo "  Will rely on default suite"
+              exit 0
             }
-
-            # Wrap test names in quotes for openshift-tests run -f compatibility.
-            # Remove lines with embedded quotes (e.g. test names containing
-            # "cat /tmp/health") as they cause "invalid syntax" when parsed.
-            grep -v '"' "$OUT_FILE" | sed 's/^/"/;s/$/"/' > "${OUT_FILE}.tmp"
-            mv "${OUT_FILE}.tmp" "$OUT_FILE"
 
             TEST_COUNT=$(wc -l < "$OUT_FILE")
             echo "Extracted $TEST_COUNT conformance tests"
