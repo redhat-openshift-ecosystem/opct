@@ -78,6 +78,7 @@ podSpec:
           # oc import-image uses the cluster's pull secret automatically.
           # Use a unique tag to avoid collisions with concurrent runs.
           IMPORT_TAG="opct-$(date +%s)"
+          trap "oc tag -d openshift/hyperkube:${IMPORT_TAG} 2>/dev/null || true" EXIT
           if ! IMPORT_ERR=$(oc import-image "hyperkube:${IMPORT_TAG}" \
             --from="$TESTS_IMAGE_K8S" \
             -n openshift --confirm 2>&1); then
@@ -120,12 +121,12 @@ podSpec:
             echo "Extracting conformance tests list..."
             OUT_FILE="/tmp/shared/k8s-conformance-tests.list"
             JQ_FILTER='.[] | select(.labels | has("Conformance")).name'
-            /tmp/shared/k8s-tests-ext list tests \
-              | jq "$JQ_FILTER" > "$OUT_FILE" 2>/dev/null || {
+            if ! /tmp/shared/k8s-tests-ext list tests \
+              | jq "$JQ_FILTER" > "$OUT_FILE"; then
               echo "Warning: Failed to extract conformance tests"
               echo "  Will rely on default suite"
               exit 0
-            }
+            fi
 
             TEST_COUNT=$(wc -l < "$OUT_FILE")
             echo "Extracted $TEST_COUNT conformance tests"
