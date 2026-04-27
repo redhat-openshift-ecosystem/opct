@@ -72,9 +72,11 @@ podSpec:
           }
 
           # Get the hyperkube image from the release
-          RELEASE_ERR=$(oc adm release info --image-for=hyperkube 2>&1) || \
-            init_error "Failed to get hyperkube image from release: ${RELEASE_ERR}"
-          TESTS_IMAGE_K8S="$RELEASE_ERR"
+          # Capture stdout (image ref) and stderr separately to avoid
+          # warnings corrupting the image reference.
+          RELEASE_STDERR=$(mktemp)
+          TESTS_IMAGE_K8S=$(oc adm release info --image-for=hyperkube 2>"$RELEASE_STDERR") || \
+            init_error "Failed to get hyperkube image from release: $(cat "$RELEASE_STDERR")"
           if [ -z "$TESTS_IMAGE_K8S" ]; then
             init_error "Hyperkube image not found in release payload"
           fi
