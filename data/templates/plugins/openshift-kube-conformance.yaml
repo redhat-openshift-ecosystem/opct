@@ -125,7 +125,7 @@ podSpec:
 
             echo "Extracting conformance tests list..."
             OUT_FILE="/tmp/shared/k8s-conformance-tests.list"
-            JQ_FILTER='.[] | select(.labels | has("Conformance")).name'
+            JQ_FILTER='.[] | select(.labels | has("Conformance")) | select(.name | contains("[Conformance]")).name'
             if ! JQ_ERR=$(/tmp/shared/k8s-tests-ext list tests \
               | jq "$JQ_FILTER" > "$OUT_FILE" 2>&1); then
               init_error "Failed to extract conformance tests from k8s-tests-ext: ${JQ_ERR}"
