@@ -48,65 +48,90 @@ podSpec:
         - |
           set -o pipefail
 
-          # We want to skip the extraction on OCP early 4.20 releases,
-          # so that we can rely on the default suite.
+          # Extract Kubernetes conformance test list from k8s-tests-ext binary.
+          # On OCP 4.20+, the kubernetes/conformance suite was removed from
+          # openshift-tests, and conformance tests are loaded from the external
+          # binary k8s-tests-ext shipped inside the hyperkube image.
+          # This init container imports the hyperkube image into the cluster's
+          # internal registry, then extracts k8s-tests-ext.gz from it, avoiding
+          # direct quay.io authentication from the pod.
           DEFAULT_SUITE_NAME="${DEFAULT_SUITE_NAME:-kubernetes/conformance}"
           if [ "${DEFAULT_SUITE_NAME}" == "kubernetes/conformance" ]; then
-            echo "Skipping extraction of Kubernetes conformance test list" \
-              "from OTE binary..."
+            echo "Skipping extraction for pre-4.20 clusters"
             exit 0
           fi
 
-          echo "Extracting Kubernetes conformance test list from OTE binary..."
+          echo "Extracting Kubernetes conformance test list..."
+          INIT_ERROR_FILE="/tmp/shared/init-error.log"
+
+          # Helper to log error and exit gracefully so main containers
+          # can start and report the error through OPCT status.
+          init_error() {
+            echo "$1" | tee "$INIT_ERROR_FILE"
+            exit 0
+          }
 
           # Get the hyperkube image from the release
-          TESTS_IMAGE_K8S=$(
-            oc adm release info --image-for=hyperkube 2>/dev/null || echo ""
-          )
-
+          # Capture stdout (image ref) and stderr separately to avoid
+          # warnings corrupting the image reference.
+          RELEASE_STDERR=$(mktemp)
+          TESTS_IMAGE_K8S=$(oc adm release info --image-for=hyperkube 2>"$RELEASE_STDERR") || \
+            init_error "Failed to get hyperkube image from release: $(cat "$RELEASE_STDERR")"
           if [ -z "$TESTS_IMAGE_K8S" ]; then
-            echo "Warning: Unable to get hyperkube image"
-            echo "  Will rely on default suite"
-            exit 0
+            init_error "Hyperkube image not found in release payload"
           fi
-
           echo "Hyperkube image: $TESTS_IMAGE_K8S"
 
-          # Extract k8s-tests-ext binary
+          # Import hyperkube into the cluster's internal registry
+          # oc import-image uses the cluster's pull secret automatically.
+          # Use a unique tag to avoid collisions with concurrent runs.
+          IMPORT_TAG="opct-$(date +%s)"
+          trap "oc tag -d openshift/hyperkube:${IMPORT_TAG} 2>/dev/null || true" EXIT
+          echo "Importing hyperkube to internal registry with tag ${IMPORT_TAG}..."
+          IMPORT_ERR=$(oc import-image "hyperkube:${IMPORT_TAG}" \
+            --from="$TESTS_IMAGE_K8S" \
+            -n openshift --confirm 2>&1) || \
+            init_error "Failed to import hyperkube image: ${IMPORT_ERR}"
+          echo "$IMPORT_ERR"
+
+          # Get auth token for the internal registry
+          REGISTRY_AUTH="/tmp/registry-auth.json"
+          INTERNAL_REGISTRY="image-registry.openshift-image-registry.svc:5000"
+          echo "Logging in to internal registry..."
+          LOGIN_ERR=$(oc registry login \
+            --registry="$INTERNAL_REGISTRY" \
+            --insecure \
+            --to="$REGISTRY_AUTH" 2>&1) || \
+            init_error "Failed to login to internal registry: ${LOGIN_ERR}"
+          echo "$LOGIN_ERR"
+
+          # Extract k8s-tests-ext binary from the internal registry
           K8S_EXT_FILE="/usr/bin/k8s-tests-ext.gz"
           K8S_EXT_PATH="$K8S_EXT_FILE:/tmp/shared/"
-          if ! oc image extract "$TESTS_IMAGE_K8S" \
+          echo "Extracting k8s-tests-ext from internal registry..."
+          EXTRACT_ERR=$(oc image extract \
+            "$INTERNAL_REGISTRY/openshift/hyperkube:${IMPORT_TAG}" \
             --file="$K8S_EXT_FILE" \
-            --path="$K8S_EXT_PATH" 2>/dev/null; then
-            echo "Warning: Failed to extract k8s-tests-ext.gz"
-            echo "  Will rely on default suite"
-            exit 0
-          fi
+            --path="$K8S_EXT_PATH" \
+            --confirm --insecure \
+            -a "$REGISTRY_AUTH" 2>&1) || \
+            init_error "Failed to extract k8s-tests-ext.gz: ${EXTRACT_ERR}"
+          echo "$EXTRACT_ERR"
 
-          # Decompress and make executable
+          # Decompress and extract conformance test list
           if [ -f /tmp/shared/k8s-tests-ext.gz ]; then
             gunzip /tmp/shared/k8s-tests-ext.gz
             chmod u+x /tmp/shared/k8s-tests-ext
 
-            # Extract conformance test list and save to file
             echo "Extracting conformance tests list..."
             OUT_FILE="/tmp/shared/k8s-conformance-tests.list"
-            JQ_FILTER='.[] | select(.name | contains("[Conformance]")).name'
-            /tmp/shared/k8s-tests-ext list \
-              | jq -r "$JQ_FILTER" > "$OUT_FILE" 2>/dev/null || {
-              echo "Warning: Failed to extract with jq, trying grep..."
-              JSON_FILE="/tmp/shared/k8s-conformance-tests.json"
-              /tmp/shared/k8s-tests-ext list > "$JSON_FILE"
-              GREP_PATTERN='"name":"[^"]*\[Conformance\][^"]*"'
-              grep -o "$GREP_PATTERN" "$JSON_FILE" \
-                | sed 's/"name":"//;s/"$//' > "$OUT_FILE" || {
-                echo "Warning: Failed to extract conformance tests"
-                echo "  Will rely on default suite"
-                exit 0
-              }
-            }
+            JQ_FILTER='.[] | select(.labels | has("Conformance")) | select(.name | contains("[Conformance]")).name'
+            if ! JQ_ERR=$(/tmp/shared/k8s-tests-ext list tests \
+              | jq "$JQ_FILTER" > "$OUT_FILE" 2>&1); then
+              init_error "Failed to extract conformance tests from k8s-tests-ext: ${JQ_ERR}"
+            fi
 
-            TEST_COUNT=$(wc -l < /tmp/shared/k8s-conformance-tests.list)
+            TEST_COUNT=$(wc -l < "$OUT_FILE")
             echo "Extracted $TEST_COUNT conformance tests"
 
             if [ "$TEST_COUNT" -gt 0 ]; then
