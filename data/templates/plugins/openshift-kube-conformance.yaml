@@ -71,11 +71,19 @@ podSpec:
             exit 0
           }
 
+          # Extract cluster pull-secret for registry auth (required for
+          # CI/nightly builds where the release image is on a private registry).
+          PULL_SECRET_ARG=""
+          if oc extract secret/pull-secret -n openshift-config --to=/tmp/ --confirm >/dev/null 2>&1; then
+            PULL_SECRET_ARG="-a /tmp/.dockerconfigjson"
+            echo "Using cluster pull-secret for release image auth"
+          fi
+
           # Get the hyperkube image from the release
           # Capture stdout (image ref) and stderr separately to avoid
           # warnings corrupting the image reference.
           RELEASE_STDERR=$(mktemp)
-          TESTS_IMAGE_K8S=$(oc adm release info --image-for=hyperkube 2>"$RELEASE_STDERR") || \
+          TESTS_IMAGE_K8S=$(oc adm release info ${PULL_SECRET_ARG-} --image-for=hyperkube 2>"$RELEASE_STDERR") || \
             init_error "Failed to get hyperkube image from release: $(cat "$RELEASE_STDERR")"
           if [ -z "$TESTS_IMAGE_K8S" ]; then
             init_error "Hyperkube image not found in release payload"
