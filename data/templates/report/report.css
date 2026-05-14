@@ -75,3 +75,83 @@ table { font-size: 8pt; }
 .closebtn:hover {
   color: black;
 }
+
+/* Split-pane layout for etcd page */
+.etcd-panel-left {
+  width: 70%;
+  min-width: 70%;
+  padding-right: 12px;
+}
+.etcd-panel-divider {
+  width: 6px;
+  min-width: 6px;
+  cursor: col-resize;
+  background: #dee2e6;
+  transition: background 0.15s;
+}
+.etcd-panel-divider:hover {
+  background: #adb5bd;
+}
+.etcd-panel-right {
+  width: 30%;
+  min-width: 30%;
+  padding-left: 12px;
+}
+.etcd-chart-card {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.etcd-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.etcd-chart-card h6 {
+  margin: 0;
+  color: #495057;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.etcd-chart-toolbar {
+  display: flex;
+  gap: 4px;
+}
+.etcd-chart-btn {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: #495057;
+  line-height: 1.4;
+}
+.etcd-chart-btn:hover {
+  background: #e9ecef;
+}
+.etcd-chart-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.etcd-chart-overlay-content {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  width: 90vw;
+  max-height: 90vh;
+}
+.etcd-chart-overlay-header {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-bottom: 8px;
+}
