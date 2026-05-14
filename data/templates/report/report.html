@@ -175,8 +175,8 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
   }
 
   function openExternalTab(evt, path) {
-    let url = window.location.href.split('/opct-report.html')[0] + path
-    window.open(url, '_blank').focus();
+    let base = window.location.href.replace(/\/[^/]*$/, '');
+    window.open(base + path, '_blank').focus();
   }
 
   /* Script for: OPCT app */
@@ -226,7 +226,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         this.report = this.$refs.file.files[0];
       },
       appAddress() {
-        return window.location.href.split('/opct-report.html')[0]
+        return window.location.href.replace(/\/[^/]*$/, '')
       },
       fetchReport() {
         axios.defaults.headers.post['Content-Type'] ='application/json;charset=utf-8';
