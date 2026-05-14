@@ -89,12 +89,12 @@ func NewCmdReport() *cobra.Command {
 		"Extract and Save Results to disk. Example: -s ./results",
 	)
 	cmd.Flags().StringVar(
-		&data.serverAddress, "server-address", "0.0.0.0:9090",
-		"HTTP server address to serve files when --save-to is used. Example: --server-address 0.0.0.0:9090",
+		&data.serverAddress, "server-address", "127.0.0.1:9090",
+		"HTTP server address to serve files when --save-to is used. Example: --server-address 127.0.0.1:9090",
 	)
 	cmd.Flags().BoolVar(
 		&data.serverSkip, "skip-server", false,
-		"HTTP server address to serve files when --save-to is used. Example: --server-address 0.0.0.0:9090",
+		"HTTP server address to serve files when --save-to is used. Example: --server-address 127.0.0.1:9090",
 	)
 	cmd.Flags().BoolVar(
 		&data.embedData, "embed-data", false,
