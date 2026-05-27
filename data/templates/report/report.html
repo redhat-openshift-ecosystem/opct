@@ -521,7 +521,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         pluginNameURL = "<a href=\"./"+ logPath +"\" target=\"_blank\">"+ plugin.id +"</a><br>"
         table = [{
           "Plugin Name": pluginNameURL,
-          "Time": this.report.summary.runtime.plugins[name],
+          "Time": this.report.summary.runtime.plugins[name] || "-",
           "Result": plugin.stat.result,
           "Status": plugin.stat.status,
           "Total": plugin.stat.total,

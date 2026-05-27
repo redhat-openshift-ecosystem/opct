@@ -94,18 +94,22 @@ func ParseMetaLogs(logs []string) []*RuntimeInfoItem {
 		// marker: plugin finished
 		if logitem.Method == "PUT" {
 			pluginFinishedAt[logitem.PluginName] = logitem.Time
+
+			predecessors := map[string]string{
+				pluginName05: "",
+				pluginName10: pluginName05,
+				pluginName20: pluginName10,
+				pluginName80: pluginName20,
+				pluginName99: pluginName80,
+			}
+
 			var delta string
-			switch logitem.PluginName {
-			case pluginName05:
-				delta = diffDate(pluginStartedAt[logitem.PluginName], logitem.Time)
-			case pluginName10:
-				delta = diffDate(pluginFinishedAt[pluginName05], logitem.Time)
-			case pluginName20:
-				delta = diffDate(pluginFinishedAt[pluginName10], logitem.Time)
-			case pluginName80:
-				delta = diffDate(pluginFinishedAt[pluginName20], logitem.Time)
-			case pluginName99:
-				delta = diffDate(pluginFinishedAt[pluginName80], logitem.Time)
+			if pred, ok := predecessors[logitem.PluginName]; ok {
+				if pred != "" && pluginFinishedAt[pred] != "" {
+					delta = diffDate(pluginFinishedAt[pred], logitem.Time)
+				} else {
+					delta = diffDate(pluginStartedAt[logitem.PluginName], logitem.Time)
+				}
 			}
 			runtimeLogs = append(runtimeLogs, &RuntimeInfoItem{
 				Name:  fmt.Sprintf("plugin finished %s", logitem.PluginName),
