@@ -34,7 +34,7 @@ preventing conflict with Vue/JS language. -->
   <div class="alert">
     <span class="closebtn" onclick="this.parentElement.style.display='none';">&times;</span>
     <strong>Warning!</strong> This report is under developer preview.
-    If you encounter any issues or bugs, please report on <a href="https://github.com/redhat-openshift-ecosystem/opct/issues/new/choose" target="_blank">Github Project</a> or in
+    If you encounter any issues or bugs, please report on the <a href="https://github.com/redhat-openshift-ecosystem/opct/issues/new/choose" target="_blank">GitHub Project</a> or in
     <a href="https://issues.redhat.com/projects/OPCT/summary" target="_blank">Jira</a>. Thanks!
   </div>
   <div id="app_opct">
@@ -81,7 +81,7 @@ preventing conflict with Vue/JS language. -->
           <!-- TODO: parse firing alerts
           <a class="list-group-item list-group-item-action disabled">Monitoring</a>  -->
 
-          <!-- TODO: Temp disablied. Download report will be useful when can import/upload remote results.
+          <!-- TODO: Temp disabled. Download report will be useful when can import/upload remote results.
           <button id="download" @click="downloadReport">Download</button> -->
           <!-- <td>
             <label for="files" class="btn">Upload</label>
@@ -132,14 +132,14 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
   </code></pre>
   <ul><li>4) Open the file results/camgi.html in your browser.</li></ul>
   <blockquote><blockquote>
-  <p>TODO: collect the camgd.html in the artifacts plugin.</p>
+  <p>TODO: collect the camgi.html in the artifacts plugin.</p>
   </blockquote></blockquote>
 [[ end ]]
 </div>
 <!-- Tab END CAMGI -->
 
 <div id="Tests" class="tabcontent">
-  <iframe src="./opct-filter.html" height="800" width="100%" title="ALl Tests (raw)"></iframe>
+  <iframe src="./opct-filter.html" height="800" width="100%" title="All Tests (raw)"></iframe>
 </div>
 
 <div id="MGEvents" class="tabcontent">
@@ -396,7 +396,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
       changeMenuSuiteError() {
         this.menuTitle = `<h1>Suite Errors</h1>`
         this.menuBody = this.pageHeadline
-        this.menuBody += "<p>Error Counters extracted from logs of end-to-end tests."
+        this.menuBody += "<p>Error counters extracted from logs of end-to-end tests.</p>"
 
         // Table: Errors by pattern
         if (this.errorCountersSuite.counters !== undefined) {
@@ -418,7 +418,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
       changeMenuWorkloadError() {
         this.menuTitle = `<h1>Workload Errors</h1>`
         this.menuBody = this.pageHeadline
-        this.menuBody += "<p>Error Counters extracted from must-gather.</>"
+        this.menuBody += "<p>Error counters extracted from must-gather.</p>"
 
         // Table: Errors by pattern
         if (this.errorCountersWorkload.errors !== undefined) {
@@ -454,7 +454,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
       changeMenuChecks() {
         this.menuTitle = `<h1>Checks</h1>`
         this.menuBody = this.pageHeadline
-        this.menuBody += "<p>Presubmit checks extracted from OPCT results.</>"
+        this.menuBody += "<p>Presubmit checks extracted from OPCT results.</p>"
 
         dtFailures = []
         for (let check of this.report.checks.failures) {
@@ -565,7 +565,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
       changeMenuPluginConformance(pluginName) {
         this.menuTitle = `<h1>Conformance Suite</h1>`
         this.menuBody = this.pageHeadline
-        this.menuBody += "<p><p>Results for Conformance plugin: "+ pluginName +" </>"
+        this.menuBody += "<p>Results for conformance plugin: "+ pluginName +"</p>"
 
         // show plugin result summary
         let tbTests = {
@@ -580,7 +580,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
 
         let plugin = this.report.provider.plugins[pluginName]
 
-        this.menuBody += "<p><b>Failures filtered by OPCT report pipeline:</p></b>";
+        this.menuBody += "<p><b>Failures filtered by OPCT report pipeline:</b></p>";
         // Create table with counters by filter
         let tbFilters = {
           header: "Details of filter pipeline for failed tests:",
@@ -649,7 +649,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         // Filtered by FlakeAPI
         this.menuBody += this.buildTableFailuresByFilter(plugin, "F3")
 
-        // Filtered by BaslineAPI
+        // Filtered by BaselineAPI
         this.menuBody += this.buildTableFailuresByFilter(plugin, "F4")
 
         // Filtered by Replay
@@ -930,7 +930,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
                 tb.data = this.normalizePluginData(plugin.id, plugin.failedTestsFilter6)
                 tb.headline = "<p>Tests by tags: " + (plugin.tagsFailuresFilter6 == undefined ? "[]" : plugin.tagsFailuresFilter6)
               }
-              tb.header = "Test failures filted by: Replay step ("+ tb.data.length +")"
+              tb.header = "Test failures filtered by: Replay step ("+ tb.data.length +")"
             break;
           default:
             console.log("unknown filter ID: "+ filterID)
