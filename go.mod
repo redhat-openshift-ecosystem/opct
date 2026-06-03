@@ -21,7 +21,6 @@ require (
 require (
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/evanphx/json-patch v4.12.0+incompatible
-	github.com/go-echarts/go-echarts/v2 v2.5.1
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/jedib0t/go-pretty/v6 v6.6.7

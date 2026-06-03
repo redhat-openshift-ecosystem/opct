@@ -4,227 +4,318 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/ulikunitz/xz"
 )
 
-type MustGatherChart struct {
-	Path               string
-	OriginalQuery      string
-	PlotLabel          string
-	PlotTitle          string
-	PlotSubTitle       string
-	CollectorAvailable bool
-	MetricData         *PrometheusResponse
-	DivId              string
+//go:embed charts-config.json
+var chartsConfigJSON []byte
+
+// ChartConfig represents a single metric chart configuration
+type ChartConfig struct {
+	File  string `json:"file"`
+	Label string `json:"label"`
+	Title string `json:"title"`
+	ID    string `json:"id"`
 }
 
-type MustGatherCharts map[string]*MustGatherChart
+// ChartsConfig represents the configuration file structure
+type ChartsConfig struct {
+	Charts []ChartConfig `json:"charts"`
+}
 
+// PrometheusResultMetric represents a single result from Prometheus query_range API
+type PrometheusResultMetric struct {
+	Metric map[string]string `json:"metric"`
+	Values [][]interface{}   `json:"values"`
+}
+
+// PrometheusResponse represents the response from Prometheus query_range API
+type PrometheusResponse struct {
+	Status string `json:"status"`
+	Data   struct {
+		ResultType string                   `json:"resultType"`
+		Result     []PrometheusResultMetric `json:"result"`
+	} `json:"data"`
+}
+
+// Chart represents a single metric chart with its data
+type Chart struct {
+	Config ChartConfig
+	Data   *PrometheusResponse
+}
+
+// MustGatherMetrics processes metrics from must-gather archive
 type MustGatherMetrics struct {
-	fileName        string
-	data            *bytes.Buffer
-	ReportPath      string
-	ReportChartFile string
-	ServePath       string
-	charts          MustGatherCharts
-	page            *ChartPagePlotly
+	reportPath string
+	data       *bytes.Buffer
+	charts     map[string]*Chart
 }
 
-func NewMustGatherMetrics(report, file, uri string, data *bytes.Buffer) (*MustGatherMetrics, error) {
-	mgm := &MustGatherMetrics{
-		fileName:        filepath.Base(file),
-		data:            data,
-		ReportPath:      report,
-		ServePath:       uri,
-		ReportChartFile: "/metrics.html",
+// NewMustGatherMetrics creates a new metrics processor
+func NewMustGatherMetrics(reportPath string, data *bytes.Buffer) (*MustGatherMetrics, error) {
+	// Load chart configurations
+	var config ChartsConfig
+	if err := json.Unmarshal(chartsConfigJSON, &config); err != nil {
+		return nil, fmt.Errorf("failed to load chart config: %w", err)
 	}
 
-	mgm.charts = make(map[string]*MustGatherChart, 0)
-	mgm.charts["query_range-etcd-disk-fsync-db-duration-p99.json.gz"] = &MustGatherChart{
-		Path:               "query_range-etcd-disk-fsync-db-duration-p99.json.gz",
-		OriginalQuery:      "",
-		PlotLabel:          "instance",
-		PlotTitle:          "etcd fsync DB p99",
-		PlotSubTitle:       "",
-		CollectorAvailable: true,
-		DivId:              "id1",
-	}
-	mgm.charts["query_range-api-kas-request-duration-p99.json.gz"] = &MustGatherChart{
-		Path:               "query_range-api-kas-request-duration-p99.json.gz",
-		OriginalQuery:      "",
-		PlotLabel:          "verb",
-		PlotTitle:          "Kube API request p99",
-		PlotSubTitle:       "",
-		CollectorAvailable: true,
-		DivId:              "id2",
-	}
-	mgm.charts["query_range-etcd-disk-fsync-wal-duration-p99.json.gz"] = &MustGatherChart{
-		Path:               "query_range-etcd-disk-fsync-wal-duration-p99.json.gz",
-		OriginalQuery:      "",
-		PlotLabel:          "instance",
-		PlotTitle:          "etcd fsync WAL p99",
-		PlotSubTitle:       "",
-		CollectorAvailable: true,
-		DivId:              "id0",
-	}
-	mgm.charts["query_range-etcd-peer-round-trip-time.json.gz"] = &MustGatherChart{
-		Path:               "query_range-etcd-peer-round-trip-time.json.gz",
-		OriginalQuery:      "",
-		PlotLabel:          "instance",
-		PlotTitle:          "etcd peer round trip",
-		PlotSubTitle:       "",
-		CollectorAvailable: true,
-		DivId:              "id3",
+	// Initialize charts map
+	charts := make(map[string]*Chart)
+	for _, chartCfg := range config.Charts {
+		charts[chartCfg.File] = &Chart{
+			Config: chartCfg,
+		}
 	}
 
-	mgm.charts["query_range-etcd-total-leader-elections-day.json.gz"] = &MustGatherChart{
-		Path:               "query_range-etcd-total-leader-elections-day.json.gz",
-		OriginalQuery:      "",
-		PlotLabel:          "instance",
-		PlotTitle:          "etcd peer total leader election",
-		PlotSubTitle:       "",
-		CollectorAvailable: true,
-		DivId:              "id4",
-	}
-	mgm.charts["query_range-etcd-request-duration-p99.json.gz"] = &MustGatherChart{
-		Path:               "query_range-etcd-request-duration-p99.json.gz",
-		OriginalQuery:      "",
-		PlotLabel:          "operation",
-		PlotTitle:          "etcd req duration p99",
-		PlotSubTitle:       "",
-		CollectorAvailable: true,
-		DivId:              "id5",
-	}
-	mgm.charts["query_range-cluster-storage-iops.json.gz"] = &MustGatherChart{
-		Path:               "query_range-cluster-storage-iops.json.gz",
-		OriginalQuery:      "",
-		PlotLabel:          "namespace",
-		PlotTitle:          "Cluster storage IOPS",
-		PlotSubTitle:       "",
-		CollectorAvailable: false,
-		DivId:              "id6",
-	}
-	mgm.charts["query_range-cluster-storage-throughput.json.gz"] = &MustGatherChart{
-		Path:               "query_range-cluster-storage-throughput.json.gz",
-		OriginalQuery:      "",
-		PlotLabel:          "namespace",
-		PlotTitle:          "Cluster storage throughput",
-		PlotSubTitle:       "",
-		CollectorAvailable: false,
-		DivId:              "id7",
-	}
-	mgm.charts["query_range-cluster-cpu-usage.json.gz"] = &MustGatherChart{
-		Path:               "query_range-cluster-cpu-usage.json.gz",
-		OriginalQuery:      "",
-		PlotLabel:          "namespace",
-		PlotTitle:          "Cluster CPU",
-		PlotSubTitle:       "",
-		CollectorAvailable: false,
-		DivId:              "id8",
-	}
-	mgm.page = newMetricsPageWithPlotly(report, uri, mgm.charts)
-	return mgm, nil
+	return &MustGatherMetrics{
+		reportPath: reportPath,
+		data:       data,
+		charts:     charts,
+	}, nil
 }
 
+// Process extracts and processes metrics from the must-gather archive
 func (mg *MustGatherMetrics) Process() error {
-	log.Debugf("Processing results/Populating/Populating Summary/Processing/MustGather/Reading")
-	tar, err := mg.read(mg.data)
+	log.Debugf("Processing must-gather metrics archive")
+
+	// Read tar.xz archive
+	tarReader, err := mg.readArchive(mg.data)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read archive: %w", err)
 	}
-	log.Debugf("Processing results/Populating/Populating Summary/Processing/MustGather/Processing")
-	err = mg.extract(tar)
-	if err != nil {
-		return err
+
+	// Extract metrics
+	if err := mg.extractMetrics(tarReader); err != nil {
+		return fmt.Errorf("failed to extract metrics: %w", err)
 	}
+
+	// Generate output files
+	if err := mg.generateOutputFiles(); err != nil {
+		return fmt.Errorf("failed to generate output files: %w", err)
+	}
+
+	log.Debugf("Metrics processing complete: %s", mg.reportPath)
 	return nil
 }
 
-func (mg *MustGatherMetrics) read(buf *bytes.Buffer) (*tar.Reader, error) {
-	file, err := xz.NewReader(buf)
+// readArchive reads the tar.xz archive
+func (mg *MustGatherMetrics) readArchive(buf *bytes.Buffer) (*tar.Reader, error) {
+	xzReader, err := xz.NewReader(buf)
 	if err != nil {
 		return nil, err
 	}
-	return tar.NewReader(file), nil
+	return tar.NewReader(xzReader), nil
 }
 
-// extract dispatch to process must-gather items.
-func (mg *MustGatherMetrics) extract(tarball *tar.Reader) error {
-
-	keepReading := true
-
-	// Walk through files in tarball.
-	for keepReading {
-		header, err := tarball.Next()
+// extractMetrics walks through the tar archive and extracts metric files
+func (mg *MustGatherMetrics) extractMetrics(tarReader *tar.Reader) error {
+	for {
+		header, err := tarReader.Next()
 
 		switch {
-
-		// no more files
 		case err == io.EOF:
-
-			// Generate index.json and individual chart JSON files for web UI
-			log.Debugf("Generating chart JSON files for web UI\n")
-			err = mg.page.RenderPage()
-			if err != nil {
-				log.Errorf("error rendering chart data: %v\n", err)
-				return err
-			}
-
-			log.Debugf("Chart data saved to %s\n", mg.ReportPath)
 			return nil
-
-		// return on error
 		case err != nil:
-			return fmt.Errorf("error reading tarball: %w", err)
-
-		// skip it when the headr isn't set (not sure how this happens)
+			return fmt.Errorf("error reading tar: %w", err)
 		case header == nil:
 			continue
 		}
 
-		// process only metris file. Example: monitoring/prometheus/metrics/metric.json.gz
-		if !(strings.HasPrefix(header.Name, "monitoring/prometheus/metrics") && strings.HasSuffix(header.Name, ".json.gz")) {
+		// Only process Prometheus metric files: monitoring/prometheus/metrics/*.json.gz
+		if !strings.HasPrefix(header.Name, "monitoring/prometheus/metrics") {
+			continue
+		}
+		if !strings.HasSuffix(header.Name, ".json.gz") {
 			continue
 		}
 
-		metricFileName := filepath.Base(header.Name)
-
-		chart, ok := mg.charts[metricFileName]
+		fileName := filepath.Base(header.Name)
+		chart, ok := mg.charts[fileName]
 		if !ok {
-			log.Debugf("Metrics/Extractor/Unsupported metric, ignoring metric data %s\n", header.Name)
+			log.Debugf("Skipping unsupported metric: %s", fileName)
 			continue
 		}
-		if !chart.CollectorAvailable {
-			log.Debugf("Metrics/Extractor/No charts available for metric %s\n", header.Name)
-			continue
-		}
-		log.Debugf("Metrics/Extractor/Processing: %s\n", header.Name)
 
-		gz, err := gzip.NewReader(tarball)
+		log.Debugf("Processing metric: %s", fileName)
+
+		// Decompress gzip
+		gzReader, err := gzip.NewReader(tarReader)
 		if err != nil {
-			log.Debugf("Metrics/Extractor/Processing/ERROR reading metric %v", err)
+			log.Warnf("Failed to decompress %s: %v", fileName, err)
 			continue
 		}
-		defer gz.Close()
+
+		// Read metric data
 		var metricPayload bytes.Buffer
-		if _, err := io.Copy(&metricPayload, gz); err != nil {
-			log.Debugf("Metrics/Extractor/Processing/ERROR copying metric data for %v", err)
+		if _, err := io.Copy(&metricPayload, gzReader); err != nil {
+			gzReader.Close()
+			log.Warnf("Failed to read %s: %v", fileName, err)
+			continue
+		}
+		gzReader.Close()
+
+		// Parse Prometheus JSON
+		var promResponse PrometheusResponse
+		if err := json.Unmarshal(metricPayload.Bytes(), &promResponse); err != nil {
+			log.Warnf("Failed to parse JSON for %s: %v", fileName, err)
 			continue
 		}
 
-		err = chart.LoadData(metricPayload.Bytes())
-		if err != nil {
-			log.Debugf("Metrics/Extractor/Processing/ERROR loading metric for %v", err)
+		chart.Data = &promResponse
+		log.Debugf("Loaded metric: %s (status=%s)", fileName, promResponse.Status)
+	}
+}
+
+// generateOutputFiles creates index.json and individual chart JSON files
+func (mg *MustGatherMetrics) generateOutputFiles() error {
+	// Create output directory
+	if err := os.MkdirAll(mg.reportPath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", mg.reportPath, err)
+	}
+
+	// Build index
+	type IndexEntry struct {
+		ID   string `json:"id"`
+		Path string `json:"path"`
+	}
+	var index []IndexEntry
+
+	// Process each chart
+	for fileName, chart := range mg.charts {
+		if chart.Data == nil {
+			log.Debugf("Skipping chart %s: no data loaded", fileName)
 			continue
 		}
 
-		log.Debugf("Metrics/Extractor/Processing/Done %v", header.Name)
+		// Filter NaN/Inf values (JSON doesn't support them)
+		filteredData := mg.filterInvalidValues(chart.Data)
+
+		// Check if any valid data remains
+		hasValidData := false
+		for _, result := range filteredData.Data.Result {
+			if len(result.Values) > 0 {
+				hasValidData = true
+				break
+			}
+		}
+
+		if !hasValidData {
+			log.Warnf("Skipping chart %s: no valid data after filtering", fileName)
+			continue
+		}
+
+		// Save chart JSON (Prometheus format)
+		chartPath := filepath.Join(mg.reportPath, fileName+".json")
+		if err := mg.saveChartJSON(chartPath, filteredData); err != nil {
+			log.Warnf("Failed to save chart %s: %v", fileName, err)
+			continue
+		}
+
+		// Add to index
+		index = append(index, IndexEntry{
+			ID:   chart.Config.ID,
+			Path: fmt.Sprintf("./%s.json", fileName),
+		})
+
+		log.Debugf("Saved chart: %s", chartPath)
+	}
+
+	// Save index.json
+	indexPath := filepath.Join(mg.reportPath, "index.json")
+	indexJSON, err := json.MarshalIndent(index, "", " ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal index: %w", err)
+	}
+
+	if err := os.WriteFile(indexPath, indexJSON, 0644); err != nil {
+		return fmt.Errorf("failed to write index.json: %w", err)
+	}
+
+	log.Debugf("Saved index: %s (%d charts)", indexPath, len(index))
+	return nil
+}
+
+// filterInvalidValues removes NaN and Inf values from Prometheus response
+// JSON doesn't support these values, so they must be filtered out
+func (mg *MustGatherMetrics) filterInvalidValues(data *PrometheusResponse) *PrometheusResponse {
+	filtered := &PrometheusResponse{
+		Status: data.Status,
+	}
+	filtered.Data.ResultType = data.Data.ResultType
+
+	totalDatapoints := 0
+	filteredDatapoints := 0
+
+	for _, result := range data.Data.Result {
+		validValues := [][]interface{}{}
+		originalCount := len(result.Values)
+		totalDatapoints += originalCount
+
+		for _, v := range result.Values {
+			// v[0] = timestamp (float64), v[1] = value (string)
+			if len(v) < 2 {
+				continue
+			}
+
+			valueStr, ok := v[1].(string)
+			if !ok {
+				continue
+			}
+
+			// Parse and check for NaN/Inf
+			valueFloat, err := strconv.ParseFloat(valueStr, 64)
+			if err != nil {
+				continue
+			}
+
+			if math.IsNaN(valueFloat) || math.IsInf(valueFloat, 0) {
+				filteredDatapoints++
+				continue
+			}
+
+			// Valid value, keep it
+			validValues = append(validValues, v)
+		}
+
+		// Only include results with valid data
+		if len(validValues) > 0 {
+			filteredResult := PrometheusResultMetric{
+				Metric: result.Metric,
+				Values: validValues,
+			}
+			filtered.Data.Result = append(filtered.Data.Result, filteredResult)
+		}
+	}
+
+	// Log summary if data was filtered
+	if filteredDatapoints > 0 {
+		log.Debugf("Filtered %d NaN/Inf datapoints from %d total (%.1f%% invalid)",
+			filteredDatapoints, totalDatapoints, float64(filteredDatapoints)/float64(totalDatapoints)*100)
+	}
+
+	return filtered
+}
+
+// saveChartJSON saves a chart's Prometheus data as JSON
+func (mg *MustGatherMetrics) saveChartJSON(path string, data *PrometheusResponse) error {
+	jsonData, err := json.MarshalIndent(data, "", " ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+
+	if err := os.WriteFile(path, jsonData, 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
 	}
 
 	return nil

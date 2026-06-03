@@ -841,11 +841,6 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
           this.$nextTick(() => { this.renderEtcdCharts(); });
         }
       },
-      parseMetricTimestamp(ts) {
-        let parts = ts.match(/(\d+)-(\d+)-(\d+) (\d+):(\d+):(\d+)/);
-        if (!parts) return new Date(ts);
-        return new Date(parts[1], parts[2]-1, parts[3], parts[4], parts[5], parts[6]);
-      },
       resetChartZoom(chartId) {
         let instance = this.chartInstances[chartId];
         if (instance) instance.resetZoom();
@@ -893,16 +888,33 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         for (let chart of this.etcdCharts) {
           axios.get(chart.path)
             .then(resp => {
-              let reply = resp.data;
-              let datasets = reply.data.map((trace, i) => ({
-                label: trace.name,
-                data: trace.x.map((ts, j) => ({ x: this.parseMetricTimestamp(ts), y: trace.y[j] })),
-                borderColor: this.chartColors[i % this.chartColors.length],
-                backgroundColor: 'transparent',
-                borderWidth: 1.5,
-                pointRadius: 0,
-                tension: 0.3,
-              }));
+              // Parse Prometheus JSON format (query_range API response)
+              let promResponse = resp.data;
+              if (!promResponse.data || !promResponse.data.result) {
+                throw new Error('Invalid Prometheus response format');
+              }
+
+              let datasets = promResponse.data.result.map((result, i) => {
+                // Extract label from metric (first non-__name__ key)
+                let labelKey = Object.keys(result.metric).find(k => k !== '__name__') || 'instance';
+                let labelValue = result.metric[labelKey] || 'unknown';
+
+                // Convert Prometheus values [timestamp, "value"] to Chart.js format
+                let dataPoints = result.values.map(v => ({
+                  x: new Date(v[0] * 1000), // Unix timestamp to JS Date
+                  y: parseFloat(v[1])        // String to number
+                }));
+
+                return {
+                  label: labelValue,
+                  data: dataPoints,
+                  borderColor: this.chartColors[i % this.chartColors.length],
+                  backgroundColor: 'transparent',
+                  borderWidth: 1.5,
+                  pointRadius: 0,
+                  tension: 0.3,
+                };
+              });
               let canvas = document.getElementById(chart.id);
               if (!canvas) return;
               this.chartInstances[chart.id] = new Chart(canvas, {

@@ -1,0 +1,40 @@
+{
+  "charts": [
+    {
+      "file": "query_range-etcd-disk-fsync-db-duration-p99.json.gz",
+      "label": "instance",
+      "title": "etcd fsync DB p99",
+      "id": "id1"
+    },
+    {
+      "file": "query_range-api-kas-request-duration-p99.json.gz",
+      "label": "verb",
+      "title": "Kube API request p99",
+      "id": "id2"
+    },
+    {
+      "file": "query_range-etcd-disk-fsync-wal-duration-p99.json.gz",
+      "label": "instance",
+      "title": "etcd fsync WAL p99",
+      "id": "id0"
+    },
+    {
+      "file": "query_range-etcd-peer-round-trip-time.json.gz",
+      "label": "instance",
+      "title": "etcd peer round trip",
+      "id": "id3"
+    },
+    {
+      "file": "query_range-etcd-total-leader-elections-day.json.gz",
+      "label": "instance",
+      "title": "etcd peer total leader election",
+      "id": "id4"
+    },
+    {
+      "file": "query_range-etcd-request-duration-p99.json.gz",
+      "label": "operation",
+      "title": "etcd req duration p99",
+      "id": "id5"
+    }
+  ]
+}
