@@ -1,14 +1,11 @@
 package mustgathermetrics
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"math"
 	"os"
-	"sort"
 	"strconv"
-	"text/template"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -20,37 +17,6 @@ type ChartPagePlotly struct {
 	RootPath  string
 	UriPath   string
 }
-
-const indexHTML = `<!DOCTYPE html>
-<html>
-	<head>
-		<title>OPCT Charts</title>
-		<script src="https://cdn.plot.ly/plotly-2.8.3.min.js"></script>
-		<script src="./index.js"></script>
-		<style>
-				#chart {
-					width: 100px;
-					height: 100px;
-				}
-		</style>
-	</head>
-	<body onload="updateCharts()">
-		<hr />
-{{.Table}}
-	</body>
-</html>`
-
-// inspired by https://github.com/353words/stocks/tree/main
-const indexJS = `
-async function updateCharts() {
-    let chartsResp = await fetch('./index.json');
-    let charts = await chartsResp.json(); 
-    for (idx in charts) {
-        let resp = await fetch(charts[idx].path);
-        let reply = await resp.json(); 
-        Plotly.newPlot(charts[idx].id, reply.data, reply.layout);
-    }
-}`
 
 func newMetricsPageWithPlotly(path, uri string, charts MustGatherCharts) *ChartPagePlotly {
 
@@ -77,20 +43,12 @@ func roundFloat(val float64, precision uint) float64 {
 
 func (cpp *ChartPagePlotly) RenderPage() error {
 
-	// - index.js
-	indexJsFilePath := fmt.Sprintf("%s/index.js", cpp.RootPath)
-	err := os.WriteFile(indexJsFilePath, []byte(indexJS), 0644)
-	if err != nil {
-		log.Errorf("Unable to save file %s: %v", indexJsFilePath, err)
-	}
-	log.Debugf("Chart/file saved %s", indexJsFilePath)
-
-	// render metrics data
+	// Generate chart JSON files and index.json for web UI
 	indexChartsMap := []map[string]string{}
-	validDivIds := []string{}
 	for k := range cpp.Charts {
+		log.Debugf("Processing chart for index.json: %s", k)
 		if err := cpp.processMetricV2(k); err != nil {
-			log.Debug(err)
+			log.Warnf("Skipping chart %s from index.json: %v", k, err)
 			continue
 		}
 		if cpp.Charts[k].DivId != "" {
@@ -98,46 +56,13 @@ func (cpp *ChartPagePlotly) RenderPage() error {
 				"id":   cpp.Charts[k].DivId,
 				"path": fmt.Sprintf("./%s.json", cpp.Charts[k].Path),
 			})
-			validDivIds = append(validDivIds, cpp.Charts[k].DivId)
 		}
 	}
-	// create table with charts
-	sort.Strings(validDivIds)
-	type TemplateData struct {
-		Table string
-	}
-	table := TemplateData{"\t\t<table>"}
-	for idx, div := range validDivIds {
-		if idx%2 == 0 {
-			table.Table += fmt.Sprintf("\n\t\t\t<tr><td><div id=\"%s\"></div></td>", div)
-		} else {
-			table.Table += fmt.Sprintf("<td><div id=\"%s\"></div></td></tr>", div)
-		}
-	}
-	table.Table += "\n\t\t</table>"
-
-	// - index.html
-	indexHTMLFilePath := fmt.Sprintf("%s/index.html", cpp.RootPath)
-	tmplS, err := template.New("report").Parse(indexHTML)
-	if err != nil {
-		log.Errorf("Unable to create template for %s: %v", indexHTMLFilePath, err)
-	}
-	var fileBufferS bytes.Buffer
-	err = tmplS.Execute(&fileBufferS, table)
-	if err != nil {
-		log.Errorf("Unable to render template for %s: %v", indexHTMLFilePath, err)
-	}
-
-	err = os.WriteFile(indexHTMLFilePath, fileBufferS.Bytes(), 0644)
-	if err != nil {
-		log.Errorf("Unable to save file %s: %v", indexHTMLFilePath, err)
-	}
-	log.Debugf("Chart/file saved %s", indexHTMLFilePath)
 
 	// - index.json
 	indexJsonFileData, _ := json.MarshalIndent(indexChartsMap, "", " ")
 	indexJsonFilePath := fmt.Sprintf("%s/index.json", cpp.RootPath)
-	err = os.WriteFile(indexJsonFilePath, indexJsonFileData, 0644)
+	err := os.WriteFile(indexJsonFilePath, indexJsonFileData, 0644)
 	if err != nil {
 		log.Errorf("Unable to save file %s: %v", indexJsonFileData, err)
 	}
@@ -178,6 +103,12 @@ func (cpp *ChartPagePlotly) processMetricV2(name string) error {
 			valF, err := strconv.ParseFloat(value, 64)
 			if err != nil {
 				log.Errorf("error metric %s: converting datapoint, ignoring", name)
+				continue
+			}
+
+			// Skip NaN and Inf values - JSON doesn't support them
+			if math.IsNaN(valF) || math.IsInf(valF, 0) {
+				log.Debugf("Metrics/Extractor/Processing/GenChart: NaN/Inf value for %s, skipping datapoint", name)
 				continue
 			}
 

@@ -158,8 +158,6 @@ func (mg *MustGatherMetrics) read(buf *bytes.Buffer) (*tar.Reader, error) {
 func (mg *MustGatherMetrics) extract(tarball *tar.Reader) error {
 
 	keepReading := true
-	metricsPage := newMetricsPage()
-	reportPath := mg.ReportPath + mg.ReportChartFile
 
 	// Walk through files in tarball.
 	for keepReading {
@@ -170,20 +168,15 @@ func (mg *MustGatherMetrics) extract(tarball *tar.Reader) error {
 		// no more files
 		case err == io.EOF:
 
-			err := SaveMetricsPageReport(metricsPage, reportPath)
-			if err != nil {
-				log.Errorf("error saving metrics to: %s\n", reportPath)
-				return err
-			}
-			// Ploty Page
-			log.Debugf("Generating Charts with Plotly\n")
+			// Generate index.json and individual chart JSON files for web UI
+			log.Debugf("Generating chart JSON files for web UI\n")
 			err = mg.page.RenderPage()
 			if err != nil {
-				log.Errorf("error rendering page: %v\n", err)
+				log.Errorf("error rendering chart data: %v\n", err)
 				return err
 			}
 
-			log.Debugf("metrics saved at: %s\n", reportPath)
+			log.Debugf("Chart data saved to %s\n", mg.ReportPath)
 			return nil
 
 		// return on error
@@ -231,10 +224,6 @@ func (mg *MustGatherMetrics) extract(tarball *tar.Reader) error {
 			continue
 		}
 
-		// charts with
-		for _, line := range chart.NewCharts() {
-			metricsPage.AddCharts(line)
-		}
 		log.Debugf("Metrics/Extractor/Processing/Done %v", header.Name)
 	}
 
