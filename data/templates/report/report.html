@@ -21,12 +21,11 @@ preventing conflict with Vue/JS language. -->
 <!-- Tab manager -->
 <div class="tab">
   <button class="tablinks" onclick="openTab(event, 'OPCT')" id="tabDefault">OPCT</button>
-  <button class="tablinks" onclick="openTab(event, 'CAMGI')">CAMGI</button>
+  <button class="tablinks" onclick="window.open('./metrics/metrics.html', '_blank')">Dashboard</button>
   <button class="tablinks" onclick="openTab(event, 'Tests')">Tests</button>
   <button class="tablinks" onclick="openTab(event, 'MGEvents')">Events</button>
   <!-- <button class="tablinks" onclick="openExternalTab(event, '/must-gather/event-filter.html')">Events</button> -->
-  <!-- <button class="tablinks" onclick="openTab(event, 'Metrics')">Metrics</button> -->
-  <button class="tablinks" onclick="openExternalTab(event, '/metrics')">Metrics</button>
+  <button class="tablinks" onclick="openTab(event, 'CAMGI')">CAMGI</button>
 </div>
 
 <!-- Tab content: OPCT -->
@@ -216,12 +215,8 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         chartColors: ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'],
         chartInstances: {},
         etcdCharts: [
-          { id: "etcd-chart-0", path: "./metrics/query_range-etcd-disk-fsync-wal-duration-p99.json.gz.json", title: "etcd fsync WAL p99" },
-          { id: "etcd-chart-1", path: "./metrics/query_range-etcd-disk-fsync-db-duration-p99.json.gz.json", title: "etcd fsync DB p99" },
-          { id: "etcd-chart-2", path: "./metrics/query_range-etcd-peer-round-trip-time.json.gz.json", title: "etcd peer round trip" },
-          { id: "etcd-chart-3", path: "./metrics/query_range-etcd-total-leader-elections-day.json.gz.json", title: "etcd total leader elections" },
-          { id: "etcd-chart-4", path: "./metrics/query_range-etcd-request-duration-p99.json.gz.json", title: "etcd req duration p99" },
-          { id: "etcd-chart-5", path: "./metrics/query_range-api-kas-request-duration-p99.json.gz.json", title: "Kube API request p99" },
+          { id: "etcd-chart-0", path: "./metrics/query_range-etcd-disk-fsync-wal-duration-p99.json.gz.json", title: "etcd fsync WAL p99", unit: "ms", convertToMs: true },
+          { id: "etcd-chart-1", path: "./metrics/query_range-etcd-disk-fsync-db-duration-p99.json.gz.json", title: "etcd fsync DB p99", unit: "ms", convertToMs: true },
         ],
       };
     },
@@ -828,7 +823,11 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         }
 
         if (this.report.summary.features.hasMetricsData) {
-          this.menuBodyRight = ''
+          this.menuBodyRight = '<div class="alert alert-info" style="margin-bottom: 20px;">' +
+            '<strong>📊 More Metrics:</strong> ' +
+            '<a href="./metrics/metrics.html" target="_blank" style="text-decoration: underline;">Open full dashboard</a> ' +
+            'to view all 6 charts in an interactive grid dashboard with click-to-expand functionality.' +
+            '</div>'
           for (let chart of this.etcdCharts) {
             this.menuBodyRight += `<div class="etcd-chart-card" id="card-` + chart.id + `">` +
               `<div class="etcd-chart-header"><h6>` + chart.title + `</h6>` +
@@ -902,7 +901,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
                 // Convert Prometheus values [timestamp, "value"] to Chart.js format
                 let dataPoints = result.values.map(v => ({
                   x: new Date(v[0] * 1000), // Unix timestamp to JS Date
-                  y: parseFloat(v[1])        // String to number
+                  y: chart.convertToMs ? parseFloat(v[1]) * 1000 : parseFloat(v[1])  // Convert seconds to ms if needed
                 }));
 
                 return {
@@ -935,7 +934,15 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
                   },
                   scales: {
                     x: { type: 'time', time: { tooltipFormat: 'yyyy-MM-dd HH:mm' }, ticks: { maxTicksAllowed: 8, font: { size: 10 } } },
-                    y: { beginAtZero: false, ticks: { font: { size: 10 } } },
+                    y: {
+                      beginAtZero: false,
+                      ticks: { font: { size: 10 } },
+                      title: {
+                        display: true,
+                        text: chart.unit,
+                        font: { size: 11, weight: 'bold' }
+                      }
+                    },
                   },
                 },
               });

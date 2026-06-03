@@ -21,6 +21,12 @@ import (
 //go:embed charts-config.json
 var chartsConfigJSON []byte
 
+//go:embed metrics.html
+var metricsHTML []byte
+
+//go:embed index.html
+var indexHTML []byte
+
 // ChartConfig represents a single metric chart configuration
 type ChartConfig struct {
 	File  string `json:"file"`
@@ -243,6 +249,21 @@ func (mg *MustGatherMetrics) generateOutputFiles() error {
 	}
 
 	log.Debugf("Saved index: %s (%d charts)", indexPath, len(index))
+
+	// Save metrics.html (interactive dashboard)
+	metricsHTMLPath := filepath.Join(mg.reportPath, "metrics.html")
+	if err := os.WriteFile(metricsHTMLPath, metricsHTML, 0644); err != nil {
+		return fmt.Errorf("failed to write metrics.html: %w", err)
+	}
+	log.Debugf("Saved metrics dashboard: %s", metricsHTMLPath)
+
+	// Save index.html (redirect to metrics.html)
+	indexHTMLPath := filepath.Join(mg.reportPath, "index.html")
+	if err := os.WriteFile(indexHTMLPath, indexHTML, 0644); err != nil {
+		return fmt.Errorf("failed to write index.html: %w", err)
+	}
+	log.Debugf("Saved index redirect: %s", indexHTMLPath)
+
 	return nil
 }
 
