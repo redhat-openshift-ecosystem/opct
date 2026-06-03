@@ -1060,12 +1060,14 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         return platformType
       },
       pageHeadline() {
-        let openshift = "OpenShift[" + this.report.provider.version.openshift.desired +"]"
-        let k8s = "Kubernetes["+ this.report.provider.version.kubernetes +"]"
-        let platformType = "PlatformType["+ this.platformType +"]"
-        headline = "|> "+ openshift +" "+ k8s +" "+ platformType
-        headline += "<p>|> "+ this.archiveName +"</p>"
-        headline += '<hr/>'
+        let headline = '<div class="headline-bar">'
+        headline += '<span class="headline-badge headline-ocp">OpenShift <strong>' + this.report.provider.version.openshift.desired + '</strong></span>'
+        headline += '<span class="headline-badge headline-k8s">Kubernetes <strong>' + this.report.provider.version.kubernetes + '</strong></span>'
+        headline += '<span class="headline-badge headline-platform">' + this.platformType + '</span>'
+        headline += '</div>'
+        headline += '<div class="headline-bar headline-bar-secondary">'
+        headline += '<span class="headline-badge headline-archive">' + this.archiveName + '</span>'
+        headline += '</div>'
         return headline
       },
       errorCountersSuite() {

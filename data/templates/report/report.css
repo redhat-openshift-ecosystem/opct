@@ -23,6 +23,36 @@ data { display: none; }
 span.float-right { float: right; }
 table { font-size: 8pt; }
 
+/* Page headline bar */
+.headline-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #dee2e6;
+}
+.headline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+}
+.headline-badge strong { font-weight: 600; }
+.headline-ocp { background: #e8f0fe; color: #1a4d8f; }
+.headline-k8s { background: #e6f4ea; color: #1b6e2d; }
+.headline-platform { background: #fef3e0; color: #8a5d00; }
+.headline-bar-secondary {
+  margin-top: -6px;
+  padding-top: 0;
+}
+.headline-archive { background: #f0f0f0; color: #495057; font-family: monospace; }
+
 /* Banner */
 .alert {
   padding: 20px;
