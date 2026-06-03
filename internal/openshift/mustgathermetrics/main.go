@@ -224,8 +224,7 @@ func (mg *MustGatherMetrics) generateOutputFiles() error {
 		// Save chart JSON (Prometheus format)
 		chartPath := filepath.Join(mg.reportPath, fileName+".json")
 		if err := mg.saveChartJSON(chartPath, filteredData); err != nil {
-			log.Warnf("Failed to save chart %s: %v", fileName, err)
-			continue
+			return fmt.Errorf("failed to save chart %s: %w", fileName, err)
 		}
 
 		// Add to index
@@ -239,6 +238,10 @@ func (mg *MustGatherMetrics) generateOutputFiles() error {
 
 	// Save index.json
 	indexPath := filepath.Join(mg.reportPath, "index.json")
+	if len(index) == 0 {
+		return fmt.Errorf("no chart JSON files were generated")
+	}
+
 	indexJSON, err := json.MarshalIndent(index, "", " ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal index: %w", err)

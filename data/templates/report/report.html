@@ -306,6 +306,10 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         this.menuTitle = '';
         this.menuBody = '';
         this.menuBodyRight = '';
+        // Destroy existing Chart.js instances to prevent memory leaks
+        Object.values(this.chartInstances).forEach(chart => chart.destroy());
+        this.chartInstances = {};
+        this._chartRenderToken = (this._chartRenderToken || 0) + 1;
         var left = document.getElementById('panel-left');
         if (left) { left.style.width = ''; left.style.minWidth = ''; }
         var right = document.getElementById('panel-right');
@@ -883,10 +887,17 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         overlay.onclick = function(e) { if (e.target === overlay) { expanded.destroy(); document.body.removeChild(overlay); } };
       },
       renderEtcdCharts() {
+        // Generate render token to ignore stale axios responses
+        const renderToken = (this._chartRenderToken || 0) + 1;
+        this._chartRenderToken = renderToken;
+        // Destroy existing Chart.js instances before creating new ones
+        Object.values(this.chartInstances).forEach(chart => chart.destroy());
         this.chartInstances = {};
         for (let chart of this.etcdCharts) {
           axios.get(chart.path)
             .then(resp => {
+              // Ignore stale responses from previous render calls
+              if (renderToken !== this._chartRenderToken) return;
               // Parse Prometheus JSON format (query_range API response)
               let promResponse = resp.data;
               if (!promResponse.data || !promResponse.data.result) {
