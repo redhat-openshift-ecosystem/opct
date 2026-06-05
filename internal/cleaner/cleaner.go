@@ -170,13 +170,23 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 		}
 	}
 
-	// Read file content for leak scanning, then write to archive
+	// Write header first
+	if err := tarWriter.WriteHeader(header); err != nil {
+		return nil, fmt.Errorf("error streaming file header to new archive: %w", err)
+	}
+
+	// For large files (>10MB), stream directly without scanning
+	if header.Size > int64(maxLeakScanSize) {
+		if _, err := io.Copy(tarWriter, tarReader); err != nil {
+			return nil, fmt.Errorf("error streaming large file data to new archive: %w", err)
+		}
+		return nil, nil
+	}
+
+	// For smaller files, read into memory for scanning, then write
 	content, err := io.ReadAll(tarReader)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file data from archive: %w", err)
-	}
-	if err := tarWriter.WriteHeader(header); err != nil {
-		return nil, fmt.Errorf("error streaming file header to new archive: %w", err)
 	}
 	if _, err := tarWriter.Write(content); err != nil {
 		return nil, fmt.Errorf("error streaming file data to new archive: %w", err)

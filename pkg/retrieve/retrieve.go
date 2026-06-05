@@ -67,7 +67,7 @@ func retrieveResultsRetry(sclient sonobuoyclient.Interface, destinationDirectory
 		if err != nil {
 			log.Error(err)
 			if retries+1 < limit {
-				log.Warnf("Retrying retrieval %d more times after %d sec", limit-retries, pause)
+				log.Warnf("Retrying retrieval %d more times after %d sec", limit-retries, pause/time.Second)
 			}
 			time.Sleep(pause)
 			retries++

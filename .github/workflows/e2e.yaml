@@ -276,7 +276,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@484a0b528fb4d7bd804637ccb632e47a0e638317  # v4
         with:
           name: opct-linux-amd64
           path: /tmp/build/
@@ -341,14 +341,20 @@ jobs:
             "Generic Secret"
           )
 
+          missing=0
           for pattern in "${patterns[@]}"; do
             if ! grep -q "${pattern}" ${OUTPUT_LOG}; then
-              echo "WARNING: Expected pattern not found: ${pattern}"
-              echo "This may be acceptable if the pattern was not triggered"
+              echo "ERROR: Expected pattern not found: ${pattern}"
+              missing=1
             else
               echo "✓ Detected: ${pattern}"
             fi
           done
+
+          if [[ ${missing} -ne 0 ]]; then
+            echo "ERROR: Some expected leak patterns were not detected"
+            exit 1
+          fi
 
           echo "> Leak detection test passed!"
 

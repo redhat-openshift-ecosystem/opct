@@ -19,6 +19,7 @@ func ScanContentForLeaks(filename string, content []byte) []LeakFinding {
 	}
 
 	contentLower := bytes.ToLower(content)
+	lines := bytes.Split(content, []byte("\n"))
 	var findings []LeakFinding
 
 	for i := range leakPatterns {
@@ -28,7 +29,6 @@ func ScanContentForLeaks(filename string, content []byte) []LeakFinding {
 			continue
 		}
 
-		lines := bytes.Split(content, []byte("\n"))
 		for lineNum, line := range lines {
 			if p.Regex.Match(line) {
 				findings = append(findings, LeakFinding{
