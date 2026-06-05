@@ -320,53 +320,69 @@ jobs:
             exit 1
           fi
 
-      - name: Verify leak detection warnings
+      - name: Verify redaction in output archive
         env:
-          OUTPUT_LOG: /tmp/cleaner-output.log
+          OUTPUT_ARCHIVE: /tmp/cleaned.tar.gz
         run: |
-          echo "> Checking for leak detection warnings in output"
+          echo "> Verifying sensitive data was redacted in output archive"
 
-          # Verify scanner detected leaks
-          if ! grep -q "Leak scan:" ${OUTPUT_LOG}; then
-            echo "ERROR: No leak scan warnings found in output"
-            cat ${OUTPUT_LOG}
+          # Extract output archive
+          mkdir -p /tmp/extracted
+          tar xzf ${OUTPUT_ARCHIVE} -C /tmp/extracted
+
+          # Verify redaction markers are present
+          if ! grep -r "<REDACTED_BY_OPCT>" /tmp/extracted; then
+            echo "ERROR: No redaction markers found in output archive"
+            echo "Expected to find <REDACTED_BY_OPCT> markers"
             exit 1
           fi
 
-          # Verify specific patterns were detected
-          patterns=(
-            "OpenShift User Token"
-            "AWS IAM Unique Identifier"
-            "GCP API Key"
-            "Generic Secret"
+          echo "✓ Found redaction markers in archive"
+
+          # Count redaction markers (should be at least 4 - one per test secret)
+          redaction_count=$(grep -r "<REDACTED_BY_OPCT>" /tmp/extracted | wc -l)
+          if [[ ${redaction_count} -lt 4 ]]; then
+            echo "ERROR: Expected at least 4 redactions, found ${redaction_count}"
+            exit 1
+          fi
+
+          echo "✓ Found ${redaction_count} redaction marker(s)"
+
+      - name: Verify original secrets are NOT present
+        run: |
+          echo "> Verifying original secrets are NOT in output archive"
+
+          # Define secrets that should have been redacted
+          secrets=(
+            "sha256~abcdefghijklmnopqrstuvwxyz01234567890ABCDEF"
+            "AKIAIOSFODNN7EXAMPLE"
+            "AIzaSyA1234567890abcdefghijklmnopqrstuv"
+            "supersecretvalue123"
           )
 
-          missing=0
-          for pattern in "${patterns[@]}"; do
-            if ! grep -q "${pattern}" ${OUTPUT_LOG}; then
-              echo "ERROR: Expected pattern not found: ${pattern}"
-              missing=1
+          found_leak=0
+          for secret in "${secrets[@]}"; do
+            if grep -qr "${secret}" /tmp/extracted; then
+              echo "ERROR: Original secret still present in archive: ${secret}"
+              found_leak=1
             else
-              echo "✓ Detected: ${pattern}"
+              echo "✓ Secret redacted: ${secret:0:20}..."
             fi
           done
 
-          if [[ ${missing} -ne 0 ]]; then
-            echo "ERROR: Some expected leak patterns were not detected"
+          if [[ ${found_leak} -ne 0 ]]; then
+            echo "ERROR: Found unredacted secrets in output archive"
             exit 1
           fi
 
-          echo "> Leak detection test passed!"
+          echo "> All secrets successfully redacted!"
 
-      - name: Verify clean files are not flagged
-        env:
-          OUTPUT_LOG: /tmp/cleaner-output.log
+      - name: Verify clean files are preserved
         run: |
-          # Verify clean files don't trigger false positives
-          if grep -q "normal.log.*—" ${OUTPUT_LOG}; then
-            echo "ERROR: Clean file triggered false positive"
-            grep "normal.log" ${OUTPUT_LOG}
+          # Verify clean files don't get corrupted
+          if ! grep -qr "This is a normal log file with no secrets" /tmp/extracted; then
+            echo "ERROR: Clean file content was corrupted or removed"
             exit 1
           fi
 
-          echo "✓ No false positives detected"
+          echo "✓ Clean files preserved correctly"

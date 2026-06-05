@@ -86,12 +86,12 @@ func ScanPatchTarGzipReaderFor(r io.Reader) (resp io.Reader, size int, err error
 	}
 
 	if len(leakFindings) > 0 {
-		log.Warnf("Leak scan: %d potential finding(s) detected", len(leakFindings))
+		log.Debugf("Leak scan: %d potential finding(s) detected and redacted", len(leakFindings))
 		for _, f := range leakFindings {
 			if f.Line > 0 {
-				log.Warnf("  %s:%d — %s", f.File, f.Line, f.Pattern)
+				log.Debugf("  %s:%d — %s", f.File, f.Line, f.Pattern)
 			} else {
-				log.Warnf("  %s — %s", f.File, f.Pattern)
+				log.Debugf("  %s — %s", f.File, f.Pattern)
 			}
 		}
 	}
@@ -124,15 +124,18 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 			if err != nil {
 				return nil, fmt.Errorf("unable to apply patch to file %s: %w", header.Name, err)
 			}
-			header.Size = int64(len(patchedFile))
+
+			// Scan and redact patched content
+			redactedFile, findings := ScanAndRedactLeaks(header.Name, patchedFile)
+
+			header.Size = int64(len(redactedFile))
 			log.Debugf("File %s size %d bytes", header.Name, header.Size)
 			if err := tarWriter.WriteHeader(header); err != nil {
 				return nil, fmt.Errorf("unable to write file header to new archive: %w", err)
 			}
-			if _, err := tarWriter.Write(patchedFile); err != nil {
+			if _, err := tarWriter.Write(redactedFile); err != nil {
 				return nil, fmt.Errorf("unable to write file data to new archive: %w", err)
 			}
-			findings := ScanContentForLeaks(header.Name, patchedFile)
 			return findings, nil
 		}
 		log.Debugf("Unknown extension, skipping patch for file %s", header.Name)
@@ -183,16 +186,20 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 		return nil, nil
 	}
 
-	// For smaller files, read into memory for scanning, then write
+	// For smaller files, read into memory for scanning and redaction
 	content, err := io.ReadAll(tarReader)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file data from archive: %w", err)
 	}
-	if _, err := tarWriter.Write(content); err != nil {
+
+	// Scan and redact sensitive data
+	redactedContent, findings := ScanAndRedactLeaks(header.Name, content)
+
+	// Write redacted content to archive
+	if _, err := tarWriter.Write(redactedContent); err != nil {
 		return nil, fmt.Errorf("error streaming file data to new archive: %w", err)
 	}
 
-	findings := ScanContentForLeaks(header.Name, content)
 	return findings, nil
 }
 

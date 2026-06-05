@@ -51,7 +51,7 @@ func TestScanPatchTarGzipReaderFor(t *testing.T) {
 				"resources/cluster/machineconfiguration.openshift.io_v1_controllerconfigs.json": `{"items":[{"spec":{"internalRegistryPullSecret":"SECRET"}}]}`,
 			},
 			expectedFiles: map[string]string{
-				"resources/cluster/machineconfiguration.openshift.io_v1_controllerconfigs.json": `{"items":[{"spec":{"internalRegistryPullSecret":"REDACTED"}}]}`,
+				"resources/cluster/machineconfiguration.openshift.io_v1_controllerconfigs.json": `{"items":[{"spec":{"internalRegistryPullSecret":"<REDACTED_BY_OPCT>"}}]}`,
 			},
 			expectError: false,
 		},

@@ -1,14 +1,45 @@
-# Plan: Add leak detection to `opct retrieve` using leaktk patterns
+# Enhancement: Add leak detection and redaction to `opct retrieve`
+
+**Created:** 2026-05-27  
+**Last Updated:** 2026-06-05  
+**Status:** In Progress  
+**JIRA:** OPCT-423
+
+---
+
+## Revision History
+
+| Date | Author | Changes |
+|------|--------|---------|
+| 2026-05-27 | Marco Braga | Initial enhancement proposal - warn-only mode |
+| 2026-06-05 | Marco Braga | **Scope change:** Updated to redact-by-default with `<REDACTED_BY_OPCT>` marker, DEBUG logging, and `--debug-only-skip-redact` flag |
+
+---
 
 ## Context
 
 The `opct retrieve` command downloads conformance results from the cluster and saves them as a tar.gz archive. Currently it applies file-level patches (redacting `internalRegistryPullSecret`) and removes large unnecessary files (`packagemanifests`). However, there's no content-based scanning for leaked credentials — AWS keys, SSH private keys, OpenShift tokens, etc. could be present in must-gather logs, resource dumps, or config files.
 
-Goal: Embed high-priority leak patterns from [leaktk/patterns](https://github.com/leaktk/patterns) directly into the existing tarball processing pipeline in `cleaner.go`, scanning file contents during the retrieve stream processing without impacting timing.
+**Goal:** Embed high-priority leak patterns from [leaktk/patterns](https://github.com/leaktk/patterns) directly into the existing tarball processing pipeline in `cleaner.go`, **automatically redacting** sensitive data during retrieve stream processing. Archives are sanitized by default with no sensitive information exposed.
+
+## Behavior: Redact-by-default
+
+### Default Mode (Production)
+- Scans all files during retrieve streaming
+- **Automatically replaces** detected sensitive patterns with `<REDACTED_BY_OPCT>`
+- Logs findings at **DEBUG level** (hidden unless `--log-level=debug`)
+- Archive contains **no sensitive information** by default
+- Safe for distribution to Red Hat partners
+
+### Debug Mode (Development Only)
+- `--debug-only-skip-redact` flag available for troubleshooting
+- **WARNING:** Displays prominent warning that archives may contain sensitive data
+- Should NEVER be used for archives shared externally
+- Useful for validating detection accuracy during development
 
 ## Approach: Embedded patterns (no external dependency)
 
-LeakTK is CLI-only (pre-v1.0, no stable Go library). Instead, we'll extract ~25 high-value regex patterns from leaktk/patterns TOML and compile them as Go structs. This integrates directly into the existing `processTarHeader()` in `cleaner.go` — zero external dependencies, no subprocess overhead.
+LeakTK is CLI-only (pre-v1.0, no stable Go library). Instead, we'll extract ~12 high-value regex patterns from leaktk/patterns TOML and compile them as Go structs. This integrates directly into the existing `processTarHeader()` in `cleaner.go` — zero external dependencies, no subprocess overhead.
 
 ## Implementation
 
@@ -28,7 +59,7 @@ type LeakFinding struct {
     File        string
     Pattern     string
     Line        int
-    Match       string         // redacted preview (first/last chars only)
+    MatchLength int            // length of detected secret (for redaction)
 }
 ```
 
@@ -38,7 +69,7 @@ Each pattern must include a comment referencing the source:
 // Pattern ID: sOZiHxUBVFc (leaktk v8.27.0)
 ```
 
-**Priority patterns to embed (~25 rules):**
+**Priority patterns to embed (~12 rules):**
 
 | Category | Pattern ID | Description |
 |----------|-----------|-------------|
@@ -48,24 +79,34 @@ Each pattern must include a comment referencing the source:
 | AWS | `LAJoYTdoQH4` | AWS IAM Unique Identifier |
 | AWS | `9j_rmwDeioM` | AWS Secret Access Key |
 | Azure | `zl044yuux24` | Azure AD Client Secret |
-| Azure | — | Azure Storage Account Access Key |
-| GCP | — | GCP API Key |
+| GCP | `HysINeDft8k` | GCP API Key |
 | Private keys | `ePK9whPQPpY` | Private Key (PEM header) |
-| Private keys | `RVee3wT2Z4I` | Base64 Encoded OpenSSH Private Key |
-| Generic | — | Generic password/secret in key=value |
-| Generic | — | Generic token in YAML/JSON |
-| GitHub | — | GitHub Personal Access Token |
+| Generic | `_-9w6-yrc-4` | Generic Secret (key=value quoted) |
+| Generic | `hG-qMjbXGro` | Generic Secret (key=value unquoted) |
+| GitHub | `gODCNuGzuKQ` | GitHub Personal Access Token |
+| GitHub | `kX_PwM0MFvE` | GitHub Fine-Grained PAT |
 
-Fetch the actual regex patterns from https://github.com/leaktk/patterns/blob/main/target/main.toml at implementation time.
+Fetch the actual regex patterns from https://github.com/leaktk/patterns/blob/main/patterns/gitleaks/8.27.0/98-general.toml at implementation time.
 
 ### 2. New file: `internal/cleaner/leakscanner.go`
 
-Scanner function that takes file content bytes and returns findings:
+Scanner function that detects AND redacts sensitive patterns:
 
 ```go
+// ScanContentForLeaks detects potential leaks (read-only, for logging)
 func ScanContentForLeaks(filename string, content []byte) []LeakFinding
+
+// ScanAndRedactLeaks detects and redacts sensitive patterns in content
+func ScanAndRedactLeaks(filename string, content []byte) (redacted []byte, findings []LeakFinding)
 ```
 
+**Redaction behavior:**
+- Replace entire matched pattern with `<REDACTED_BY_OPCT>`
+- Preserve file structure (same number of lines)
+- Maintain readability of surrounding context
+- Example: `AWS_KEY=AKIAIOSFODNN7EXAMPLE` → `AWS_KEY=<REDACTED_BY_OPCT>`
+
+**Scanner optimizations:**
 - Skip binary files (check for null bytes in first 512 bytes)
 - Skip files > 10MB (avoid scanning large tarballs-within-tarballs)
 - Apply keyword pre-filter before regex (optimization from leaktk)
@@ -74,49 +115,99 @@ func ScanContentForLeaks(filename string, content []byte) []LeakFinding
 
 ### 3. Modify: `internal/cleaner/cleaner.go`
 
-In `processTarHeader()`, after reading file content and before writing to `tarWriter`:
+In `processTarHeader()`, after reading file content:
 
 ```go
-// After existing patch/skip logic, before writing:
-if len(content) > 0 && len(content) < maxLeakScanSize {
-    findings := ScanContentForLeaks(header.Name, content)
-    for _, f := range findings {
-        log.Warnf("Potential leak detected in %s (line %d): %s", f.File, f.Line, f.Pattern)
+// After reading content, before writing to tarWriter:
+if header.Size <= int64(maxLeakScanSize) {
+    // Scan and redact sensitive data
+    redactedContent, findings := ScanAndRedactLeaks(header.Name, content)
+    
+    // Log findings at DEBUG level (hidden by default)
+    if len(findings) > 0 {
+        log.Debugf("Leak scan: %d finding(s) in %s", len(findings), header.Name)
+        for _, f := range findings {
+            if f.Line > 0 {
+                log.Debugf("  %s:%d — %s", f.File, f.Line, f.Pattern)
+            } else {
+                log.Debugf("  %s — %s", f.File, f.Pattern)
+            }
+        }
     }
+    
+    // Use redacted content for archive
+    content = redactedContent
 }
+
+// Write redacted content to tarWriter
 ```
 
-**Behavior:** Log warnings only (don't block retrieve). The user sees what was found and can investigate. Future enhancement: add `--fail-on-leak` flag.
+**Key changes:**
+- Content is redacted BEFORE being written to the output archive
+- Logging is DEBUG level (not WARN) — hidden unless user explicitly enables debug logging
+- No sensitive data in final archive by default
 
-Add a new `LeakScanRules` variable alongside existing `JSONPatchRules` and `RemoveFilePatternRules`.
+### 4. Add CLI flag: `--debug-only-skip-redact`
 
-### 4. Add summary at end of retrieve
+Add flag to `retrieve` command for development/debugging:
 
-After archive is saved, print a leak scan summary:
+```go
+var skipRedact bool
+cmd.Flags().BoolVar(&skipRedact, "debug-only-skip-redact", false, 
+    "Skip redaction of detected sensitive data (WARNING: NOT RECOMMENDED - archives may contain secrets)")
+```
+
+When flag is used:
+```
+WARNING: --debug-only-skip-redact enabled
+WARNING: Sensitive data will NOT be redacted from the archive
+WARNING: DO NOT share this archive externally - it may contain credentials
+```
+
+### 5. Summary at end of retrieve (DEBUG level only)
+
+After archive is saved, if `--log-level=debug`:
 
 ```
-INFO Leak scan: 3 potential findings in 2 files
-WARN   resources/cluster/secrets.json:42 — AWS Secret Access Key
-WARN   must-gather/logs/pod.log:188 — OpenShift User Token  
-WARN   install-config.txt:15 — Private Key (PEM)
+DEBUG Leak scan completed: 3 findings redacted in 2 files
+DEBUG   config/auth.json:12 — Container Registry Authentication → <REDACTED_BY_OPCT>
+DEBUG   secrets/kubeconfig — Kubernetes Service Account JWT → <REDACTED_BY_OPCT>
+DEBUG   logs/installer.log:456 — AWS Secret Access Key → <REDACTED_BY_OPCT>
+INFO  Results saved to opct_202606051230_a1b2c3d4.tar.gz
 ```
 
-### 5. Tests: `internal/cleaner/leakscanner_test.go`
+In normal operation (no debug logging):
+```
+INFO Collecting results...
+INFO Results saved to opct_202606051230_a1b2c3d4.tar.gz
+```
 
-- Test each pattern against known test vectors (from leaktk pattern examples)
-- Test false positive suppression (allowlist keywords)
-- Test binary file skip
-- Test large file skip
-- Benchmark to ensure scanning doesn't add significant time
+### 6. Tests: `internal/cleaner/leakscanner_test.go`
+
+Unit tests must verify:
+- Each pattern detects known test vectors correctly
+- Redaction replaces sensitive data with `<REDACTED_BY_OPCT>`
+- Redacted content does NOT contain original secret
+- Binary file skip works
+- Large file skip works
+- Line structure preserved after redaction
+- Multiple secrets on same line are all redacted
+
+E2E tests must verify:
+- Running `opct adm cleaner` produces archive with no sensitive data
+- Output archive can be inspected and contains `<REDACTED_BY_OPCT>` markers
+- Original sensitive data is NOT present in output
 
 ## Files to modify
 
 | File | Change |
 |------|--------|
 | `internal/cleaner/leakpatterns.go` | New — pattern definitions |
-| `internal/cleaner/leakscanner.go` | New — scanning logic |
-| `internal/cleaner/leakscanner_test.go` | New — tests |
-| `internal/cleaner/cleaner.go` | Hook scanner into `processTarHeader()` |
+| `internal/cleaner/leakscanner.go` | New — scanning + redaction logic |
+| `internal/cleaner/leakscanner_test.go` | New — tests including redaction verification |
+| `internal/cleaner/cleaner.go` | Hook scanner into `processTarHeader()`, apply redaction |
+| `pkg/retrieve/retrieve.go` | Add `--debug-only-skip-redact` flag (optional) |
+| `.github/workflows/e2e.yaml` | Update E2E tests to verify redaction |
 
 ## Performance considerations
 
@@ -124,16 +215,68 @@ WARN   install-config.txt:15 — Private Key (PEM)
 - **Binary skip:** Don't scan binary files (tar archives, images, compressed data).
 - **Size limit:** Skip files > 10MB.
 - **Existing pipeline:** The tarball is already read file-by-file in memory. Scanning adds a regex pass on the already-loaded bytes — no additional I/O.
+- **Redaction overhead:** String replacement is fast (single pass), minimal overhead compared to regex matching.
 
-Based on the current retrieve timing (~14 seconds), the regex scanning should add <1 second for typical archives.
+Based on the current retrieve timing (~14 seconds), the scanning + redaction should add <1 second for typical archives.
 
-## Enhancement document
+## Security model
 
-Save this plan as `docs/devel/enhancements/2026-05-27-retrieve-leak-detection.md` (create the `enhancements` directory if it doesn't exist).
+### Threat model
+**Problem:** OPCT archives may contain sensitive credentials accidentally captured in:
+- Must-gather cluster dumps
+- Pod logs
+- Installation manifests
+- Config files
+- Error messages
 
-## Skill updates
+**Risk:** Partners sharing archives with Red Hat could inadvertently expose:
+- Cloud provider credentials (AWS, Azure, GCP)
+- Cluster admin tokens
+- Private keys
+- Registry authentication
 
-Add leak scanning knowledge to `opct-developer` agent (Related Skills section) and consider adding a reference in the `ci-triage` agent for awareness when reviewing partner archives.
+**Solution:** Automatic redaction during retrieve ensures archives are safe-by-default.
+
+### Design principles
+1. **Secure by default:** Redaction happens automatically, no opt-in required
+2. **Defense in depth:** Multiple layers (JSON patches + file removal + content scanning)
+3. **Fail-safe:** If scan fails, retrieve still succeeds (logged at WARN level)
+4. **Transparency:** DEBUG logging shows what was redacted
+5. **Escape hatch:** `--debug-only-skip-redact` for troubleshooting (with prominent warnings)
+
+### Redaction marker choice
+`<REDACTED_BY_OPCT>` was chosen because:
+- Clearly indicates intentional redaction (not corruption)
+- Shows redaction was performed by OPCT (traceable)
+- Easy to grep/search for in archives
+- Maintains file structure for debugging
+- Cannot be confused with real data
+- Short and clear
+
+## Future enhancements
+
+### Phase 2 (post-MVP):
+- Redaction summary report (JSON output with what was redacted)
+- Additional patterns (database credentials, API tokens)
+- Configurable redaction marker (env var override)
+- Performance metrics logging
+
+### Phase 3 (future):
+- Custom pattern support (user-provided regex)
+- Allowlist for false positives
+- Differential privacy techniques (k-anonymity for cluster IDs)
+
+## Verification
+
+1. `make build && make test` — all tests pass
+2. Run retrieve with debug: `./build/opct-linux-amd64 retrieve --log-level=debug`
+3. Verify archives contain `<REDACTED_BY_OPCT>` markers
+4. Verify archives do NOT contain original secrets
+5. Test `--debug-only-skip-redact` flag shows warnings
+6. Verify normal retrieve (no debug) shows no leak messages
+7. Benchmark: compare retrieve time with/without scanning
+
+## Package header
 
 The `leakpatterns.go` file header must reference the upstream pattern source:
 ```go
@@ -143,17 +286,9 @@ The `leakpatterns.go` file header must reference the upstream pattern source:
 //   https://github.com/leaktk/patterns
 //
 // To update patterns, fetch the latest merged TOML from:
-//   https://github.com/leaktk/patterns/blob/main/target/main.toml
+//   https://github.com/leaktk/patterns/blob/main/patterns/gitleaks/8.27.0/98-general.toml
 //
 // LeakTK documentation:
 //   https://github.com/leaktk/leaktk
 //   https://github.com/leaktk/leaktk/blob/main/docs/scan.md
 ```
-
-## Verification
-
-1. `make build && make test`
-2. Run retrieve on the existing test archive: `./build/opct-linux-amd64 retrieve --log-level=debug`
-3. Verify no false positives on known-clean archives
-4. Plant a test secret (e.g., `AKIA...` in a file) and verify detection
-5. Benchmark: compare retrieve time with/without leak scanning
