@@ -516,11 +516,11 @@ func (rs *ResultSummary) extractAndLoadData() error {
 			if err != nil {
 				log.Errorf("Processing results/Populating/Populating Summary/Processing/MetricsData: %v", err)
 			} else {
-				err := rs.Metrics.Process()
-				if err != nil {
+				if err := rs.Metrics.Process(); err != nil {
 					log.Errorf("Processing MetricsData: %v", err)
+				} else {
+					rs.HasMetrics = true
 				}
-				rs.HasMetrics = true
 			}
 		} else {
 			log.Error("Processing results/Populating/Populating Summary/Processing/MetricsData: Not Found")
