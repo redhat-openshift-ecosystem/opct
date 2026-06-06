@@ -20,12 +20,25 @@ import (
 )
 
 func NewCmdRetrieve() *cobra.Command {
-	return &cobra.Command{
+	var skipRedact bool
+
+	cmd := &cobra.Command{
 		Use:   "retrieve",
 		Args:  cobra.MaximumNArgs(1),
 		Short: "Collect results from validation environment",
 		Long:  `Downloads the results archive from the validation environment`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Handle debug-only-skip-redact flag with warnings
+			if skipRedact {
+				log.Warn("═════════════════════════════════════════════════════════════")
+				log.Warn("WARNING: --debug-only-skip-redact is enabled")
+				log.Warn("WARNING: Sensitive data will NOT be redacted from the archive")
+				log.Warn("WARNING: DO NOT share this archive externally")
+				log.Warn("WARNING: Archive may contain credentials, tokens, and secrets")
+				log.Warn("═════════════════════════════════════════════════════════════")
+				cleaner.SetSkipRedaction(true)
+			}
+
 			destinationDirectory, err := os.Getwd()
 			if err != nil {
 				return fmt.Errorf("retrieve finished with errors: %v", err)
@@ -55,6 +68,11 @@ func NewCmdRetrieve() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&skipRedact, "debug-only-skip-redact", false,
+		"Skip redaction of sensitive data (DEBUG ONLY - NOT RECOMMENDED)")
+
+	return cmd
 }
 
 func retrieveResultsRetry(sclient sonobuoyclient.Interface, destinationDirectory string) error {

@@ -6,9 +6,8 @@ import (
 )
 
 const (
-	maxLeakScanSize    = 10 * 1024 * 1024 // 10MB
-	redactionMarker    = "<REDACTED_BY_OPCT>"
-	redactionMarkerLen = len(redactionMarker)
+	maxLeakScanSize = 10 * 1024 * 1024 // 10MB
+	redactionMarker = "<REDACTED_BY_OPCT>"
 )
 
 // ScanContentForLeaks scans file content against the embedded leak patterns.
@@ -64,7 +63,31 @@ func ScanContentForLeaks(filename string, content []byte) []LeakFinding {
 // Returns redacted content and list of findings.
 // Skips binary files and files exceeding size limit.
 func ScanAndRedactLeaks(filename string, content []byte) ([]byte, []LeakFinding) {
-	if len(content) == 0 || len(content) > maxLeakScanSize {
+	if len(content) == 0 {
+		return content, nil
+	}
+
+	// Skip very large files to avoid performance issues
+	if len(content) > maxLeakScanSize {
+		return content, nil
+	}
+
+	// Only scan text files by extension to avoid performance issues
+	ext := strings.ToLower(filename)
+	isTextFile := strings.HasSuffix(ext, ".log") ||
+		strings.HasSuffix(ext, ".txt") ||
+		strings.HasSuffix(ext, ".yaml") ||
+		strings.HasSuffix(ext, ".yml") ||
+		strings.HasSuffix(ext, ".json") ||
+		strings.HasSuffix(ext, ".html") ||
+		strings.HasSuffix(ext, ".xml") ||
+		strings.HasSuffix(ext, ".env") ||
+		strings.HasSuffix(ext, ".pem") ||
+		strings.HasSuffix(ext, ".key") ||
+		strings.HasSuffix(ext, ".crt") ||
+		strings.HasSuffix(ext, ".cert")
+
+	if !isTextFile {
 		return content, nil
 	}
 
@@ -73,8 +96,27 @@ func ScanAndRedactLeaks(filename string, content []byte) ([]byte, []LeakFinding)
 	}
 
 	contentLower := bytes.ToLower(content)
+
+	// Early exit: if no keywords match ANY pattern, skip expensive processing
+	hasAnyKeyword := false
+	for i := range leakPatterns {
+		if keywordMatch(contentLower, leakPatterns[i].Keywords) {
+			hasAnyKeyword = true
+			break
+		}
+	}
+	if !hasAnyKeyword {
+		return content, nil
+	}
+
 	var findings []LeakFinding
-	redacted := content
+
+	// First pass: collect all matches across all patterns
+	type redactSpan struct {
+		start int
+		end   int
+	}
+	var allSpans []redactSpan
 
 	for i := range leakPatterns {
 		p := &leakPatterns[i]
@@ -84,40 +126,21 @@ func ScanAndRedactLeaks(filename string, content []byte) ([]byte, []LeakFinding)
 		}
 
 		// Find all matches with submatches (for patterns with capture groups)
-		matches := p.Regex.FindAllSubmatchIndex(redacted, -1)
+		// Search on ORIGINAL content, not modified
+		matches := p.Regex.FindAllSubmatchIndex(content, -1)
 		if matches == nil {
 			continue
 		}
 
-		// Record findings (before redaction for line numbers)
-		lines := bytes.Split(content, []byte("\n"))
-		for lineNum, line := range lines {
-			if p.Regex.Match(line) {
-				findings = append(findings, LeakFinding{
-					File:    filename,
-					Pattern: p.Description,
-					Line:    lineNum + 1,
-				})
-				break // Only record first occurrence per pattern per file
-			}
-		}
+		// Record finding for logging (without expensive line-by-line search)
+		findings = append(findings, LeakFinding{
+			File:    filename,
+			Pattern: p.Description,
+			Line:    0, // Line number detection is too expensive, skip it
+		})
 
-		// If no line match found but pattern matches overall
-		if len(findings) == 0 || findings[len(findings)-1].Pattern != p.Description {
-			findings = append(findings, LeakFinding{
-				File:    filename,
-				Pattern: p.Description,
-				Line:    0,
-			})
-		}
-
-		// Redact all matches (iterate backwards to preserve indices)
-		// If pattern has capture groups, redact only the first capture group
-		// Otherwise redact the entire match
-		marker := []byte(redactionMarker)
-		for j := len(matches) - 1; j >= 0; j-- {
-			match := matches[j]
-
+		// Collect redaction spans from this pattern
+		for _, match := range matches {
 			// Determine what to redact:
 			// - If there are capture groups (len > 2), use the first capture group
 			// - Otherwise use the full match
@@ -132,19 +155,60 @@ func ScanAndRedactLeaks(filename string, content []byte) ([]byte, []LeakFinding)
 				end = match[1]
 			}
 
-			// Preserve trailing newline/whitespace if present
-			trailing := []byte{}
-			if end > start && (redacted[end-1] == '\n' || redacted[end-1] == '\r') {
-				trailing = redacted[end-1 : end]
+			// Preserve trailing newline/whitespace
+			if end > start && (content[end-1] == '\n' || content[end-1] == '\r') {
 				end--
 			}
 
-			// Replace secret with redaction marker + preserved trailing chars
-			redacted = append(redacted[:start], append(marker, append(trailing, redacted[end:]...)...)...)
+			allSpans = append(allSpans, redactSpan{start, end})
 		}
 	}
 
-	return redacted, findings
+	// If no matches found, return original content
+	if len(allSpans) == 0 {
+		return content, findings
+	}
+
+	// Second pass: apply all redactions
+	// Sort spans by start position (simple bubble sort for small number of spans)
+	for i := 0; i < len(allSpans)-1; i++ {
+		for j := 0; j < len(allSpans)-i-1; j++ {
+			if allSpans[j].start > allSpans[j+1].start {
+				allSpans[j], allSpans[j+1] = allSpans[j+1], allSpans[j]
+			}
+		}
+	}
+
+	// Build redacted content by copying segments between redactions
+	marker := []byte(redactionMarker)
+	var result []byte
+	lastEnd := 0
+
+	for _, span := range allSpans {
+		// Skip overlapping spans (shouldn't happen but be safe)
+		if span.start < lastEnd {
+			continue
+		}
+
+		// Copy content before this redaction
+		result = append(result, content[lastEnd:span.start]...)
+
+		// Add redaction marker
+		result = append(result, marker...)
+
+		// Check if we need to preserve trailing newline
+		if span.end < len(content) && (content[span.end] == '\n' || content[span.end] == '\r') {
+			result = append(result, content[span.end])
+			lastEnd = span.end + 1
+		} else {
+			lastEnd = span.end
+		}
+	}
+
+	// Copy remaining content after last redaction
+	result = append(result, content[lastEnd:]...)
+
+	return result, findings
 }
 
 func isBinary(content []byte) bool {

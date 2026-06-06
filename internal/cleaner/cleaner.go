@@ -14,6 +14,19 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+// skipRedaction controls whether to skip redacting sensitive data (for debugging only).
+var skipRedaction = false
+
+// SetSkipRedaction sets whether to skip redacting sensitive data.
+// WARNING: Should only be used for debugging. Archives will contain unredacted secrets.
+func SetSkipRedaction(skip bool) {
+	skipRedaction = skip
+	if skip {
+		log.Warn("WARNING: Redaction disabled - archives may contain sensitive data")
+		log.Warn("WARNING: DO NOT share archives created with --debug-only-skip-redact")
+	}
+}
+
 type PatchRule struct {
 	JSONPatch    *string
 	RegexPattern *regexp.Regexp
@@ -69,6 +82,7 @@ func ScanPatchTarGzipReaderFor(r io.Reader) (resp io.Reader, size int, err error
 	var leakFindings []LeakFinding
 
 	// Process the tar headers
+	fileCount := 0
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -78,12 +92,19 @@ func ScanPatchTarGzipReaderFor(r io.Reader) (resp io.Reader, size int, err error
 			return nil, size, fmt.Errorf("unable to process file in archive: %w", err)
 		}
 
+		fileCount++
+		if fileCount%100 == 0 {
+			log.Debugf("Processed %d files...", fileCount)
+		}
+
 		findings, procErr := processTarHeader(header, tarReader, tarWriter)
 		if procErr != nil {
 			return nil, size, procErr
 		}
 		leakFindings = append(leakFindings, findings...)
 	}
+
+	log.Debugf("Finished processing %d files", fileCount)
 
 	if len(leakFindings) > 0 {
 		log.Debugf("Leak scan: %d potential finding(s) detected and redacted", len(leakFindings))
@@ -125,8 +146,15 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 				return nil, fmt.Errorf("unable to apply patch to file %s: %w", header.Name, err)
 			}
 
-			// Scan and redact patched content
-			redactedFile, findings := ScanAndRedactLeaks(header.Name, patchedFile)
+			// Scan and optionally redact patched content
+			var redactedFile []byte
+			var findings []LeakFinding
+			if skipRedaction {
+				findings = ScanContentForLeaks(header.Name, patchedFile)
+				redactedFile = patchedFile
+			} else {
+				redactedFile, findings = ScanAndRedactLeaks(header.Name, patchedFile)
+			}
 
 			header.Size = int64(len(redactedFile))
 			log.Debugf("File %s size %d bytes", header.Name, header.Size)
@@ -143,7 +171,7 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 	}
 
 	if strings.HasSuffix(header.Name, ".tar.gz") {
-		log.Debugf("Scanning tarball archive: %s", header.Name)
+		log.Debugf("Processing nested archive: %s (%.1f MB)...", header.Name, float64(header.Size)/(1024*1024))
 		resp, size, err := ScanPatchTarGzipReaderFor(tarReader)
 		if err != nil {
 			return nil, fmt.Errorf("unable to apply patch to file %s: %w", header.Name, err)
@@ -159,6 +187,7 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 		if _, err := tarWriter.Write(archiveBuf.Bytes()); err != nil {
 			return nil, fmt.Errorf("unable to write file data to new archive: %w", err)
 		}
+		log.Debugf("Completed nested archive: %s", header.Name)
 		return nil, nil
 	}
 
@@ -173,13 +202,12 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 		}
 	}
 
-	// Write header first
-	if err := tarWriter.WriteHeader(header); err != nil {
-		return nil, fmt.Errorf("error streaming file header to new archive: %w", err)
-	}
-
 	// For large files (>10MB), stream directly without scanning
 	if header.Size > int64(maxLeakScanSize) {
+		// Write header first for large files (no redaction)
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return nil, fmt.Errorf("error streaming file header to new archive: %w", err)
+		}
 		if _, err := io.Copy(tarWriter, tarReader); err != nil {
 			return nil, fmt.Errorf("error streaming large file data to new archive: %w", err)
 		}
@@ -192,10 +220,25 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 		return nil, fmt.Errorf("error reading file data from archive: %w", err)
 	}
 
-	// Scan and redact sensitive data
-	redactedContent, findings := ScanAndRedactLeaks(header.Name, content)
+	// Scan and optionally redact sensitive data
+	var redactedContent []byte
+	var findings []LeakFinding
+	if skipRedaction {
+		findings = ScanContentForLeaks(header.Name, content)
+		redactedContent = content
+	} else {
+		redactedContent, findings = ScanAndRedactLeaks(header.Name, content)
+	}
 
-	// Write redacted content to archive
+	// Update header size if content changed due to redaction
+	header.Size = int64(len(redactedContent))
+
+	// Write header AFTER redaction so size is correct
+	if err := tarWriter.WriteHeader(header); err != nil {
+		return nil, fmt.Errorf("error streaming file header to new archive: %w", err)
+	}
+
+	// Write (possibly redacted) content to archive
 	if _, err := tarWriter.Write(redactedContent); err != nil {
 		return nil, fmt.Errorf("error streaming file data to new archive: %w", err)
 	}
