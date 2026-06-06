@@ -12,3 +12,6 @@ build/
 docs/CHANGELOG.md
 docs/CHANGELOG_commits.md
 opct.log
+
+# Ignore local tarbal files
+*.tar.gz
