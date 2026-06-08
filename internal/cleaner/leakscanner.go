@@ -72,25 +72,7 @@ func ScanAndRedactLeaks(filename string, content []byte) ([]byte, []LeakFinding)
 		return content, nil
 	}
 
-	// Only scan text files by extension to avoid performance issues
-	ext := strings.ToLower(filename)
-	isTextFile := strings.HasSuffix(ext, ".log") ||
-		strings.HasSuffix(ext, ".txt") ||
-		strings.HasSuffix(ext, ".yaml") ||
-		strings.HasSuffix(ext, ".yml") ||
-		strings.HasSuffix(ext, ".json") ||
-		strings.HasSuffix(ext, ".html") ||
-		strings.HasSuffix(ext, ".xml") ||
-		strings.HasSuffix(ext, ".env") ||
-		strings.HasSuffix(ext, ".pem") ||
-		strings.HasSuffix(ext, ".key") ||
-		strings.HasSuffix(ext, ".crt") ||
-		strings.HasSuffix(ext, ".cert")
-
-	if !isTextFile {
-		return content, nil
-	}
-
+	// Skip binary files (relies on content, not extension)
 	if isBinary(content) {
 		return content, nil
 	}

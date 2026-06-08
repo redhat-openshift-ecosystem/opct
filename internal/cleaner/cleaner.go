@@ -65,6 +65,11 @@ func ScanPatchTarGzipReaderFor(r io.Reader) (resp io.Reader, size int, err error
 	log.Debug("Scanning the artifact for patches...")
 	size = 0
 
+	// Reset removal rule counters for this scan
+	for _, rule := range RemoveFilePatternRules {
+		rule.Count = 0
+	}
+
 	// Create a gzip reader
 	gzipReader, err := gzip.NewReader(r)
 	if err != nil {
