@@ -108,7 +108,7 @@ func retrieveResults(destinationDirectory string) error {
 	if err != nil {
 		return fmt.Errorf("error retrieving results from sonobuoy: %w", err)
 	}
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	// Phase 2: Scan/redact from disk
 	log.Info("Scanning archive for sensitive data...")
@@ -116,7 +116,7 @@ func retrieveResults(destinationDirectory string) error {
 	if err != nil {
 		return fmt.Errorf("error opening downloaded archive: %w", err)
 	}
-	defer fin.Close()
+	defer func() { _ = fin.Close() }()
 
 	scannedReader, _, err := cleaner.ScanPatchTarGzipReaderFor(fin)
 	if err != nil {
@@ -129,20 +129,22 @@ func retrieveResults(destinationDirectory string) error {
 		return fmt.Errorf("error creating temp file for scanned archive: %w", err)
 	}
 	scannedPath := scannedFile.Name()
-	defer os.Remove(scannedPath)
+	defer func() { _ = os.Remove(scannedPath) }()
 
 	if _, err := io.Copy(scannedFile, scannedReader); err != nil {
-		scannedFile.Close()
+		_ = scannedFile.Close()
 		return fmt.Errorf("error writing scanned archive: %w", err)
 	}
-	scannedFile.Close()
+	if err := scannedFile.Close(); err != nil {
+		return fmt.Errorf("error closing scanned archive: %w", err)
+	}
 
 	// Reopen for extraction
 	scannedIn, err := os.Open(scannedPath)
 	if err != nil {
 		return fmt.Errorf("error reopening scanned archive: %w", err)
 	}
-	defer scannedIn.Close()
+	defer func() { _ = scannedIn.Close() }()
 
 	filesCreated, err := sonobuoyclient.UntarAll(scannedIn, destinationDirectory, "")
 	if err != nil {
@@ -216,11 +218,13 @@ func downloadFromPod() (string, error) {
 		Tty:    false,
 	})
 	if err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("error streaming results from pod: %w", err)
 	}
-	tmpFile.Close()
+	if err := tmpFile.Close(); err != nil {
+		return "", fmt.Errorf("error closing temp file: %w", err)
+	}
 
 	fi, err := os.Stat(tmpFile.Name())
 	if err != nil {

@@ -1,7 +1,7 @@
 # Enhancement: Add leak detection and redaction to `opct retrieve`
 
 **Created:** 2026-05-27  
-**Last Updated:** 2026-06-05  
+**Last Updated:** 2026-06-09  
 **Status:** In Progress  
 **JIRA:** OPCT-423
 
@@ -13,6 +13,7 @@
 |------|--------|---------|
 | 2026-05-27 | Marco Braga | Initial enhancement proposal - warn-only mode |
 | 2026-06-05 | Marco Braga | **Scope change:** Updated to redact-by-default with `<REDACTED_BY_OPCT>` marker, DEBUG logging, and `--debug-only-skip-redact` flag |
+| 2026-06-09 | Marco Braga | **Architecture change:** Replace SPDY with WebSocket executor, two-phase retrieve (download to disk, then scan). Addresses [vmware-tanzu/sonobuoy#2032](https://github.com/vmware-tanzu/sonobuoy/issues/2032) |
 
 ---
 
@@ -20,7 +21,13 @@
 
 The `opct retrieve` command downloads conformance results from the cluster and saves them as a tar.gz archive. Currently it applies file-level patches (redacting `internalRegistryPullSecret`) and removes large unnecessary files (`packagemanifests`). However, there's no content-based scanning for leaked credentials — AWS keys, SSH private keys, OpenShift tokens, etc. could be present in must-gather logs, resource dumps, or config files.
 
-**Goal:** Embed high-priority leak patterns from [leaktk/patterns](https://github.com/leaktk/patterns) directly into the existing tarball processing pipeline in `cleaner.go`, **automatically redacting** sensitive data during retrieve stream processing. Archives are sanitized by default with no sensitive information exposed.
+**Goal:** Embed high-priority leak patterns from [leaktk/patterns](https://github.com/leaktk/patterns) directly into the existing tarball processing pipeline in `cleaner.go`, **automatically redacting** sensitive data during retrieve. Archives are sanitized by default with no sensitive information exposed.
+
+### Sonobuoy SPDY Deprecation
+
+Sonobuoy's `RetrieveResults()` uses `remotecommand.NewSPDYExecutor`, which is deprecated since Kubernetes 1.31. The SPDY protocol causes transient failures (`unexpected EOF`, `non-zero data after tar EOF`) when scanning inline on the network stream. See [vmware-tanzu/sonobuoy#2032](https://github.com/vmware-tanzu/sonobuoy/issues/2032).
+
+**Solution:** Replace with a custom `downloadFromPod()` using `remotecommand.NewWebSocketExecutor` (primary) with `NewSPDYExecutor` fallback via `NewFallbackExecutor` from `k8s.io/client-go`. The archive is downloaded to a temp file first, then scanned from disk — separating unreliable network I/O from reliable disk I/O.
 
 ## Behavior: Redact-by-default
 
@@ -206,7 +213,7 @@ E2E tests must verify:
 | `internal/cleaner/leakscanner.go` | New — scanning + redaction logic |
 | `internal/cleaner/leakscanner_test.go` | New — tests including redaction verification |
 | `internal/cleaner/cleaner.go` | Hook scanner into `processTarHeader()`, apply redaction |
-| `pkg/retrieve/retrieve.go` | Add `--debug-only-skip-redact` flag (optional) |
+| `pkg/retrieve/retrieve.go` | WebSocket+SPDY fallback executor, two-phase retrieve, `--debug-only-skip-redact` flag |
 | `.github/workflows/e2e.yaml` | Update E2E tests to verify redaction |
 
 ## Performance considerations
@@ -217,7 +224,15 @@ E2E tests must verify:
 - **Existing pipeline:** The tarball is already read file-by-file in memory. Scanning adds a regex pass on the already-loaded bytes — no additional I/O.
 - **Redaction overhead:** String replacement is fast (single pass), minimal overhead compared to regex matching.
 
-Based on the current retrieve timing (~14 seconds), the scanning + redaction should add <1 second for typical archives.
+### Measured performance (OCP 4.22.0-ec.5, 109.5 MB archive, 1190 files)
+
+| Metric | Before (SPDY inline) | After (WebSocket two-phase) |
+|--------|---------------------|-----------------------------|
+| **Success rate** | ~0% (10 retries, all failed) | 100% (first attempt) |
+| **Total time** | 5m15s (all failures) | **26s** |
+| **Download** | N/A (inline) | 15s |
+| **Scan/Redact** | N/A (hung or crashed) | 10s (17 redactions) |
+| **Memory (RSS)** | 227 MB | 55 MB |
 
 ## Security model
 
