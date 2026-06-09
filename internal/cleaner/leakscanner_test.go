@@ -123,6 +123,53 @@ func TestScanContentForLeaks_GCPKey(t *testing.T) {
 	}
 }
 
+func TestScanContentForLeaks_ContainerRegistryAuth(t *testing.T) {
+	// Pattern matches auths JSON embedded inside a k8s resource string field
+	content := []byte(`"internalRegistryPullSecret":"{\"auths\":{\"quay.io\":{\"auth\":\"dGVzdHVzZXI6dGVzdHBhc3N3b3JkMTIzNA==\"}}}"`)
+	findings := ScanContentForLeaks("config.json", content)
+	found := false
+	for _, f := range findings {
+		if f.Pattern == "Container Registry Authentication" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected to find Container Registry Authentication")
+	}
+}
+
+func TestScanContentForLeaks_KubernetesJWT(t *testing.T) {
+	// JWT with base64-encoded "sub":"system:serviceaccount: in the payload
+	content := []byte(`token: eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50Om9wY3Q6ZGVmYXVsdCJ9.signature_value_here`)
+	findings := ScanContentForLeaks("sa-token.txt", content)
+	found := false
+	for _, f := range findings {
+		if f.Pattern == "Kubernetes Service Account JWT" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected to find Kubernetes Service Account JWT")
+	}
+}
+
+func TestScanContentForLeaks_AzureADSecret(t *testing.T) {
+	content := []byte(`AZURE_CLIENT_SECRET=abc8Q~abcdefghijklmnopqrstuvwxyz1234567`)
+	findings := ScanContentForLeaks("azure.env", content)
+	found := false
+	for _, f := range findings {
+		if f.Pattern == "Azure AD Client Secret" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected to find Azure AD Client Secret")
+	}
+}
+
 // Redaction Tests
 
 func TestScanAndRedactLeaks_OpenShiftToken(t *testing.T) {

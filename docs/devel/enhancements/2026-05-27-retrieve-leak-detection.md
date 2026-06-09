@@ -255,7 +255,7 @@ E2E tests must verify:
 ### Design principles
 1. **Secure by default:** Redaction happens automatically, no opt-in required
 2. **Defense in depth:** Multiple layers (JSON patches + file removal + content scanning)
-3. **Fail-safe:** If scan fails, retrieve still succeeds (logged at WARN level)
+3. **Fail-closed:** If scan fails, retrieve fails — no unredacted archives are produced
 4. **Transparency:** DEBUG logging shows what was redacted
 5. **Escape hatch:** `--debug-only-skip-redact` for troubleshooting (with prominent warnings)
 
