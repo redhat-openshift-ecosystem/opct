@@ -41,7 +41,7 @@ func NewCmdRetrieve() *cobra.Command {
 				log.Warn("WARNING: DO NOT share this archive externally")
 				log.Warn("WARNING: Archive may contain credentials, tokens, and secrets")
 				log.Warn("═════════════════════════════════════════════════════════════")
-				cleaner.SetSkipRedaction(true)
+				cleaner.SkipRedaction = true
 			}
 
 			destinationDirectory, err := os.Getwd()
@@ -76,6 +76,7 @@ func NewCmdRetrieve() *cobra.Command {
 
 	cmd.Flags().BoolVar(&skipRedact, "debug-only-skip-redact", false,
 		"Skip redaction of sensitive data (DEBUG ONLY - NOT RECOMMENDED)")
+	_ = cmd.Flags().MarkHidden("debug-only-skip-redact")
 
 	return cmd
 }

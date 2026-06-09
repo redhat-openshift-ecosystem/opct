@@ -14,18 +14,8 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// skipRedaction controls whether to skip redacting sensitive data (for debugging only).
-var skipRedaction = false
-
-// SetSkipRedaction sets whether to skip redacting sensitive data.
-// WARNING: Should only be used for debugging. Archives will contain unredacted secrets.
-func SetSkipRedaction(skip bool) {
-	skipRedaction = skip
-	if skip {
-		log.Warn("WARNING: Redaction disabled - archives may contain sensitive data")
-		log.Warn("WARNING: DO NOT share archives created with --debug-only-skip-redact")
-	}
-}
+// SkipRedaction controls whether to skip redacting sensitive data (for debugging only).
+var SkipRedaction = false
 
 type PatchRule struct {
 	JSONPatch    *string
@@ -154,7 +144,7 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 			// Scan and optionally redact patched content
 			var redactedFile []byte
 			var findings []LeakFinding
-			if skipRedaction {
+			if SkipRedaction {
 				findings = ScanContentForLeaks(header.Name, patchedFile)
 				redactedFile = patchedFile
 			} else {
@@ -228,7 +218,7 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 	// Scan and optionally redact sensitive data
 	var redactedContent []byte
 	var findings []LeakFinding
-	if skipRedaction {
+	if SkipRedaction {
 		findings = ScanContentForLeaks(header.Name, content)
 		redactedContent = content
 	} else {
