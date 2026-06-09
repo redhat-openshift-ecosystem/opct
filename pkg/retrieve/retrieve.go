@@ -69,7 +69,7 @@ func NewCmdRetrieve() *cobra.Command {
 				return fmt.Errorf("retrieve finished with errors: %v", err)
 			}
 
-			log.Info("Use the results command to check the validation test summary or share the results archive with your Red Hat partner.")
+			log.Info("Run 'opct report -s ./report <archive>.tar.gz' to review the validation results.")
 			return nil
 		},
 	}
@@ -106,7 +106,7 @@ func retrieveResults(destinationDirectory string) error {
 	// Phase 1: Download archive to temp file
 	tmpFile, err := downloadFromPod()
 	if err != nil {
-		return fmt.Errorf("error retrieving results from sonobuoy: %w", err)
+		return fmt.Errorf("error retrieving results from aggregator server: %w", err)
 	}
 	defer func() { _ = os.Remove(tmpFile) }()
 
@@ -173,7 +173,7 @@ func downloadFromPod() (string, error) {
 
 	podName, err := pluginaggregation.GetAggregatorPodName(cli.KClient, pkg.CertificationNamespace)
 	if err != nil {
-		return "", fmt.Errorf("failed to get sonobuoy aggregator pod: %w", err)
+		return "", fmt.Errorf("failed to get aggregator server's pod: %w", err)
 	}
 
 	restClient := cli.KClient.CoreV1().RESTClient()
@@ -210,7 +210,8 @@ func downloadFromPod() (string, error) {
 		return "", fmt.Errorf("error creating temp file: %w", err)
 	}
 
-	log.Infof("Downloading archive from pod %s/%s...", pkg.CertificationNamespace, podName)
+	log.Infof("Downloading archive from aggregator server...")
+	log.Debugf("Discovered aggregator server running on pod %s/%s...", pkg.CertificationNamespace, podName)
 	startTime := time.Now()
 
 	err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
