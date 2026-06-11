@@ -701,8 +701,6 @@ func (r *RunOptions) setSuiteName(cli *client.Client, configMapData map[string]s
 	// If 4.20+, set the suiteNameKubernetesConformance in the configMapData to "kubernetes/conformance/parallel",
 	// otherwise set it to "kubernetes/conformance".
 	// https://issues.redhat.com/browse/OCPBUGS-66219
-	suiteNameKubernetesConformance := "kubernetes/conformance"
-	suiteNameKubernetesConformanceParallel := "kubernetes/conformance/parallel"
 
 	// Get the cluster version
 	oc, err := coclient.NewForConfig(cli.RestConfig)
@@ -734,11 +732,18 @@ func (r *RunOptions) setSuiteName(cli *client.Client, configMapData map[string]s
 	}
 
 	// For OCP 4.20+, use k8s-tests-ext binary with parallel sub-suite
-	configMapData["suiteNameKubernetesConformance"] = suiteNameKubernetesConformance
-	if major == 4 && minor >= 20 {
-		configMapData["suiteNameKubernetesConformance"] = suiteNameKubernetesConformanceParallel
-	}
+	configMapData["suiteNameKubernetesConformance"] = resolveKubernetesSuiteName(major, minor)
 	log.Infof("Setting configMapData[suiteNameKubernetesConformance] to %s for OCP %d.%d", configMapData["suiteNameKubernetesConformance"], major, minor)
 
 	return nil
+}
+
+// resolveKubernetesSuiteName returns the Kubernetes conformance suite name
+// based on the OCP major.minor version. OCP 4.20+ (and any major > 4) use
+// the parallel sub-suite via k8s-tests-ext; older versions use the serial suite.
+func resolveKubernetesSuiteName(major, minor int) string {
+	if major > 4 || (major == 4 && minor >= 20) {
+		return "kubernetes/conformance/parallel"
+	}
+	return "kubernetes/conformance"
 }
