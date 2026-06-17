@@ -97,7 +97,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          REPO=$(grep 'DefaultToolsRepository' pkg/types.go | grep -oP '"[^"]*"' | tr -d '"')
+          REPO=$(grep -E 'DefaultToolsRepository\s*=' pkg/types.go | grep -oP '"[^"]*"' | tr -d '"')
           echo "Registry: ${REPO}"
 
           # Extract registry host and namespace from REPO (e.g., "quay.io/opct" -> host="quay.io", ns="opct")
