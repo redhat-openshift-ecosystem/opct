@@ -82,8 +82,51 @@ jobs:
           path: |
             build/opct-*
 
+  verify-images:
+    runs-on: ubuntu-latest
+    needs:
+      - linters
+      - reviewer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract and verify plugin images from types.go
+        run: |
+          set -euo pipefail
+
+          REPO=$(grep 'DefaultToolsRepository' pkg/types.go | grep -oP '"[^"]*"' | tr -d '"')
+          echo "Registry: ${REPO}"
+
+          IMAGES=$(grep -E '(PluginsImage|CollectorImage|MustGatherMonitoringImage)\s*=' pkg/types.go | grep -oP '"[^"]*"' | tr -d '"')
+
+          FAILED=0
+          for IMG in $IMAGES; do
+            NAME="${IMG%%:*}"
+            TAG="${IMG##*:}"
+            FULL="${REPO}/${NAME}:${TAG}"
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              "https://quay.io/v2/opct/${NAME}/manifests/${TAG}" \
+              -H "Accept: application/vnd.oci.image.index.v1+json")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ ${FULL}"
+            else
+              echo "❌ MISSING: ${FULL} (HTTP ${HTTP_CODE})"
+              FAILED=1
+            fi
+          done
+
+          if [ "$FAILED" = "1" ]; then
+            echo ""
+            echo "::error::One or more plugin images are missing on quay.io. Ensure provider-certification-plugins CI has completed successfully before bumping versions in pkg/types.go."
+            exit 1
+          fi
+
+          echo ""
+          echo "All plugin images verified successfully."
+
   e2e:
-    needs: build
+    needs:
+      - build
+      - verify-images
     uses: ./.github/workflows/e2e.yaml
 
   #
