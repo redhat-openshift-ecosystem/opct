@@ -84,11 +84,15 @@ jobs:
 
   verify-images:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs:
       - linters
       - reviewer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
       - name: Extract and verify plugin images from types.go
         run: |
           set -euo pipefail
@@ -96,7 +100,13 @@ jobs:
           REPO=$(grep 'DefaultToolsRepository' pkg/types.go | grep -oP '"[^"]*"' | tr -d '"')
           echo "Registry: ${REPO}"
 
+          # Extract registry host and namespace from REPO (e.g., "quay.io/opct" -> host="quay.io", ns="opct")
+          REGISTRY_HOST="${REPO%%/*}"
+          NAMESPACE="${REPO#*/}"
+
           IMAGES=$(grep -E '(PluginsImage|CollectorImage|MustGatherMonitoringImage)\s*=' pkg/types.go | grep -oP '"[^"]*"' | tr -d '"')
+
+          ACCEPT="application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json"
 
           FAILED=0
           for IMG in $IMAGES; do
@@ -104,8 +114,8 @@ jobs:
             TAG="${IMG##*:}"
             FULL="${REPO}/${NAME}:${TAG}"
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-              "https://quay.io/v2/opct/${NAME}/manifests/${TAG}" \
-              -H "Accept: application/vnd.oci.image.index.v1+json")
+              "https://${REGISTRY_HOST}/v2/${NAMESPACE}/${NAME}/manifests/${TAG}" \
+              -H "Accept: ${ACCEPT}")
             if [ "$HTTP_CODE" = "200" ]; then
               echo "✅ ${FULL}"
             else
