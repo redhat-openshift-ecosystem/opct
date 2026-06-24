@@ -51,12 +51,27 @@ var leakPatterns = []LeakPattern{
 		Regex:       regexp.MustCompile(`[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+(?:InN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudD|JzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6|ic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50O)[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+`),
 		Keywords:    []string{"inn1yii6inn5c3rlbtpzzxj2awnlywnjb3vudd", "jzdwiioijzexn0zw06c2vydmljzwfjy291bnq6", "ic3viijoic3lzdgvtonnlcnzpy2vhy2nvdw50o"},
 	},
+	// Broader JWT pattern for OIDC/audience tokens (not just service account)
+	// Matches any JWT with RS256 algorithm header (base64 of {"alg":"RS256")
+	{
+		ID:          "opct-jwt-broad",
+		Description: "JWT Token (RS256)",
+		Regex:       regexp.MustCompile(`eyJhbGciOiJSUzI1NiIs[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]{50,}\.[a-zA-Z0-9\-_]+`),
+		Keywords:    []string{"eyjhbgcioijsuzi1niis"},
+	},
 	// Source: https://github.com/leaktk/patterns — Pattern ID: gpfGmO3HH64
 	{
 		ID:          "gpfGmO3HH64",
 		Description: "Container Registry Authentication",
 		Regex:       regexp.MustCompile(`\\*"auths\\*"\s*:\s*\{\s*(?:\\*"(?:[a-z0-9\-]{1,63}\.)+(?:[a-z0-9\-]{1,63})\\*"\s*:\s*\{\s*\\*"auth\\*"\s*:\s*\\*"[\w\/+\-]{32,}={0,2}\\*"[\s\S]*?\},?\s*)+\}`),
 		Keywords:    []string{`"auths`},
+	},
+	// Broader registry auth pattern for unescaped JSON (e.g., machineconfigs.json)
+	{
+		ID:          "opct-registry-auth-unescaped",
+		Description: "Container Registry Authentication (unescaped)",
+		Regex:       regexp.MustCompile(`"auths"\s*:\s*\{\s*"(?:[a-z0-9\-]{1,63}\.)+(?:[a-z0-9\-]{1,63})"\s*:\s*\{\s*"auth"\s*:\s*"[\w\/+\-]{32,}={0,2}"`),
+		Keywords:    []string{`"auths"`},
 	},
 	// Source: https://github.com/leaktk/patterns — Pattern ID: LAJoYTdoQH4
 	{
@@ -120,5 +135,19 @@ var leakPatterns = []LeakPattern{
 		Description: "GitHub Fine-Grained PAT",
 		Regex:       regexp.MustCompile(`\bgithub_pat_\w{82}\b`),
 		Keywords:    []string{"github_pat_"},
+	},
+	// Source: https://github.com/leaktk/patterns — Pattern ID: rnWF160pWNg
+	{
+		ID:          "rnWF160pWNg",
+		Description: "Generic Secret (YAML)",
+		Regex:       regexp.MustCompile(`(?i)[\w\-]*(?:password|secret|token)[_-]?(?:access[_-]?)?(?:key)?:[\t ]+?([^\"\'\s]+?)[\t ]*(?:\\n|\n|#|$)`),
+		Keywords:    []string{"password", "secret", "token"},
+	},
+	// Source: https://github.com/leaktk/patterns — Pattern ID: QqS4RvI6Zmg
+	{
+		ID:          "QqS4RvI6Zmg",
+		Description: "Authorization Header",
+		Regex:       regexp.MustCompile(`(?:\A|[^\w\-])Authorization:[\t ]*(?:\w+[\t ]+)?([^\s\"\'<]{18,})`),
+		Keywords:    []string{"authorization"},
 	},
 }

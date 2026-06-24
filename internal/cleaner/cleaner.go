@@ -11,6 +11,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	log "github.com/sirupsen/logrus"
+	"github.com/ulikunitz/xz"
 	"k8s.io/utils/ptr"
 )
 
@@ -43,9 +44,13 @@ var (
 	RemoveFilePatternRules = map[string]*PatchRule{
 		"packages.operators.coreos.com_v1_packagemanifests.json": &PatchRule{
 			RegexPattern: regexp.MustCompile("resources/ns/.*/packages.operators.coreos.com_v1_packagemanifests.json"),
-			// Keeping at least one object for auditing.
-			KeepCount: 1,
-			Count:     0,
+			KeepCount:    0,
+			Count:        0,
+		},
+		"machineconfiguration.openshift.io_v1_machineconfigs.json": &PatchRule{
+			RegexPattern: regexp.MustCompile("resources/cluster/machineconfiguration.openshift.io_v1_machineconfigs.json"),
+			KeepCount:    0,
+			Count:        0,
 		},
 	}
 )
@@ -125,6 +130,74 @@ func ScanPatchTarGzipReaderFor(r io.Reader) (resp io.Reader, size int, err error
 	return bytes.NewReader(buf.Bytes()), size, nil
 }
 
+// ScanPatchTarXzReaderFor scans and patches a .tar.xz artifact stream, returning the cleaned artifact.
+// This is the same as ScanPatchTarGzipReaderFor but handles xz compression instead of gzip.
+func ScanPatchTarXzReaderFor(r io.Reader) (resp io.Reader, size int, err error) {
+	log.Debug("Scanning the xz artifact for patches...")
+	size = 0
+
+	for _, rule := range RemoveFilePatternRules {
+		rule.Count = 0
+	}
+
+	xzReader, err := xz.NewReader(r)
+	if err != nil {
+		return nil, size, fmt.Errorf("unable to open xz file: %w", err)
+	}
+
+	tarReader := tar.NewReader(xzReader)
+
+	var buf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&buf)
+	tarWriter := tar.NewWriter(gzipWriter)
+	var leakFindings []LeakFinding
+
+	fileCount := 0
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, size, fmt.Errorf("unable to process file in xz archive: %w", err)
+		}
+
+		fileCount++
+		if fileCount%100 == 0 {
+			log.Debugf("Processed %d files in xz archive...", fileCount)
+		}
+
+		findings, procErr := processTarHeader(header, tarReader, tarWriter)
+		if procErr != nil {
+			return nil, size, procErr
+		}
+		leakFindings = append(leakFindings, findings...)
+	}
+
+	log.Debugf("Finished processing %d files in xz archive", fileCount)
+
+	if len(leakFindings) > 0 {
+		log.Debugf("Leak scan (xz): %d potential finding(s) detected and redacted", len(leakFindings))
+		for _, f := range leakFindings {
+			if f.Line > 0 {
+				log.Debugf("  %s:%d — %s", f.File, f.Line, f.Pattern)
+			} else {
+				log.Debugf("  %s — %s", f.File, f.Pattern)
+			}
+		}
+	}
+
+	if err := tarWriter.Close(); err != nil {
+		return nil, size, fmt.Errorf("closing tarball: %w", err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		return nil, size, fmt.Errorf("closing gzip: %w", err)
+	}
+
+	size = len(buf.Bytes())
+	return bytes.NewReader(buf.Bytes()), size, nil
+}
+
 // processTarHeader processes the tar header and applies patches or removes files as needed.
 // Returns any leak findings detected in the file content.
 func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.Writer) ([]LeakFinding, error) {
@@ -183,6 +256,27 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 			return nil, fmt.Errorf("unable to write file data to new archive: %w", err)
 		}
 		log.Debugf("Completed nested archive: %s", header.Name)
+		return nil, nil
+	}
+
+	if strings.HasSuffix(header.Name, ".tar.xz") {
+		log.Debugf("Processing nested xz archive: %s (%.1f MB)...", header.Name, float64(header.Size)/(1024*1024))
+		resp, size, err := ScanPatchTarXzReaderFor(tarReader)
+		if err != nil {
+			return nil, fmt.Errorf("unable to process xz file %s: %w", header.Name, err)
+		}
+		header.Size = int64(size)
+		archiveBuf := new(bytes.Buffer)
+		if _, err = io.Copy(archiveBuf, resp); err != nil {
+			return nil, err
+		}
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return nil, fmt.Errorf("unable to write file header to new archive: %w", err)
+		}
+		if _, err := tarWriter.Write(archiveBuf.Bytes()); err != nil {
+			return nil, fmt.Errorf("unable to write file data to new archive: %w", err)
+		}
+		log.Debugf("Completed nested xz archive: %s", header.Name)
 		return nil, nil
 	}
 
