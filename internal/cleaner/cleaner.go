@@ -42,13 +42,18 @@ var (
 
 	// RemoveFilePatternRules is a map with regular expressions to remove files in the result archive.
 	RemoveFilePatternRules = map[string]*PatchRule{
-		"packages.operators.coreos.com_v1_packagemanifests.json": &PatchRule{
+		"packages.operators.coreos.com_v1_packagemanifests.json": {
 			RegexPattern: regexp.MustCompile("resources/ns/.*/packages.operators.coreos.com_v1_packagemanifests.json"),
 			KeepCount:    0,
 			Count:        0,
 		},
-		"machineconfiguration.openshift.io_v1_machineconfigs.json": &PatchRule{
+		"machineconfiguration.openshift.io_v1_machineconfigs.json": {
 			RegexPattern: regexp.MustCompile("resources/cluster/machineconfiguration.openshift.io_v1_machineconfigs.json"),
+			KeepCount:    0,
+			Count:        0,
+		},
+		"machineconfigs-yaml": {
+			RegexPattern: regexp.MustCompile("machineconfiguration.openshift.io/machineconfigs/.*\\.yaml$"),
 			KeepCount:    0,
 			Count:        0,
 		},
@@ -148,8 +153,11 @@ func ScanPatchTarXzReaderFor(r io.Reader) (resp io.Reader, size int, err error) 
 	tarReader := tar.NewReader(xzReader)
 
 	var buf bytes.Buffer
-	gzipWriter := gzip.NewWriter(&buf)
-	tarWriter := tar.NewWriter(gzipWriter)
+	xzWriter, err := xz.NewWriter(&buf)
+	if err != nil {
+		return nil, size, fmt.Errorf("unable to create xz writer: %w", err)
+	}
+	tarWriter := tar.NewWriter(xzWriter)
 	var leakFindings []LeakFinding
 
 	fileCount := 0
@@ -190,8 +198,8 @@ func ScanPatchTarXzReaderFor(r io.Reader) (resp io.Reader, size int, err error) 
 	if err := tarWriter.Close(); err != nil {
 		return nil, size, fmt.Errorf("closing tarball: %w", err)
 	}
-	if err := gzipWriter.Close(); err != nil {
-		return nil, size, fmt.Errorf("closing gzip: %w", err)
+	if err := xzWriter.Close(); err != nil {
+		return nil, size, fmt.Errorf("closing xz: %w", err)
 	}
 
 	size = len(buf.Bytes())

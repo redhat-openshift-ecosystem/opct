@@ -70,7 +70,7 @@ var leakPatterns = []LeakPattern{
 	{
 		ID:          "opct-registry-auth-unescaped",
 		Description: "Container Registry Authentication (unescaped)",
-		Regex:       regexp.MustCompile(`"auths"\s*:\s*\{\s*"(?:[a-z0-9\-]{1,63}\.)+(?:[a-z0-9\-]{1,63})"\s*:\s*\{\s*"auth"\s*:\s*"[\w\/+\-]{32,}={0,2}"`),
+		Regex:       regexp.MustCompile(`"auths"\s*:\s*\{\s*"(?:[a-z0-9\-]{1,63}[\.:])+(?:[a-z0-9\-]{1,63})(?::\d+)?"\s*:\s*\{\s*"auth"\s*:\s*"[\w\/+\-]{32,}={0,2}"`),
 		Keywords:    []string{`"auths"`},
 	},
 	// Source: https://github.com/leaktk/patterns — Pattern ID: LAJoYTdoQH4
@@ -147,7 +147,7 @@ var leakPatterns = []LeakPattern{
 	{
 		ID:          "QqS4RvI6Zmg",
 		Description: "Authorization Header",
-		Regex:       regexp.MustCompile(`(?:\A|[^\w\-])Authorization:[\t ]*(?:\w+[\t ]+)?([^\s\"\'<]{18,})`),
+		Regex:       regexp.MustCompile(`(?i)(?:\A|[^\w\-])Authorization:[\t ]*(?:\w+[\t ]+)?([^\s\"\'<]{18,})`),
 		Keywords:    []string{"authorization"},
 	},
 }
