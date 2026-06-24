@@ -53,7 +53,7 @@ var (
 			Count:        0,
 		},
 		"machineconfigs-yaml": {
-			RegexPattern: regexp.MustCompile("machineconfiguration.openshift.io/machineconfigs/.*\\.yaml$"),
+			RegexPattern: regexp.MustCompile(`machineconfiguration.openshift.io/machineconfigs/.*\.yaml$`),
 			KeepCount:    0,
 			Count:        0,
 		},
