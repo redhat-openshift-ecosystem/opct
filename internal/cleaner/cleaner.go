@@ -299,9 +299,9 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 		}
 	}
 
-	// For large files (>10MB), stream directly without scanning
+	// For large files (>100MB), stream directly without scanning
 	if header.Size > int64(maxLeakScanSize) {
-		// Write header first for large files (no redaction)
+		log.Debugf("Skipping scan for large file %s (%.1f MB, limit %d MB)", header.Name, float64(header.Size)/(1024*1024), maxLeakScanSize/(1024*1024))
 		if err := tarWriter.WriteHeader(header); err != nil {
 			return nil, fmt.Errorf("error streaming file header to new archive: %w", err)
 		}
