@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	maxLeakScanSize = 100 * 1024 * 1024 // 100MB
+	maxLeakScanSize = 10 * 1024 * 1024 // 10MB
 	redactionMarker = "<REDACTED_BY_OPCT>"
 )
 

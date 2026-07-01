@@ -11,7 +11,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	log "github.com/sirupsen/logrus"
-	"github.com/ulikunitz/xz"
 	"k8s.io/utils/ptr"
 )
 
@@ -135,77 +134,6 @@ func ScanPatchTarGzipReaderFor(r io.Reader) (resp io.Reader, size int, err error
 	return bytes.NewReader(buf.Bytes()), size, nil
 }
 
-// ScanPatchTarXzReaderFor scans and patches a .tar.xz artifact stream, returning the cleaned artifact.
-// This is the same as ScanPatchTarGzipReaderFor but handles xz compression instead of gzip.
-func ScanPatchTarXzReaderFor(r io.Reader) (resp io.Reader, size int, err error) {
-	log.Debug("Scanning the xz artifact for patches...")
-	size = 0
-
-	for _, rule := range RemoveFilePatternRules {
-		rule.Count = 0
-	}
-
-	xzReader, err := xz.NewReader(r)
-	if err != nil {
-		return nil, size, fmt.Errorf("unable to open xz file: %w", err)
-	}
-
-	tarReader := tar.NewReader(xzReader)
-
-	var buf bytes.Buffer
-	xzWriter, err := xz.NewWriter(&buf)
-	if err != nil {
-		return nil, size, fmt.Errorf("unable to create xz writer: %w", err)
-	}
-	tarWriter := tar.NewWriter(xzWriter)
-	var leakFindings []LeakFinding
-
-	fileCount := 0
-	for {
-		header, err := tarReader.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, size, fmt.Errorf("unable to process file in xz archive: %w", err)
-		}
-
-		fileCount++
-		if fileCount%100 == 0 {
-			log.Debugf("Processed %d files in xz archive...", fileCount)
-		}
-
-		findings, procErr := processTarHeader(header, tarReader, tarWriter)
-		if procErr != nil {
-			return nil, size, procErr
-		}
-		leakFindings = append(leakFindings, findings...)
-	}
-
-	log.Debugf("Finished processing %d files in xz archive", fileCount)
-
-	if len(leakFindings) > 0 {
-		log.Debugf("Leak scan (xz): %d potential finding(s) detected and redacted", len(leakFindings))
-		for _, f := range leakFindings {
-			if f.Line > 0 {
-				log.Debugf("  %s:%d — %s", f.File, f.Line, f.Pattern)
-			} else {
-				log.Debugf("  %s — %s", f.File, f.Pattern)
-			}
-		}
-	}
-
-	if err := tarWriter.Close(); err != nil {
-		return nil, size, fmt.Errorf("closing tarball: %w", err)
-	}
-	if err := xzWriter.Close(); err != nil {
-		return nil, size, fmt.Errorf("closing xz: %w", err)
-	}
-
-	size = len(buf.Bytes())
-	return bytes.NewReader(buf.Bytes()), size, nil
-}
-
 // processTarHeader processes the tar header and applies patches or removes files as needed.
 // Returns any leak findings detected in the file content.
 func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.Writer) ([]LeakFinding, error) {
@@ -267,27 +195,6 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 		return nil, nil
 	}
 
-	if strings.HasSuffix(header.Name, ".tar.xz") {
-		log.Debugf("Processing nested xz archive: %s (%.1f MB)...", header.Name, float64(header.Size)/(1024*1024))
-		resp, size, err := ScanPatchTarXzReaderFor(tarReader)
-		if err != nil {
-			return nil, fmt.Errorf("unable to process xz file %s: %w", header.Name, err)
-		}
-		header.Size = int64(size)
-		archiveBuf := new(bytes.Buffer)
-		if _, err = io.Copy(archiveBuf, resp); err != nil {
-			return nil, err
-		}
-		if err := tarWriter.WriteHeader(header); err != nil {
-			return nil, fmt.Errorf("unable to write file header to new archive: %w", err)
-		}
-		if _, err := tarWriter.Write(archiveBuf.Bytes()); err != nil {
-			return nil, fmt.Errorf("unable to write file data to new archive: %w", err)
-		}
-		log.Debugf("Completed nested xz archive: %s", header.Name)
-		return nil, nil
-	}
-
 	// Check removal rules
 	for _, rule := range RemoveFilePatternRules {
 		if rule.RegexPattern.MatchString(header.Name) {
@@ -299,7 +206,7 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 		}
 	}
 
-	// For large files (>100MB), stream directly without scanning
+	// For large files (>10MB), stream directly without scanning
 	if header.Size > int64(maxLeakScanSize) {
 		log.Debugf("Skipping scan for large file %s (%.1f MB, limit %d MB)", header.Name, float64(header.Size)/(1024*1024), maxLeakScanSize/(1024*1024))
 		if err := tarWriter.WriteHeader(header); err != nil {
