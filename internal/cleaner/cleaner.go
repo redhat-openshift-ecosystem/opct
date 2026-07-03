@@ -43,7 +43,7 @@ var (
 	RemoveFilePatternRules = map[string]*PatchRule{
 		"packages.operators.coreos.com_v1_packagemanifests.json": {
 			RegexPattern: regexp.MustCompile("resources/ns/.*/packages.operators.coreos.com_v1_packagemanifests.json"),
-			KeepCount:    1,
+			KeepCount:    0,
 			Count:        0,
 		},
 		"machineconfiguration.openshift.io_v1_machineconfigs.json": {
