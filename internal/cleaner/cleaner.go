@@ -48,12 +48,12 @@ var (
 		},
 		"machineconfiguration.openshift.io_v1_machineconfigs.json": {
 			RegexPattern: regexp.MustCompile("resources/cluster/machineconfiguration.openshift.io_v1_machineconfigs.json"),
-			KeepCount:    0,
+			KeepCount:    1,
 			Count:        0,
 		},
 		"machineconfigs-yaml": {
 			RegexPattern: regexp.MustCompile(`machineconfiguration.openshift.io/machineconfigs/.*\.yaml$`),
-			KeepCount:    0,
+			KeepCount:    1,
 			Count:        0,
 		},
 	}
