@@ -13,7 +13,7 @@ const (
 // ScanContentForLeaks scans file content against the embedded leak patterns.
 // Returns a list of findings. Skips binary files and files exceeding size limit.
 func ScanContentForLeaks(filename string, content []byte) []LeakFinding {
-	if len(content) == 0 || len(content) > maxLeakScanSize {
+	if len(content) == 0 {
 		return nil
 	}
 
@@ -64,11 +64,6 @@ func ScanContentForLeaks(filename string, content []byte) []LeakFinding {
 // Skips binary files and files exceeding size limit.
 func ScanAndRedactLeaks(filename string, content []byte) ([]byte, []LeakFinding) {
 	if len(content) == 0 {
-		return content, nil
-	}
-
-	// Skip very large files to avoid performance issues
-	if len(content) > maxLeakScanSize {
 		return content, nil
 	}
 
