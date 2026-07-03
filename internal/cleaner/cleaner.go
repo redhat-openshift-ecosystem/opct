@@ -48,12 +48,12 @@ var (
 		},
 		"machineconfiguration.openshift.io_v1_machineconfigs.json": {
 			RegexPattern: regexp.MustCompile("resources/cluster/machineconfiguration.openshift.io_v1_machineconfigs.json"),
-			KeepCount:    1,
+			KeepCount:    0,
 			Count:        0,
 		},
 		"machineconfigs-yaml": {
 			RegexPattern: regexp.MustCompile(`machineconfiguration.openshift.io/machineconfigs/.*\.yaml$`),
-			KeepCount:    1,
+			KeepCount:    0,
 			Count:        0,
 		},
 	}
@@ -196,6 +196,7 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 	}
 
 	// Check removal rules
+	keptByRule := false
 	for _, rule := range RemoveFilePatternRules {
 		if rule.RegexPattern.MatchString(header.Name) {
 			if rule.Count >= rule.KeepCount {
@@ -203,11 +204,13 @@ func processTarHeader(header *tar.Header, tarReader *tar.Reader, tarWriter *tar.
 				return nil, nil
 			}
 			rule.Count++
+			keptByRule = true
 		}
 	}
 
-	// For large files (>10MB), stream directly without scanning
-	if header.Size > int64(maxLeakScanSize) {
+	// For large files (>10MB), stream directly without scanning.
+	// Files kept by removal rules are always scanned regardless of size.
+	if !keptByRule && header.Size > int64(maxLeakScanSize) {
 		log.Debugf("Skipping scan for large file %s (%.1f MB, limit %d MB)", header.Name, float64(header.Size)/(1024*1024), maxLeakScanSize/(1024*1024))
 		if err := tarWriter.WriteHeader(header); err != nil {
 			return nil, fmt.Errorf("error streaming file header to new archive: %w", err)
