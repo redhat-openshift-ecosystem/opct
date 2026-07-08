@@ -471,10 +471,14 @@ func (r *RunOptions) Run(cli *client.Client) error {
 			Namespace: pkg.CertificationNamespace,
 		},
 		Data: map[string]string{
-			"cli-version":      version.Version.Version,
-			"cli-commit":       version.Version.Commit,
-			"sonobuoy-version": buildinfo.Version,
-			"sonobuoy-image":   r.sonobuoyImage,
+			"cli-version":                  version.Version.Version,
+			"cli-commit":                   version.Version.Commit,
+			"sonobuoy-version":             buildinfo.Version,
+			"sonobuoy-image":               r.sonobuoyImage,
+			"controller-image":             pkg.ControllerImage,
+			"plugin-image-tests":           pkg.PluginsImage,
+			"plugin-image-collector":       pkg.CollectorImage,
+			"plugin-image-must-gather-mon": pkg.MustGatherMonitoringImage,
 		},
 	}
 	configPlugins := &v1.ConfigMap{

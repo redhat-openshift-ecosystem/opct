@@ -10,6 +10,11 @@ preventing conflict with Vue/JS language. -->
   <!-- Load required Bootstrap and BootstrapVue CSS -->
   <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js"></script>
   <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css" />
   <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css" />
 
@@ -98,8 +103,19 @@ preventing conflict with Vue/JS language. -->
         <div v-if="isLoading">
           <div>Loading... ({{ loadingMessage }})</div>
         </div>
-        <div id="main-content" class="overflow-auto"><span v-html="menuTitle"></span></div>
-        <div id="main-content" class="overflow-auto"><span v-html="menuBody"></span></div>
+        <div class="overflow-auto"><span v-html="menuTitle"></span></div>
+        <div v-if="menuBodyRight" id="split-container" class="d-flex" style="height: calc(100vh - 120px)">
+          <div id="panel-left" class="etcd-panel-left overflow-auto">
+            <span v-html="menuBody"></span>
+          </div>
+          <div id="panel-divider" class="etcd-panel-divider"></div>
+          <div id="panel-right" class="etcd-panel-right overflow-auto">
+            <span v-html="menuBodyRight"></span>
+          </div>
+        </div>
+        <div v-else class="overflow-auto">
+          <span v-html="menuBody"></span>
+        </div>
       </div>
     </div>
   </div>
@@ -201,6 +217,16 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         isLoading: true,
         loadingMessage: '',
         showMetrics: false,
+        menuBodyRight: '',
+        chartColors: ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'],
+        chartInstances: {},
+        etcdCharts: [
+          { id: "etcd-chart-0", path: "./metrics/query_range-etcd-disk-fsync-wal-duration-p99.json.gz.json", title: "etcd fsync WAL p99" },
+          { id: "etcd-chart-1", path: "./metrics/query_range-etcd-disk-fsync-db-duration-p99.json.gz.json", title: "etcd fsync DB p99" },
+          { id: "etcd-chart-2", path: "./metrics/query_range-etcd-peer-round-trip-time.json.gz.json", title: "etcd peer round trip" },
+          { id: "etcd-chart-3", path: "./metrics/query_range-etcd-total-leader-elections-day.json.gz.json", title: "etcd total leader elections" },
+          { id: "etcd-chart-4", path: "./metrics/query_range-etcd-request-duration-p99.json.gz.json", title: "etcd req duration p99" },
+        ],
       };
     },
     methods: {
@@ -288,6 +314,11 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
       changeMenuCleanup() {
         this.menuTitle = '';
         this.menuBody = '';
+        this.menuBodyRight = '';
+        var left = document.getElementById('panel-left');
+        if (left) { left.style.width = ''; left.style.minWidth = ''; }
+        var right = document.getElementById('panel-right');
+        if (right) { right.style.width = ''; right.style.minWidth = ''; }
       },
       createTableRevHTML(table=[]) {
         htmlTable = `<table class="table table-sm table-striped font-monospace"><tbody>`
@@ -760,10 +791,8 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
       changeMenuETCD() {
         this.menuTitle = `<h1>etcd information</h1>`
         this.menuBody = this.pageHeadline
-        this.menuBody += "<p>Information extracted from etcd logs.</>"
+        this.menuBody += "<p>Information extracted from etcd logs.</p>"
 
-        // TODO#1 create checks / summary in the top of page
-        // TODO#2 implement checks rules
         if (this.report.provider.mustGatherInfo.ErrorEtcdLogs.ErrorCounters !== undefined) {
           table = this.extractErrorCountersToTable(this.report.provider.mustGatherInfo.ErrorEtcdLogs.ErrorCounters)
           table.header = "Counters for error pattern in etcd logs"
@@ -775,7 +804,6 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
             "Aggregated pod logs 'apply request took too long'",
             this.report.provider.mustGatherInfo.ErrorEtcdLogs)
         }
-        // by pod
         for (let i in this.report.provider.mustGatherInfo.NamespaceErrors) {
           if (this.report.provider.mustGatherInfo.NamespaceErrors[i].ErrorEtcdLogs !== undefined) {
             podName = this.report.provider.mustGatherInfo.NamespaceErrors[i].Pod
@@ -784,6 +812,113 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
               "Pod '"+ podName +"' logs: 'apply request took too long'",
               this.report.provider.mustGatherInfo.NamespaceErrors[i].ErrorEtcdLogs)
           }
+        }
+
+        if (this.report.summary.features.hasMetricsData) {
+          this.menuBodyRight = ''
+          for (let chart of this.etcdCharts) {
+            this.menuBodyRight += `<div class="etcd-chart-card" id="card-` + chart.id + `">` +
+              `<div class="etcd-chart-header"><h6>` + chart.title + `</h6>` +
+              `<div class="etcd-chart-toolbar">` +
+              `<button class="etcd-chart-btn" onclick="app_opct.resetChartZoom('` + chart.id + `')" title="Reset zoom">Reset</button>` +
+              `<button class="etcd-chart-btn" onclick="app_opct.expandChart('` + chart.id + `')" title="Expand chart">&#x26F6;</button>` +
+              `</div></div>` +
+              `<canvas id="` + chart.id + `"></canvas></div>`
+          }
+          this.$nextTick(() => { this.renderEtcdCharts(); });
+        }
+      },
+      parseMetricTimestamp(ts) {
+        let parts = ts.match(/(\d+)-(\d+)-(\d+) (\d+):(\d+):(\d+)/);
+        if (!parts) return new Date(ts);
+        return new Date(parts[1], parts[2]-1, parts[3], parts[4], parts[5], parts[6]);
+      },
+      resetChartZoom(chartId) {
+        let instance = this.chartInstances[chartId];
+        if (instance) instance.resetZoom();
+      },
+      expandChart(chartId) {
+        let instance = this.chartInstances[chartId];
+        if (!instance) return;
+        let overlay = document.createElement('div');
+        overlay.className = 'etcd-chart-overlay';
+        overlay.innerHTML = `<div class="etcd-chart-overlay-content">` +
+          `<div class="etcd-chart-overlay-header">` +
+          `<button class="etcd-chart-btn" id="overlay-reset" title="Reset zoom">Reset</button>` +
+          `<button class="etcd-chart-btn" id="overlay-close" title="Close">&times;</button>` +
+          `</div><canvas id="overlay-canvas"></canvas></div>`;
+        document.body.appendChild(overlay);
+        let canvas = document.getElementById('overlay-canvas');
+        let expanded = new Chart(canvas, {
+          type: 'line',
+          data: JSON.parse(JSON.stringify(instance.data)),
+          options: Object.assign({}, JSON.parse(JSON.stringify(instance.options)), {
+            aspectRatio: 1.8,
+            plugins: {
+              legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12 } } },
+              tooltip: { mode: 'index', intersect: false },
+              zoom: {
+                zoom: { drag: { enabled: true, backgroundColor: 'rgba(78,121,167,0.15)', borderColor: '#4e79a7', borderWidth: 1 }, mode: 'x' },
+                pan: { enabled: true, mode: 'x' },
+              },
+            },
+          }),
+        });
+        // re-parse date objects lost in JSON serialization
+        expanded.data.datasets.forEach((ds, i) => {
+          ds.data = instance.data.datasets[i].data.map(p => ({ x: new Date(p.x), y: p.y }));
+          ds.borderColor = instance.data.datasets[i].borderColor;
+          ds.backgroundColor = instance.data.datasets[i].backgroundColor;
+        });
+        expanded.update();
+        document.getElementById('overlay-close').onclick = function() { expanded.destroy(); document.body.removeChild(overlay); };
+        document.getElementById('overlay-reset').onclick = function() { expanded.resetZoom(); };
+        overlay.onclick = function(e) { if (e.target === overlay) { expanded.destroy(); document.body.removeChild(overlay); } };
+      },
+      renderEtcdCharts() {
+        this.chartInstances = {};
+        for (let chart of this.etcdCharts) {
+          axios.get(chart.path)
+            .then(resp => {
+              let reply = resp.data;
+              let datasets = reply.data.map((trace, i) => ({
+                label: trace.name,
+                data: trace.x.map((ts, j) => ({ x: this.parseMetricTimestamp(ts), y: trace.y[j] })),
+                borderColor: this.chartColors[i % this.chartColors.length],
+                backgroundColor: 'transparent',
+                borderWidth: 1.5,
+                pointRadius: 0,
+                tension: 0.3,
+              }));
+              let canvas = document.getElementById(chart.id);
+              if (!canvas) return;
+              this.chartInstances[chart.id] = new Chart(canvas, {
+                type: 'line',
+                data: { datasets: datasets },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: true,
+                  aspectRatio: 2.2,
+                  interaction: { mode: 'index', intersect: false },
+                  plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: { mode: 'index', intersect: false },
+                    zoom: {
+                      zoom: { drag: { enabled: true, backgroundColor: 'rgba(78,121,167,0.15)', borderColor: '#4e79a7', borderWidth: 1 }, mode: 'x' },
+                      pan: { enabled: true, mode: 'x' },
+                    },
+                  },
+                  scales: {
+                    x: { type: 'time', time: { tooltipFormat: 'yyyy-MM-dd HH:mm' }, ticks: { maxTicksAllowed: 8, font: { size: 10 } } },
+                    y: { beginAtZero: false, ticks: { font: { size: 10 } } },
+                  },
+                },
+              });
+            })
+            .catch(() => {
+              let el = document.getElementById(chart.id);
+              if (el) el.parentElement.innerHTML = '<p class="text-muted"><i>Chart not available</i></p>';
+            });
         }
       },
       changeMenuNetwork() {
@@ -1167,7 +1302,302 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
   /* main */
   document.getElementById("tabDefault").click();
   app_opct.changeMenu('summary')
+
+  /* Resizable split-pane divider */
+  document.addEventListener('mousedown', function(e) {
+    if (e.target.id !== 'panel-divider') return;
+    e.preventDefault();
+    var container = document.getElementById('split-container');
+    var left = document.getElementById('panel-left');
+    var right = document.getElementById('panel-right');
+    var divider = document.getElementById('panel-divider');
+    var startX = e.clientX;
+    var startLeftW = left.offsetWidth;
+    var totalW = container.offsetWidth - divider.offsetWidth;
+
+    function onMove(e) {
+      var dx = e.clientX - startX;
+      var newLeftW = Math.max(200, Math.min(totalW - 200, startLeftW + dx));
+      var leftPct = (newLeftW / container.offsetWidth) * 100;
+      var rightPct = ((totalW - newLeftW) / container.offsetWidth) * 100;
+      left.style.width = leftPct + '%';
+      left.style.minWidth = leftPct + '%';
+      right.style.width = rightPct + '%';
+      right.style.minWidth = rightPct + '%';
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  /* Chat widget */
+  var chatState = {
+    open: false,
+    enabled: false,
+    provider: '',
+    messages: [],
+    sessionId: '',
+    sending: false,
+  };
+
+  function toggleChat() {
+    chatState.open = !chatState.open;
+    document.getElementById('chat-panel').style.display = chatState.open ? 'flex' : 'none';
+    document.getElementById('chat-toggle').style.display = chatState.open ? 'none' : 'flex';
+    if (chatState.open && chatState.messages.length === 0) {
+      checkChatStatus();
+    }
+  }
+
+  function checkChatStatus() {
+    fetch('/api/v1/chat/status').then(r => r.json()).then(status => {
+      chatState.enabled = status.enabled;
+      chatState.provider = status.provider;
+      if (!status.enabled) {
+        appendChatMessage('assistant', 'The AI Assistant is not available. No API credentials were detected.\n\nConfigure one of the following before starting the report server:\n\n**Option 1 — Anthropic API (direct)**\n```\nexport ANTHROPIC_API_KEY="sk-ant-..."\n```\nGet your key at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)\n\n**Option 2 — Google Cloud Vertex AI**\n```\nexport GOOGLE_CLOUD_LOCATION="us-east5"\nexport GOOGLE_CLOUD_PROJECT="your-project-id"\ngcloud auth application-default login\n```\nSee [Vertex AI Claude docs](https://docs.anthropic.com/en/api/claude-on-vertex-ai)\n\nThen restart the report server:\n```\nopct report <archive>.tar.gz\n```');
+      } else {
+        appendChatMessage('assistant', 'Hello! I\'m the OPCT Assistant. I can help you analyze your conformance test results.\n\nTry asking:\n- "Show the summary of this workflow"\n- "What are the critical check failures?"\n- "Analyze test failures by component"');
+        document.getElementById('chat-suggestions').style.display = 'flex';
+      }
+    }).catch(() => {
+      appendChatMessage('assistant', 'Unable to connect to the chat API. Make sure the report server is running.');
+    });
+  }
+
+  function appendChatMessage(role, content) {
+    chatState.messages.push({ role: role, content: content });
+    renderChatMessages();
+  }
+
+  function renderChatMessages() {
+    var el = document.getElementById('chat-messages');
+    var html = '';
+    for (var i = 0; i < chatState.messages.length; i++) {
+      var msg = chatState.messages[i];
+      var cls = msg.role === 'user' ? 'chat-msg-user' : 'chat-msg-assistant';
+      var rendered = msg.role === 'assistant' ? marked.parse(msg.content) : escapeHtml(msg.content);
+      html += '<div class="chat-msg ' + cls + '">' + rendered + '</div>';
+    }
+    el.innerHTML = html;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function sendChatMessage(text) {
+    if (chatState.sending || !chatState.enabled) return;
+    var input = document.getElementById('chat-input');
+    if (!text) text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    document.getElementById('chat-suggestions').style.display = 'none';
+
+    appendChatMessage('user', text);
+    chatState.sending = true;
+    document.getElementById('chat-send').style.display = 'none';
+    document.getElementById('chat-stop').style.display = '';
+
+    var history = chatState.messages.slice(0, -1);
+    var abortController = new AbortController();
+    chatState.abortController = abortController;
+
+    fetch('/api/v1/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, history: history }),
+      signal: abortController.signal,
+    }).then(response => {
+      var reader = response.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      var assistantText = '';
+
+      function finishStream() {
+        chatState.sending = false;
+        chatState.abortController = null;
+        document.getElementById('chat-send').style.display = '';
+        document.getElementById('chat-stop').style.display = 'none';
+        autoSaveSession();
+      }
+
+      function processChunk(result) {
+        if (result.done) { finishStream(); return; }
+        buffer += decoder.decode(result.value, { stream: true });
+        var lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i];
+          if (line.startsWith('data: ')) {
+            var data = line.substring(6).replace(/\\n/g, '\n');
+            var eventLine = i > 0 ? lines[i-1] : '';
+            if (eventLine.startsWith('event: text')) {
+              assistantText += data;
+              updateStreamingMessage(assistantText);
+            } else if (eventLine.startsWith('event: tool_call')) {
+              try {
+                var tool = JSON.parse(data);
+                updateStreamingMessage(assistantText + '\n\n*Using tool: ' + tool.name + '...*');
+              } catch(e) {}
+            } else if (eventLine.startsWith('event: done')) {
+              if (chatState.messages[chatState.messages.length - 1].role === 'assistant') {
+                chatState.messages[chatState.messages.length - 1].content = data;
+              }
+              renderChatMessages();
+            } else if (eventLine.startsWith('event: error')) {
+              appendChatMessage('assistant', 'Error: ' + data);
+            }
+          }
+        }
+        reader.read().then(processChunk).catch(function() { finishStream(); });
+      }
+
+      chatState.messages.push({ role: 'assistant', content: '' });
+      reader.read().then(processChunk).catch(function() { finishStream(); });
+    }).catch(err => {
+      chatState.sending = false;
+      chatState.abortController = null;
+      document.getElementById('chat-send').style.display = '';
+      document.getElementById('chat-stop').style.display = 'none';
+      if (err.name !== 'AbortError') {
+        appendChatMessage('assistant', 'Error: ' + err.message);
+      }
+    });
+  }
+
+  function updateStreamingMessage(text) {
+    if (chatState.messages.length > 0 && chatState.messages[chatState.messages.length - 1].role === 'assistant') {
+      chatState.messages[chatState.messages.length - 1].content = text;
+    }
+    renderChatMessages();
+  }
+
+  function autoSaveSession() {
+    if (chatState.messages.length < 2) return;
+    fetch('/api/v1/chat/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: chatState.sessionId,
+        messages: chatState.messages,
+      }),
+    }).then(r => r.json()).then(data => {
+      if (data.id) chatState.sessionId = data.id;
+      loadSessionList();
+    }).catch(() => {});
+  }
+
+  function loadSessionList() {
+    fetch('/api/v1/chat/sessions').then(r => r.json()).then(sessions => {
+      var sel = document.getElementById('chat-sessions');
+      sel.innerHTML = '<option value="">New session</option>';
+      for (var i = 0; i < sessions.length; i++) {
+        var s = sessions[i];
+        var label = s.updated ? s.updated.substring(0, 16) : s.id;
+        var selected = s.id === chatState.sessionId ? ' selected' : '';
+        sel.innerHTML += '<option value="' + s.id + '"' + selected + '>' + label + '</option>';
+      }
+    }).catch(() => {});
+  }
+
+  function loadSession(id) {
+    if (!id) {
+      chatState.messages = [];
+      chatState.sessionId = '';
+      renderChatMessages();
+      checkChatStatus();
+      return;
+    }
+    fetch('/api/v1/chat/sessions/' + id).then(r => r.json()).then(session => {
+      chatState.sessionId = session.id;
+      chatState.messages = session.messages || [];
+      renderChatMessages();
+      document.getElementById('chat-suggestions').style.display = 'none';
+    }).catch(() => {});
+  }
+
+  function minimizeChat() {
+    var panel = document.getElementById('chat-panel');
+    if (panel.classList.contains('chat-minimized')) {
+      panel.classList.remove('chat-minimized');
+    } else {
+      panel.classList.add('chat-minimized');
+    }
+  }
+
+  function maximizeChat() {
+    var panel = document.getElementById('chat-panel');
+    var btn = document.getElementById('chat-maximize-btn');
+    if (panel.classList.contains('chat-maximized')) {
+      panel.classList.remove('chat-maximized');
+      btn.innerHTML = '&#x25A1;';
+      btn.title = 'Maximize';
+    } else {
+      panel.classList.remove('chat-minimized');
+      panel.classList.add('chat-maximized');
+      btn.innerHTML = '&#x2750;';
+      btn.title = 'Restore';
+    }
+  }
+
+  function stopChat() {
+    if (chatState.abortController) {
+      chatState.abortController.abort();
+      chatState.abortController = null;
+    }
+    chatState.sending = false;
+    document.getElementById('chat-send').style.display = '';
+    document.getElementById('chat-stop').style.display = 'none';
+  }
+
+  function chatKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
+  }
+
+  function sendSuggestion(text) {
+    sendChatMessage(text);
+  }
 </script>
+
+<!-- Floating chat widget -->
+<div id="chat-widget">
+  <button id="chat-toggle" onclick="toggleChat()" title="AI Assistant">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+  </button>
+  <div id="chat-panel" style="display:none">
+    <div id="chat-header">
+      <span>OPCT Assistant</span>
+      <div style="display:flex;gap:4px;align-items:center">
+        <select id="chat-sessions" onchange="loadSession(this.value)" title="Chat sessions"></select>
+        <button class="chat-header-btn" onclick="minimizeChat()" title="Minimize">&#x2015;</button>
+        <button class="chat-header-btn" id="chat-maximize-btn" onclick="maximizeChat()" title="Maximize">&#x25A1;</button>
+        <button class="chat-header-btn" onclick="toggleChat()" title="Close">&times;</button>
+      </div>
+    </div>
+    <div id="chat-messages"></div>
+    <div id="chat-suggestions" style="display:none">
+      <button class="chat-suggestion" onclick="sendSuggestion('Show the summary of this conformance workflow')">Summary</button>
+      <button class="chat-suggestion" onclick="sendSuggestion('What are the critical check failures and how to fix them?')">Check failures</button>
+      <button class="chat-suggestion" onclick="sendSuggestion('Analyze test failures by component')">Test failures</button>
+      <button class="chat-suggestion" onclick="sendSuggestion('Are there any etcd performance issues?')">etcd health</button>
+    </div>
+    <div id="chat-input-area">
+      <textarea id="chat-input" placeholder="Ask about the report..." onkeydown="chatKeyDown(event)" rows="2"></textarea>
+      <button id="chat-send" onclick="sendChatMessage()">Send</button>
+      <button id="chat-stop" onclick="stopChat()" style="display:none">Stop</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>

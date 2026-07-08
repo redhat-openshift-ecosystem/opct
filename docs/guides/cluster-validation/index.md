@@ -293,11 +293,11 @@ configuration (execution mode).
 
 The following are valid execution modes:
 
-| Mode | Required options | Description |
+| Mode | Workflow | Required options | Description |
 | -- | -- | -- |
-| `default` | (no extra parameters) | Validate connected clusters |
-| `upgrade` | `--mode=upgrade` and `--upgrade-to-image` | Validate upgrade on connected clusters |
-| `disconnected` | `--image-repository` | Validate disconnected clusters |
+| default | `conformance` | (no extra parameters) | Validate connected clusters |
+| `upgrade` | `conformance-upgrade` | `--mode=upgrade` and `--upgrade-to-image` | Validate upgrade on connected clusters |
+| disconnected | `conformance-disconnected` | `--image-repository` | Validate disconnected clusters |
 
 **Requirements:**
 

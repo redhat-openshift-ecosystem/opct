@@ -44,7 +44,7 @@ func (s *Status) getPrintableRunningStatus() PrintableStatus {
 	ps := PrintableStatus{
 		GlobalStatus: s.Latest.Status,
 		CurrentTime:  now.Format(time.RFC1123),
-		ElapsedTime:  now.Sub(s.StartTime).String(),
+		ElapsedTime:  now.Sub(s.StartTime).Truncate(time.Second).String(),
 	}
 
 	for _, pl := range s.Latest.Plugins {

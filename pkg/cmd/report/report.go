@@ -13,6 +13,7 @@ import (
 
 	table "github.com/jedib0t/go-pretty/v6/table"
 	tabletext "github.com/jedib0t/go-pretty/v6/text"
+	"github.com/redhat-openshift-ecosystem/opct/internal/chat"
 	"github.com/redhat-openshift-ecosystem/opct/internal/opct/metrics"
 	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
 	"github.com/redhat-openshift-ecosystem/opct/internal/opct/summary"
@@ -194,13 +195,17 @@ Additionally, if you want to skip the BaselineAPI filter, use --skip-baseline-ap
 
 	// start http server to serve static report
 	if input.saveTo != "" && !input.serverSkip {
+		mux := http.NewServeMux()
+
+		chatCfg := chat.DetectConfig(input.saveTo)
+		chatHandler := chat.NewHandler(chatCfg)
+		chatHandler.RegisterRoutes(mux)
+
 		fs := http.FileServer(http.Dir(input.saveTo))
-		// TODO: redirect home to the  opct-reporet.html (or rename to index.html) without
-		// affecting the fileserver.
-		http.Handle("/", fs)
+		mux.Handle("/", fs)
 
 		log.Infof("The report web UI can be accessed at http://%s", input.serverAddress)
-		if err := http.ListenAndServe(input.serverAddress, nil); err != nil {
+		if err := http.ListenAndServe(input.serverAddress, mux); err != nil {
 			log.Fatalf("Unable to start the report server at address %s: %v", input.serverAddress, err)
 		}
 	}
