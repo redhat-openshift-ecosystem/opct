@@ -93,9 +93,24 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
+      - name: Block latest tags on release branches
+        if: startsWith(github.ref, 'refs/heads/release-')
+        run: |
+          set -euo pipefail
+          if grep -qE '(PluginsImage|CollectorImage|MustGatherMonitoringImage|ControllerImage)\s*=.*:latest"' pkg/types.go; then
+            echo "::error::Plugin images must be pinned to a specific version on release branches, not 'latest'"
+            exit 1
+          fi
+          echo "All plugin images use pinned versions."
       - name: Extract and verify plugin images from types.go
         run: |
           set -euo pipefail
+
+          # Skip image verification on main when using 'latest' tags
+          if grep -qE '(PluginsImage|CollectorImage|MustGatherMonitoringImage)\s*=.*:latest"' pkg/types.go; then
+            echo "Skipping image verification (using 'latest' tags)"
+            exit 0
+          fi
 
           REPO=$(grep -E 'DefaultToolsRepository\s*=' pkg/types.go | grep -oP '"[^"]*"' | tr -d '"')
           echo "Registry: ${REPO}"
