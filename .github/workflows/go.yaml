@@ -107,7 +107,7 @@ jobs:
           set -euo pipefail
 
           # Skip image verification on main when using 'latest' tags
-          if grep -qE '(PluginsImage|CollectorImage|MustGatherMonitoringImage)\s*=.*:latest"' pkg/types.go; then
+          if [ "${GITHUB_REF}" = "refs/heads/main" ] && grep -qE '(PluginsImage|CollectorImage|MustGatherMonitoringImage)\s*=.*:latest"' pkg/types.go; then
             echo "Skipping image verification (using 'latest' tags)"
             exit 0
           fi
