@@ -190,7 +190,7 @@ The matrix below describes the OpenShift and OPCT versions supported:
 
     **Affected versions:**
 
-    - OPCT v0.6.0 and earlier do not support OCP 4.20+.
+    - OPCT v0.6.4 and earlier do not support OCP 4.20+.
     - OPCT v0.6.5+ is validated for OCP 4.19-4.22.
 
     **Fix details:**
