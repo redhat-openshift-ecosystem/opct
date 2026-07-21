@@ -174,14 +174,33 @@ The matrix below describes the OpenShift and OPCT versions supported:
 
 | OPCT [version][releases] | OCP tested versions | OPCT Execution mode                |
 | --                       | --                  | --                                 |
-| v0.6.1+                  | 4.16-4.19           | regular, upgrade, disconnected     |
+| v0.6.5+                  | 4.19-4.22           | regular, upgrade, disconnected     |
+| v0.6.1-v0.6.4            | 4.16-4.19           | regular, upgrade, disconnected     |
 | v0.5.x-v0.6.0            | 4.14-4.19           | regular, upgrade, disconnected     |
 | v0.4.x                   | 4.10-4.13           | regular, upgrade, disconnected     |
 | v0.3.x                   | 4.9-4.12            | regular, upgrade                   |
 | v0.2.x                   | 4.9-4.11            | regular                            |
 | v0.1.x                   | 4.9-4.11            | regular                            |
 
-> Validations on OpenShift 4.20+ is currently blocked. See https://issues.redhat.com/browse/OCPBUGS-77783 for more information.
+!!! info "OCP 4.20+ conformance validation"
+    Validations on OCP 4.20+ were previously blocked by
+    [OCPBUGS-77783](https://issues.redhat.com/browse/OCPBUGS-77783) and
+    [OCPBUGS-84961](https://issues.redhat.com/browse/OCPBUGS-84961).
+    Both issues have been resolved and 4.20+ validations are now supported.
+
+    **Affected versions:**
+
+    - OPCT v0.6.0 and earlier do not support OCP 4.20+.
+    - OPCT v0.6.5+ is validated for OCP 4.19-4.22.
+
+    **Fix details:**
+
+    - The conformance suite fix is in `openshift-tests` ([openshift/origin](https://github.com/openshift/origin)),
+      not in OPCT. No OPCT plugin changes were required.
+    - OCP 4.20 was not affected by the conformance suite bug.
+    - OCP 4.21+ requires a nightly or z-stream release that includes the fix
+      ([origin PR #31353](https://github.com/openshift/origin/pull/31353) for 4.21,
+      [origin PR #31270](https://github.com/openshift/origin/pull/31270) for 4.22).
 
 It is highly recommended to use the latest OPCT version.
 
