@@ -550,9 +550,21 @@ func (cs *ConsolidatedSummary) applyFilterKnownFailures(filterID string) error {
 	//  - The test is not relevant to the validation process, the custom MCP is used
 	//    in the OPCT topology to executed in-cluster validation. If MCP is not used,
 	//    the test environment would be evicted when the dedicated node is drained.
+	// "[sig-auth][Feature:UserAPI] users can manipulate groups ..." :
+	//  - The test (openshift/origin test/extended/user/basic.go) calls `GET users/~`
+	//    and expects the authenticated identity to belong to system:masters or
+	//    system:cluster-admins. OPCT runs tests using a ServiceAccount
+	//    (sonobuoy-serviceaccount) whose token claims always include the groups
+	//    [system:authenticated, system:serviceaccounts, system:serviceaccounts:<ns>].
+	//    These groups are injected by the API server token authenticator and cannot
+	//    be changed via RBAC scoping — RBAC controls what the SA can *do*, not what
+	//    it *is*. A proper fix requires changing the upstream test to accept
+	//    SA-based identities.
+	//    Reference: https://issues.redhat.com/browse/OPCT-353
 	cs.Provider.TestSuiteKnownFailures = []string{
 		"[sig-arch] External binary usage",
 		"[sig-mco] Machine config pools complete upgrade",
+		"[sig-auth][Feature:UserAPI] users can manipulate groups [apigroup:user.openshift.io][apigroup:authorization.openshift.io][apigroup:project.openshift.io] [Suite:openshift/conformance/parallel]",
 	}
 
 	for _, pluginName := range []string{
