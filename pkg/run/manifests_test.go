@@ -68,6 +68,19 @@ func TestLoadPluginManifests(t *testing.T) {
 		// Exactly 2 plugins expected.
 		assert.Len(t, manifests, 2,
 			"upgrade mode should load exactly 2 plugins (upgrade + collector)")
+
+		// PLUGIN_BLOCKED_BY must be empty for the collector in upgrade mode
+		// since the replay plugin (80) is skipped and would never complete.
+		for _, m := range manifests {
+			if m.SonobuoyConfig.PluginName == plugin.PluginNameArtifactsCollector {
+				for _, env := range m.Spec.Env {
+					if env.Name == "PLUGIN_BLOCKED_BY" {
+						assert.Empty(t, env.Value,
+							"PLUGIN_BLOCKED_BY must be empty in upgrade mode")
+					}
+				}
+			}
+		}
 	})
 
 	t.Run("default mode loads all plugins", func(t *testing.T) {

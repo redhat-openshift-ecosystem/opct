@@ -11,6 +11,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	coclient "github.com/openshift/client-go/config/clientset/versioned"
 	irclient "github.com/openshift/client-go/imageregistry/clientset/versioned"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
 	"github.com/redhat-openshift-ecosystem/opct/pkg/version"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -83,6 +84,12 @@ const (
 	defaultValidationTimeoutSeconds       = 600 // 10 minutes for all pre-run validations
 	defaultValidationRetryIntervalSeconds = 10  // 10 seconds between validation retries
 )
+
+// IsUpgradeMode returns true when the run mode is upgrade. Exported for use
+// in plugin manifest Go templates where unexported fields are inaccessible.
+func (r *RunOptions) IsUpgradeMode() bool {
+	return r.mode == plugin.WorkflowUpgrade
+}
 
 func newRunOptions() *RunOptions {
 	return &RunOptions{
