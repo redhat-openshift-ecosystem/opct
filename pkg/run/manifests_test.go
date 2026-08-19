@@ -69,14 +69,14 @@ func TestLoadPluginManifests(t *testing.T) {
 		assert.Len(t, manifests, 2,
 			"upgrade mode should load exactly 2 plugins (upgrade + collector)")
 
-		// PLUGIN_BLOCKED_BY must be empty for the collector in upgrade mode
-		// since the replay plugin (80) is skipped and would never complete.
+		// PLUGIN_BLOCKED_BY must reference plugin 05 (upgrade) in upgrade mode
+		// since conformance plugins (10/20/80) are skipped.
 		for _, m := range manifests {
 			if m.SonobuoyConfig.PluginName == plugin.PluginNameArtifactsCollector {
 				for _, env := range m.Spec.Env {
 					if env.Name == "PLUGIN_BLOCKED_BY" {
-						assert.Empty(t, env.Value,
-							"PLUGIN_BLOCKED_BY must be empty in upgrade mode")
+						assert.Equal(t, "05-openshift-cluster-upgrade", env.Value,
+							"PLUGIN_BLOCKED_BY must reference upgrade plugin in upgrade mode")
 					}
 				}
 			}
