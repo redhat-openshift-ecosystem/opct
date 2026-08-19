@@ -194,6 +194,11 @@ func (cs *ConsolidatedSummary) applyFilterSuiteForPlugin(pluginName string) erro
 		pluginSuite = &OpenshiftTestsSuite{}
 	}
 
+	if ps == nil || ps.Name == "" {
+		log.Debugf("Skipping filter for absent plugin %s", pluginName)
+		return nil
+	}
+
 	e2eFailures := ps.FailedList
 	e2eSuite := pluginSuite.Tests
 	emptySuite := len(pluginSuite.Tests) == 0
@@ -276,6 +281,11 @@ func (cs *ConsolidatedSummary) applyFilterBaselineForPlugin(pluginName string, f
 		return fmt.Errorf("suite not found to apply filter: Flaky")
 	}
 
+	if ps == nil || ps.Name == "" {
+		log.Debugf("Skipping filter baseline for absent plugin %s", pluginName)
+		return nil
+	}
+
 	filterFailures, filterFailuresExcluded := ps.GetFailuresByFilterID(filterID)
 	e2eFailuresProvider := ps.GetPreviousFailuresByFilterID(filterID)
 	hashBaseline := make(map[string]struct{}, len(e2eFailuresBaseline))
@@ -338,6 +348,11 @@ func (cs *ConsolidatedSummary) applyFilterFlakeForPlugin(pluginName string, filt
 
 	default:
 		return fmt.Errorf("suite not found to apply filter: Flaky")
+	}
+
+	if ps == nil || ps.Name == "" {
+		log.Debugf("Skipping filter flake for absent plugin %s", pluginName)
+		return nil
 	}
 
 	// TODO: define if we will check for flakes for all failures or only filtered
@@ -485,6 +500,11 @@ func (cs *ConsolidatedSummary) applyFilterBaselineAPIForPlugin(pluginName string
 		return fmt.Errorf("plugin not found")
 	}
 
+	if ps == nil || ps.Name == "" {
+		log.Debugf("Skipping filter baseline API for absent plugin %s", pluginName)
+		return nil
+	}
+
 	b := cs.BaselineAPI.GetBuffer()
 	if b != nil {
 		e2eFailuresBaseline, err = b.GetPriorityFailuresFromPlugin(pluginName)
@@ -570,6 +590,11 @@ func (cs *ConsolidatedSummary) applyFilterKnownFailuresForPlugin(pluginName stri
 		return fmt.Errorf("error while processing filter5 (know failures), plugin not found: %s", pluginName)
 	}
 
+	if ps == nil || ps.Name == "" {
+		log.Debugf("Skipping filter known failures for absent plugin %s", pluginName)
+		return nil
+	}
+
 	// read the failures from pipeline
 	filterFailures, filterFailuresExcluded := ps.GetFailuresByFilterID(filterID)
 	e2eFailuresPipeline := ps.GetPreviousFailuresByFilterID(filterID)
@@ -630,6 +655,11 @@ func (cs *ConsolidatedSummary) applyFilterReplayForPlugin(pluginName string, fil
 
 	default:
 		return fmt.Errorf("plugin not found: %s", pluginName)
+	}
+
+	if ps == nil || ps.Name == "" {
+		log.Debugf("Skipping filter replay for absent plugin %s", pluginName)
+		return nil
 	}
 
 	// read the failures from pipeline
@@ -698,26 +728,30 @@ func (cs *ConsolidatedSummary) applyFilterCopyPipelineForPlugin(pluginName strin
 	switch pluginName {
 	case plugin.PluginNameKubernetesConformance:
 		ps = cs.GetProvider().GetOpenShift().GetResultK8SValidated()
-		// Should point to the last filter in the pipeline.
-		ps.FailedFiltered = ps.GetPreviousFailuresByFilterID(filterID)
 
 	case plugin.PluginNameOpenShiftConformance:
 		ps = cs.GetProvider().GetOpenShift().GetResultOCPValidated()
-		// Should point to the last filter in the pipeline.
-		ps.FailedFiltered = ps.GetPreviousFailuresByFilterID(filterID)
 
 	case plugin.PluginNameOpenShiftUpgrade:
 		ps = cs.GetProvider().GetOpenShift().GetResultConformanceUpgrade()
-		// Should point to the last filter in the pipeline.
-		ps.FailedFiltered = ps.GetPreviousFailuresByFilterID(filterID)
 
 	case plugin.PluginNameConformanceReplay:
 		ps = cs.GetProvider().GetOpenShift().GetResultConformanceReplay()
-		// Should point to the last filter in the pipeline.
-		ps.FailedFiltered = ps.FailedList
 
 	default:
 		return fmt.Errorf("invalid plugin: %s", pluginName)
+	}
+
+	if ps == nil || ps.Name == "" {
+		log.Debugf("Skipping filter copy pipeline for absent plugin %s", pluginName)
+		return nil
+	}
+
+	switch pluginName {
+	case plugin.PluginNameConformanceReplay:
+		ps.FailedFiltered = ps.FailedList
+	default:
+		ps.FailedFiltered = ps.GetPreviousFailuresByFilterID(filterID)
 	}
 
 	log.Debugf("Filter results (Final): plugin=%s filtered failures(%d)", pluginName, len(ps.FailedFiltered))
@@ -746,6 +780,11 @@ func (cs *ConsolidatedSummary) saveResultsPlugin(path, pluginName string) error 
 			resultsBaseline = cs.GetBaseline().GetOpenShift().GetResultOCPValidated()
 		}
 		suite = cs.GetProvider().GetSuites().OpenshiftConformance
+	}
+
+	if resultsProvider == nil || resultsProvider.Name == "" {
+		log.Debugf("Skipping save results for absent plugin %s", pluginName)
+		return nil
 	}
 
 	if cs.Verbose {
@@ -993,6 +1032,11 @@ func (cs *ConsolidatedSummary) buildDocumentationForPlugin(pluginName string) er
 		docSourceBaseURL = docUserBaseURL
 	default:
 		return fmt.Errorf("plugin not found to apply filter: Flaky")
+	}
+
+	if ps == nil || ps.Name == "" {
+		log.Debugf("Skipping documentation for absent plugin %s", pluginName)
+		return nil
 	}
 
 	if ps.Documentation == nil {

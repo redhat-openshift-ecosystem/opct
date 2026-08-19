@@ -488,10 +488,14 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 	}
 
 	// Aggregate Plugin errors
-	reResult.ErrorCounters = archive.MergeErrorCounters(
-		reResult.Plugins[plugin.PluginNameKubernetesConformance].ErrorCounters,
-		reResult.Plugins[plugin.PluginNameOpenShiftConformance].ErrorCounters,
-	)
+	var ecK8s, ecOCP *archive.ErrorCounter
+	if p, ok := reResult.Plugins[plugin.PluginNameKubernetesConformance]; ok {
+		ecK8s = p.ErrorCounters
+	}
+	if p, ok := reResult.Plugins[plugin.PluginNameOpenShiftConformance]; ok {
+		ecOCP = p.ErrorCounters
+	}
+	reResult.ErrorCounters = archive.MergeErrorCounters(ecK8s, ecOCP)
 
 	// Runtime
 	if reResult.Runtime == nil {
@@ -585,6 +589,11 @@ func (re *ReportData) populatePluginConformance(rs *summary.ResultSummary, reRes
 	case plugin.PluginNameArtifactsCollector:
 		pluginSum = rs.GetOpenShift().GetResultArtifactsCollector()
 		pluginTitle = "Results for Plugin Collector"
+	}
+
+	if pluginSum == nil || pluginSum.Name == "" {
+		log.Debugf("Skipping report for absent plugin %s", pluginID)
+		return nil
 	}
 
 	pluginRes := pluginSum.Status

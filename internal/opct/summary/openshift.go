@@ -368,10 +368,16 @@ func (os *OpenShiftSummary) ExtractOpenShiftConfigMap(in *v1.ConfigMapList) erro
 }
 
 func (os *OpenShiftSummary) GetResultOCPValidated() *plugin.OPCTPluginSummary {
+	if os.PluginResultOCPValidated == nil {
+		return &plugin.OPCTPluginSummary{}
+	}
 	return os.PluginResultOCPValidated
 }
 
 func (os *OpenShiftSummary) GetResultK8SValidated() *plugin.OPCTPluginSummary {
+	if os.PluginResultK8sConformance == nil {
+		return &plugin.OPCTPluginSummary{}
+	}
 	return os.PluginResultK8sConformance
 }
 
