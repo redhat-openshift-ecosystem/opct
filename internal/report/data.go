@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"os"
 	"sort"
 	"strings"
@@ -773,7 +774,7 @@ func (re *ReportData) SaveResults(path string) error {
 			destFile = fmt.Sprintf("%s/index.html", path)
 		}
 
-		datS, err := vfs.GetData().ReadFile(srcTemplate)
+		datS, err := fs.ReadFile(vfs.GetData(), srcTemplate)
 		if err != nil {
 			return fmt.Errorf("unable to read file %q from VFS: %v", srcTemplate, err)
 		}

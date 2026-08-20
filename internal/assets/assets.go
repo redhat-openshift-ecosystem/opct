@@ -1,22 +1,21 @@
 package assets
 
 import (
-	"embed"
 	"io/fs"
 )
 
-var efs *embed.FS
+var efs fs.FS
 
-func GetData() *embed.FS {
+func GetData() fs.FS {
 	return efs
 }
 
-func UpdateData(d *embed.FS) {
+func UpdateData(d fs.FS) {
 	efs = d
 }
 
 // GetAllFilenames return all file names from an path in embeded EFS.
-func GetAllFilenames(efs *embed.FS, path string) (files []string, err error) {
+func GetAllFilenames(efs fs.FS, path string) (files []string, err error) {
 	if err := fs.WalkDir(efs, path, func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
 			return nil

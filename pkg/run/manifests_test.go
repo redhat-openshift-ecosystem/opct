@@ -1,7 +1,7 @@
 package run
 
 import (
-	"embed"
+	"os"
 	"testing"
 
 	efs "github.com/redhat-openshift-ecosystem/opct/internal/assets"
@@ -10,20 +10,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//go:embed data/templates
-var testPluginTemplates embed.FS
-
 // TestLoadPluginManifests validates that loadPluginManifests returns the correct
 // set of plugin manifests depending on the run mode (upgrade vs default).
 func TestLoadPluginManifests(t *testing.T) {
-	// Initialize the embed FS with the test data matching the production
-	// path layout (data/templates/plugins/*.yaml).
+	// Use the canonical data/templates from the repo root (../../data/templates
+	// relative to pkg/run where tests run). This avoids duplicating templates.
 	originalFS := efs.GetData()
-	efs.UpdateData(&testPluginTemplates)
+	efs.UpdateData(os.DirFS("../.."))
 	t.Cleanup(func() {
-		if originalFS != nil {
-			efs.UpdateData(originalFS)
-		}
+		efs.UpdateData(originalFS)
 	})
 
 	// RunOptions must have image fields populated so that

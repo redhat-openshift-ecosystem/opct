@@ -3,6 +3,7 @@ package run
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"text/template"
 
 	efs "github.com/redhat-openshift-ecosystem/opct/internal/assets"
@@ -38,7 +39,7 @@ func loadPluginManifests(r *RunOptions) ([]*manifest.Manifest, error) {
 	}
 	for _, m := range pluginManifests {
 		log.Debugf("Loading plugin: %s", m)
-		pluginManifestTpl, err := efs.GetData().ReadFile(m)
+		pluginManifestTpl, err := fs.ReadFile(efs.GetData(), m)
 		if err != nil {
 			log.Errorf("error reading config for plugin %s: %v", m, err)
 			return nil, err

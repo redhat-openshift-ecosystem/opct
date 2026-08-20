@@ -826,21 +826,26 @@ The maximum value is the highest value of slow requests reported in the etcd log
 
 			isUpgrade := re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade
 			res := CheckResult{Name: CheckResultNameFail, Target: "passed", Actual: "N/A"}
-			checkPlugins := []string{
-				plugin.PluginNameKubernetesConformance,
-				plugin.PluginNameOpenShiftConformance,
-				plugin.PluginNameArtifactsCollector,
+
+			// In upgrade mode, check the upgrade plugin (05) and artifacts collector (99).
+			// In default mode, check the conformance plugins (10, 20) and artifacts collector (99).
+			var checkPlugins []string
+			if isUpgrade {
+				checkPlugins = []string{
+					plugin.PluginNameOpenShiftUpgrade,
+					plugin.PluginNameArtifactsCollector,
+				}
+			} else {
+				checkPlugins = []string{
+					plugin.PluginNameKubernetesConformance,
+					plugin.PluginNameOpenShiftConformance,
+					plugin.PluginNameArtifactsCollector,
+				}
 			}
+
 			invalidPluginIds := []string{}
-			skippedConformance := false
 			for _, pluginName := range checkPlugins {
 				if _, ok := re.Provider.Plugins[pluginName]; !ok {
-					if isUpgrade &&
-						(pluginName == plugin.PluginNameKubernetesConformance ||
-							pluginName == plugin.PluginNameOpenShiftConformance) {
-						skippedConformance = true
-						continue
-					}
 					return res
 				}
 				p := re.Provider.Plugins[pluginName]
@@ -852,12 +857,6 @@ The maximum value is the highest value of slow requests reported in the etcd log
 
 			if len(invalidPluginIds) > 0 {
 				res.Actual = fmt.Sprintf("Failed%v", invalidPluginIds)
-				return res
-			}
-
-			if skippedConformance {
-				res.Name = CheckResultNameSkip
-				res.Actual = "upgrade mode"
 				return res
 			}
 
