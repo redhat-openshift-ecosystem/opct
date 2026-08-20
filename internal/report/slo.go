@@ -460,6 +460,9 @@ Check the test logs for OpenShift conformance suite, Priority section, to isolat
 			}
 			cnt := *re.Provider.ErrorCounters
 			if _, ok := cnt["total"]; !ok {
+				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
+					return CheckResult{Name: CheckResultNameSkip, Actual: "upgrade mode"}
+				}
 				res.Message = "Unable to load Total Counter"
 				res.Name = CheckResultNameFail
 				res.Actual = "ERR !total"
