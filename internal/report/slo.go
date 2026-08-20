@@ -235,7 +235,7 @@ $ omc get pods -A |egrep -v '(Running|Completed)'
 			prefix := "Check Failed - " + CheckID001
 			if _, ok := re.Provider.Plugins[plugin.PluginNameKubernetesConformance]; !ok {
 				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
-					return CheckResult{Name: CheckResultNameSkip, Actual: "skipped (upgrade mode)"}
+					return CheckResult{Name: CheckResultNameSkip, Actual: "upgrade mode"}
 				}
 				log.Debugf("%s Runtime: processed plugin data not found: %v", prefix, re.Provider.Plugins[plugin.PluginNameKubernetesConformance])
 				return res
@@ -291,7 +291,7 @@ $ /opct report archive.tar.gz
 			}
 			if _, ok := re.Provider.Plugins[plugin.PluginNameOpenShiftConformance]; !ok {
 				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
-					return CheckResult{Name: CheckResultNameSkip, Actual: "skipped (upgrade mode)"}
+					return CheckResult{Name: CheckResultNameSkip, Actual: "upgrade mode"}
 				}
 				return res
 			}
@@ -351,7 +351,7 @@ $ firefox http://localhost:8000
 			}
 			if _, ok := re.Provider.Plugins[plugin.PluginNameOpenShiftConformance]; !ok {
 				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
-					return CheckResult{Name: CheckResultNameSkip, Actual: "skipped (upgrade mode)"}
+					return CheckResult{Name: CheckResultNameSkip, Actual: "upgrade mode"}
 				}
 				return res
 			}
@@ -407,7 +407,7 @@ Check the test logs for OpenShift conformance suite, Priority section, to isolat
 			}
 			if _, ok := re.Provider.Plugins[plugin.PluginNameOpenShiftConformance]; !ok {
 				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
-					return CheckResult{Name: CheckResultNameSkip, Actual: "skipped (upgrade mode)"}
+					return CheckResult{Name: CheckResultNameSkip, Actual: "upgrade mode"}
 				}
 				return res
 			}
@@ -857,7 +857,7 @@ The maximum value is the highest value of slow requests reported in the etcd log
 
 			if skippedConformance {
 				res.Name = CheckResultNameSkip
-				res.Actual = "skipped (upgrade mode)"
+				res.Actual = "upgrade mode"
 				return res
 			}
 
@@ -891,7 +891,7 @@ Possible causes of failed plugins:
 			if _, ok := re.Provider.Plugins[plugin.PluginNameKubernetesConformance]; !ok {
 				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
 					res.Name = CheckResultNameSkip
-					res.Actual = "skipped (upgrade mode)"
+					res.Actual = "upgrade mode"
 					return res
 				}
 				res.Actual = "ERR !plugin"
@@ -928,7 +928,7 @@ conformance suite across different releases. This test is a sanity test to ensur
 			if _, ok := re.Provider.Plugins[plugin.PluginNameOpenShiftConformance]; !ok {
 				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
 					res.Name = CheckResultNameSkip
-					res.Actual = "skipped (upgrade mode)"
+					res.Actual = "upgrade mode"
 					return res
 				}
 				res.Actual = "ERR !plugin"
