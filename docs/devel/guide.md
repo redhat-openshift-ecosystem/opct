@@ -29,7 +29,7 @@ Note that any version in v0.* will be considered part of the **preview release**
 Release process checklist:
 
 - Make sure the base image has Security issues on Quay Security Scan. Steps to check:
-    - Build a "dev tag" for Plugin image: `cd openshift-tests-provider-cert && make build-dev`
+    - Build a "dev tag" for Plugin image: `cd plugin-openshift-tests && make build-dev`
     - Check the Security Scan results on https://quay.io/repository/opct/opct?tab=tags
         - if there is security scan needed to fix on the base image, you must build the base image and tools image with the following steps:
         - 1. bump the version with fixes on the base image. Example: [provider-certification-plugins#41](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/pull/41)
@@ -74,7 +74,7 @@ ansible-playbook hack/opct-runner/opct-run-tool-preflight.yaml  -e cluster_name=
 ```
 - Run the tool
 ```bash
-./opct-linux-amd64 run -w --plugins-image=openshift-tests-provider-cert:v0.4.0-beta2
+./opct-linux-amd64 run -w --plugins-image=plugin-openshift-tests:latest
 ```
 - Collect the results and compare with old releases. Baseline CI artifacts is available [here](https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html).
 
@@ -165,7 +165,7 @@ BUILD_PLATFORMS+=( ["windows-amd64"]="windows/amd64" )
 ```bash
 ~/opct/bin/opct-devel run -w \
     --sonobuoy-image quay.io/mrbraga/sonobuoy:v0.56.12-linux-arm64 \
-    --plugins-image openshift-tests-provider-cert:v0.5.0-alpha.3
+    --plugins-image plugin-openshift-tests:latest
 ```
 
 [image-mirror-sonobuoy]: https://github.com/redhat-openshift-ecosystem/opct/tree/main/hack/image-mirror-sonobuoy/mirror.sh
