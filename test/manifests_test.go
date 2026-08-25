@@ -2,6 +2,7 @@ package test
 
 import (
 	"embed"
+	"io/fs"
 	"testing"
 
 	efs "github.com/redhat-openshift-ecosystem/opct/internal/assets"
@@ -21,11 +22,11 @@ func TestDataTemplatesPluginsManifests(t *testing.T) {
 		{
 			name: "process-manifest-template",
 			assert: func(tc *testCase) {
-				want, err := efs.GetData().ReadFile("testdata/plugins/sample-v0-ok.yaml")
+				want, err := fs.ReadFile(efs.GetData(), "testdata/plugins/sample-v0-ok.yaml")
 				if err != nil {
 					t.Fatalf("failed to read plugin reference from efs: %v", err)
 				}
-				manifestTpl, err := efs.GetData().ReadFile("testdata/templates/plugins/sample.yaml")
+				manifestTpl, err := fs.ReadFile(efs.GetData(), "testdata/templates/plugins/sample.yaml")
 				if err != nil {
 					t.Fatalf("failed to read plugin template from efs: %v", err)
 				}
@@ -40,7 +41,7 @@ func TestDataTemplatesPluginsManifests(t *testing.T) {
 		// TODO create tests for run.loadPluginManifests
 	}
 
-	efs.UpdateData(&testTemplatesPluginsAll)
+	efs.UpdateData(testTemplatesPluginsAll)
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.assert(&tc)

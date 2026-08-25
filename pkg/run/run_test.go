@@ -2,7 +2,7 @@ package run
 
 import "testing"
 
-// TestResolveKubernetesSuiteName verifies the version-based suite selection for OCP 4.x and 5.x clusters.
+// TestResolveKubernetesSuiteName verifies version-based suite selection.
 func TestResolveKubernetesSuiteName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -11,45 +11,51 @@ func TestResolveKubernetesSuiteName(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "OCP 4.19 uses serial suite",
+			name:     "OCP 4.0 uses conformance suite",
 			major:    4,
-			minor:    19,
+			minor:    0,
 			expected: "kubernetes/conformance",
 		},
 		{
-			name:     "OCP 4.20 uses parallel suite",
-			major:    4,
-			minor:    20,
-			expected: "kubernetes/conformance/parallel",
-		},
-		{
-			name:     "OCP 4.21 uses parallel suite",
-			major:    4,
-			minor:    21,
-			expected: "kubernetes/conformance/parallel",
-		},
-		{
-			name:     "OCP 4.18 uses serial suite",
+			name:     "OCP 4.18 uses conformance suite",
 			major:    4,
 			minor:    18,
 			expected: "kubernetes/conformance",
 		},
 		{
-			name:     "OCP 5.0 uses parallel suite",
-			major:    5,
-			minor:    0,
-			expected: "kubernetes/conformance/parallel",
+			name:     "OCP 4.19 uses conformance suite",
+			major:    4,
+			minor:    19,
+			expected: "kubernetes/conformance",
 		},
 		{
-			name:     "OCP 5.1 uses parallel suite",
+			name:     "OCP 4.20 uses parallel/minimal suite",
+			major:    4,
+			minor:    20,
+			expected: "kubernetes/conformance/parallel/minimal",
+		},
+		{
+			name:     "OCP 4.21 uses conformance suite",
+			major:    4,
+			minor:    21,
+			expected: "kubernetes/conformance",
+		},
+		{
+			name:     "OCP 4.22 uses conformance suite",
+			major:    4,
+			minor:    22,
+			expected: "kubernetes/conformance",
+		},
+		{
+			name:     "OCP 5.0 uses conformance suite",
+			major:    5,
+			minor:    0,
+			expected: "kubernetes/conformance",
+		},
+		{
+			name:     "OCP 5.1 uses conformance suite",
 			major:    5,
 			minor:    1,
-			expected: "kubernetes/conformance/parallel",
-		},
-		{
-			name:     "OCP 4.0 uses serial suite",
-			major:    4,
-			minor:    0,
 			expected: "kubernetes/conformance",
 		},
 	}

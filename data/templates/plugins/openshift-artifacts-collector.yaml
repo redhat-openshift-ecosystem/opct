@@ -33,7 +33,7 @@ spec:
     - name: PLUGIN_NAME
       value: "openshift-artifacts-collector"
     - name: PLUGIN_BLOCKED_BY
-      value: "80-openshift-tests-replay"
+      value: "{{ if .IsUpgradeMode }}05-openshift-cluster-upgrade{{ else }}80-openshift-tests-replay{{ end }}"
     - name: IMAGE_OVERRIDE_MUST_GATHER
       value: "{{ .MustGatherMonitoringImage }}"
     - name: SKIP_KUBE_BURNER

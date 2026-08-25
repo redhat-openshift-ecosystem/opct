@@ -2,6 +2,7 @@ package data
 
 import (
 	"embed"
+	"io/fs"
 	"testing"
 
 	efs "github.com/redhat-openshift-ecosystem/opct/internal/assets"
@@ -45,7 +46,7 @@ func TestDataTemplatesPluginsManifests(t *testing.T) {
 					t.Fatalf("failed to read efs: %v", err)
 				}
 				for _, m := range manifests {
-					manifestFile, err := efs.GetData().ReadFile(m)
+					manifestFile, err := fs.ReadFile(efs.GetData(), m)
 					if err != nil {
 						t.Fatalf("unable to read manifest %s: %v", m, err)
 					}
@@ -60,7 +61,7 @@ func TestDataTemplatesPluginsManifests(t *testing.T) {
 		// TODO: add test for plugin manifest content are rendered as expected.
 	}
 
-	efs.UpdateData(&testTemplatesPluginsAll)
+	efs.UpdateData(testTemplatesPluginsAll)
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

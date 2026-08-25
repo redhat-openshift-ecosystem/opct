@@ -11,6 +11,7 @@ import (
 	coclient "github.com/openshift/client-go/config/clientset/versioned"
 	irclient "github.com/openshift/client-go/imageregistry/clientset/versioned"
 	mcfgclientset "github.com/openshift/client-go/machineconfiguration/clientset/versioned"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
 	"github.com/redhat-openshift-ecosystem/opct/pkg"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -246,7 +247,7 @@ func validateOpctNamespace(r *RunOptions, coreClient corev1.CoreV1Interface) []e
 func validateMachineConfigPool(r *RunOptions, restConfig *rest.Config) []error {
 	var result []error
 
-	if r.mode != "upgrade" {
+	if r.mode != plugin.WorkflowUpgrade {
 		return result
 	}
 

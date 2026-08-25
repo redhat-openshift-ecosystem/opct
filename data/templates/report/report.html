@@ -348,20 +348,30 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         // Section: Tests summary
         this.menuBody += `<dt class="text-light bg-secondary ps-1 mb-1"> Tests </dt>`
         dataP = []
-        dataP.push(this.getPluginStat("05-openshift-cluster-upgrade")[0])
-        dataP.push(this.getPluginStat("10-openshift-kube-conformance")[0])
-        dataP.push(this.getPluginStat("20-openshift-conformance-validated")[0])
-        dataP.push(this.getPluginStat("80-openshift-tests-replay")[0])
-        dataP.push(this.getPluginStat("99-openshift-artifacts-collector")[0])
+        const pluginNames = [
+          "05-openshift-cluster-upgrade",
+          "10-openshift-kube-conformance",
+          "20-openshift-conformance-validated",
+          "80-openshift-tests-replay",
+          "99-openshift-artifacts-collector",
+        ];
+        for (const pn of pluginNames) {
+          const stat = this.getPluginStat(pn);
+          if (stat) {
+            dataP.push(stat[0]);
+          }
+        }
         dataP.push({"Plugin Name": "Execution Time", "Time": this.report.summary.runtime.executionTime})
 
-        const pluginHeaders = new Map(Object.entries(dataP[0]));
-        let tbPluginsRes = {
-          data: dataP,
-          fields: pluginHeaders.keys(),
-          fieldMap: {}
+        if (dataP.length > 0) {
+          const pluginHeaders = new Map(Object.entries(dataP[0]));
+          let tbPluginsRes = {
+            data: dataP,
+            fields: pluginHeaders.keys(),
+            fieldMap: {}
+          }
+          this.menuBody += this.createTableHTML(table=tbPluginsRes);
         }
-        this.menuBody += this.createTableHTML(table=tbPluginsRes);
         this.menuBody += "<i>*Prio.Failures: Priority failures after filters</i><p>";
 
         this.menuBody += `<dt class="text-light bg-secondary ps-1 mb-1"> Overall counters </dt>`
@@ -517,6 +527,9 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
       },
       getPluginStat(name) {
         let plugin = this.report.provider.plugins[name];
+        if (!plugin) {
+          return null;
+        }
         logPath = "log-sonobuoy-"+ plugin.id +"-plugin.txt";
         pluginNameURL = "<a href=\"./"+ logPath +"\" target=\"_blank\">"+ plugin.id +"</a><br>"
         table = [{
@@ -567,6 +580,12 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         this.menuBody = this.pageHeadline
         this.menuBody += "<p>Results for conformance plugin: "+ pluginName +"</p>"
 
+        let plugin = this.report.provider.plugins[pluginName]
+        if (!plugin) {
+          this.menuBody += "<p><i>Plugin not loaded (skipped in upgrade mode)</i></p>"
+          return;
+        }
+
         // show plugin result summary
         let tbTests = {
           header: "Tests",
@@ -577,8 +596,6 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         }
         this.menuBody += this.createTableHTML(table=tbTests);
         this.menuBody += "<i>*Prio.Failures: Priority failures after filters</i><p>";
-
-        let plugin = this.report.provider.plugins[pluginName]
 
         this.menuBody += "<p><b>Failures filtered by OPCT report pipeline:</b></p>";
         // Create table with counters by filter

@@ -339,7 +339,8 @@ func showReportAggregatedSummary(re *report.ReportData) error {
 
 	showPluginSummary := func(w *tabwriter.Writer, pluginName string) {
 		if _, ok := re.Provider.Plugins[pluginName]; !ok {
-			errlog.LogError(fmt.Errorf("unable to load plugin %s", pluginName))
+			log.Debugf("Skipping summary for absent plugin %s", pluginName)
+			return
 		}
 		plK8S := re.Provider.Plugins[pluginName]
 		name := fmt.Sprintf(" %s", plK8S.Name)
@@ -432,40 +433,34 @@ func showReportAggregatedSummary(re *report.ReportData) error {
 		}
 		return ""
 	}
-	rowsProv = append(rowsProv, table.Row{
-		summary.SuiteNameKubernetesConformance,
-		fmt.Sprintf("%d %s",
-			re.Provider.Plugins[plugin.PluginNameKubernetesConformance].Suite.Count,
-			checkEmpty(re.Provider.Plugins[plugin.PluginNameKubernetesConformance].Suite.Count),
-		),
-	})
-	rowsProv = append(rowsProv, table.Row{
-		summary.SuiteNameOpenshiftConformance,
-		fmt.Sprintf("%d %s",
-			re.Provider.Plugins[plugin.PluginNameOpenShiftConformance].Suite.Count,
-			checkEmpty(re.Provider.Plugins[plugin.PluginNameOpenShiftConformance].Suite.Count),
-		),
-	})
+	if p, ok := re.Provider.Plugins[plugin.PluginNameKubernetesConformance]; ok && p.Suite != nil {
+		rowsProv = append(rowsProv, table.Row{
+			summary.SuiteNameKubernetesConformance,
+			fmt.Sprintf("%d %s", p.Suite.Count, checkEmpty(p.Suite.Count)),
+		})
+	}
+	if p, ok := re.Provider.Plugins[plugin.PluginNameOpenShiftConformance]; ok && p.Suite != nil {
+		rowsProv = append(rowsProv, table.Row{
+			summary.SuiteNameOpenshiftConformance,
+			fmt.Sprintf("%d %s", p.Suite.Count, checkEmpty(p.Suite.Count)),
+		})
+	}
 	if baselineProcessed {
 		p := re.Baseline.Plugins[plugin.PluginNameKubernetesConformance]
-		if p != nil && p.Suite != nil {
+		pp, ppOk := re.Provider.Plugins[plugin.PluginNameKubernetesConformance]
+		if p != nil && p.Suite != nil && ppOk && pp.Suite != nil {
 			rowsPBas = append(rowsPBas, table.Row{
 				summary.SuiteNameKubernetesConformance,
-				fmt.Sprintf("%d %s",
-					re.Provider.Plugins[plugin.PluginNameKubernetesConformance].Suite.Count,
-					checkEmpty(re.Provider.Plugins[plugin.PluginNameKubernetesConformance].Suite.Count),
-				),
+				fmt.Sprintf("%d %s", pp.Suite.Count, checkEmpty(pp.Suite.Count)),
 				fmt.Sprintf("%d %s", p.Suite.Count, checkEmpty(p.Suite.Count)),
 			})
 		}
 		p = re.Baseline.Plugins[plugin.PluginNameOpenShiftConformance]
-		if p != nil && p.Suite != nil {
+		pp, ppOk = re.Provider.Plugins[plugin.PluginNameOpenShiftConformance]
+		if p != nil && p.Suite != nil && ppOk && pp.Suite != nil {
 			rowsPBas = append(rowsPBas, table.Row{
 				summary.SuiteNameOpenshiftConformance,
-				fmt.Sprintf("%d %s",
-					re.Provider.Plugins[plugin.PluginNameOpenShiftConformance].Suite.Count,
-					checkEmpty(re.Provider.Plugins[plugin.PluginNameOpenShiftConformance].Suite.Count),
-				),
+				fmt.Sprintf("%d %s", pp.Suite.Count, checkEmpty(pp.Suite.Count)),
 				fmt.Sprintf("%d %s", p.Suite.Count, checkEmpty(p.Suite.Count)),
 			})
 		}

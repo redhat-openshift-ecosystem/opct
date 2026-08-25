@@ -14,9 +14,28 @@ test suites on OpenShift/OKD installations on cloud providers or hardware.
 - Download OPCT
 
 ```bash
-BINARY=opct-linux-amd64
-wget -O /usr/local/bin/opct "https://github.com/redhat-openshift-ecosystem/opct/releases/download/latest/${BINARY}"
-chmod u+x /usr/local/bin/opct
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+
+case "$(uname -m)" in
+  x86_64|amd64)
+    ARCH="amd64"
+    ;;
+  arm64|aarch64)
+    ARCH="arm64"
+    ;;
+  *)
+    echo "Unsupported architecture: $(uname -m)" >&2
+    exit 1
+    ;;
+esac
+
+BINARY="opct-${OS}-${ARCH}"
+
+curl -fL \
+  -o /usr/local/bin/opct \
+  "https://github.com/redhat-openshift-ecosystem/opct/releases/download/latest/${BINARY}"
+
+chmod +x /usr/local/bin/opct
 ```
 
 - Setup a dedicated node to run the test environment (preferred to prevent disruption)

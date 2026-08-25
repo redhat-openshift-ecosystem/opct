@@ -3,9 +3,11 @@ package run
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"text/template"
 
 	efs "github.com/redhat-openshift-ecosystem/opct/internal/assets"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
 	log "github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/loader"
 	"github.com/vmware-tanzu/sonobuoy/pkg/plugin/manifest"
@@ -37,7 +39,7 @@ func loadPluginManifests(r *RunOptions) ([]*manifest.Manifest, error) {
 	}
 	for _, m := range pluginManifests {
 		log.Debugf("Loading plugin: %s", m)
-		pluginManifestTpl, err := efs.GetData().ReadFile(m)
+		pluginManifestTpl, err := fs.ReadFile(efs.GetData(), m)
 		if err != nil {
 			log.Errorf("error reading config for plugin %s: %v", m, err)
 			return nil, err
@@ -58,6 +60,21 @@ func loadPluginManifests(r *RunOptions) ([]*manifest.Manifest, error) {
 			log.Errorf("error loading configuration for plugin %s: %v", m, err)
 			return nil, err
 		}
+
+		// Skip conformance plugins (10, 20, 80) in upgrade mode.
+		// These plugins produce invalid results due to binary/release version
+		// mismatch when the cluster is upgraded mid-run.
+		if r.mode == plugin.WorkflowUpgrade {
+			pluginName := asset.SonobuoyConfig.PluginName
+			switch pluginName {
+			case plugin.PluginNameKubernetesConformance,
+				plugin.PluginNameOpenShiftConformance,
+				plugin.PluginNameConformanceReplay:
+				log.Infof("Skipping plugin %s in upgrade mode", pluginName)
+				continue
+			}
+		}
+
 		manifests = append(manifests, &asset)
 	}
 

@@ -234,6 +234,9 @@ $ omc get pods -A |egrep -v '(Running|Completed)'
 			res := CheckResult{Name: CheckResultNameFail, Target: "Priority==0|Total!=Failed"}
 			prefix := "Check Failed - " + CheckID001
 			if _, ok := re.Provider.Plugins[plugin.PluginNameKubernetesConformance]; !ok {
+				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
+					return CheckResult{Name: CheckResultNameSkip, Actual: "upgrade mode"}
+				}
 				log.Debugf("%s Runtime: processed plugin data not found: %v", prefix, re.Provider.Plugins[plugin.PluginNameKubernetesConformance])
 				return res
 			}
@@ -287,6 +290,9 @@ $ /opct report archive.tar.gz
 				Target: "Pass>=98.5%(Fail>1.5%)",
 			}
 			if _, ok := re.Provider.Plugins[plugin.PluginNameOpenShiftConformance]; !ok {
+				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
+					return CheckResult{Name: CheckResultNameSkip, Actual: "upgrade mode"}
+				}
 				return res
 			}
 			// "Acceptance" are relative, the baselines is observed to set
@@ -344,6 +350,9 @@ $ firefox http://localhost:8000
 				Actual: "N/A",
 			}
 			if _, ok := re.Provider.Plugins[plugin.PluginNameOpenShiftConformance]; !ok {
+				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
+					return CheckResult{Name: CheckResultNameSkip, Actual: "upgrade mode"}
+				}
 				return res
 			}
 			// "Acceptance" are relative, the baselines is observed to set
@@ -397,6 +406,9 @@ Check the test logs for OpenShift conformance suite, Priority section, to isolat
 				Actual: "N/A",
 			}
 			if _, ok := re.Provider.Plugins[plugin.PluginNameOpenShiftConformance]; !ok {
+				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
+					return CheckResult{Name: CheckResultNameSkip, Actual: "upgrade mode"}
+				}
 				return res
 			}
 			// "Acceptance" are relative, the baselines is observed to set
@@ -448,6 +460,9 @@ Check the test logs for OpenShift conformance suite, Priority section, to isolat
 			}
 			cnt := *re.Provider.ErrorCounters
 			if _, ok := cnt["total"]; !ok {
+				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
+					return CheckResult{Name: CheckResultNameSkip, Actual: "upgrade mode"}
+				}
 				res.Message = "Unable to load Total Counter"
 				res.Name = CheckResultNameFail
 				res.Actual = "ERR !total"
@@ -812,21 +827,34 @@ The maximum value is the highest value of slow requests reported in the etcd log
 		Test: func() CheckResult {
 			prefix := "Check Failed - " + CheckID022
 
+			isUpgrade := re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade
 			res := CheckResult{Name: CheckResultNameFail, Target: "passed", Actual: "N/A"}
-			checkPlugins := []string{
-				plugin.PluginNameKubernetesConformance,
-				plugin.PluginNameOpenShiftConformance,
-				plugin.PluginNameArtifactsCollector,
+
+			// In upgrade mode, check the upgrade plugin (05) and artifacts collector (99).
+			// In default mode, check the conformance plugins (10, 20) and artifacts collector (99).
+			var checkPlugins []string
+			if isUpgrade {
+				checkPlugins = []string{
+					plugin.PluginNameOpenShiftUpgrade,
+					plugin.PluginNameArtifactsCollector,
+				}
+			} else {
+				checkPlugins = []string{
+					plugin.PluginNameKubernetesConformance,
+					plugin.PluginNameOpenShiftConformance,
+					plugin.PluginNameArtifactsCollector,
+				}
 			}
+
 			invalidPluginIds := []string{}
-			for _, plugin := range checkPlugins {
-				if _, ok := re.Provider.Plugins[plugin]; !ok {
+			for _, pluginName := range checkPlugins {
+				if _, ok := re.Provider.Plugins[pluginName]; !ok {
 					return res
 				}
-				p := re.Provider.Plugins[plugin]
+				p := re.Provider.Plugins[pluginName]
 				if p.Stat.Total == p.Stat.Failed {
 					log.Debugf("%s Runtime: Total and Failed counters are equals indicating execution failure", prefix)
-					invalidPluginIds = append(invalidPluginIds, strings.Split(plugin, "-")[0])
+					invalidPluginIds = append(invalidPluginIds, strings.Split(pluginName, "-")[0])
 				}
 			}
 
@@ -863,6 +891,11 @@ Possible causes of failed plugins:
 				Actual: "N/A",
 			}
 			if _, ok := re.Provider.Plugins[plugin.PluginNameKubernetesConformance]; !ok {
+				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
+					res.Name = CheckResultNameSkip
+					res.Actual = "upgrade mode"
+					return res
+				}
 				res.Actual = "ERR !plugin"
 				return res
 			}
@@ -895,6 +928,11 @@ conformance suite across different releases. This test is a sanity test to ensur
 				Actual: "N/A",
 			}
 			if _, ok := re.Provider.Plugins[plugin.PluginNameOpenShiftConformance]; !ok {
+				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
+					res.Name = CheckResultNameSkip
+					res.Actual = "upgrade mode"
+					return res
+				}
 				res.Actual = "ERR !plugin"
 				return res
 			}

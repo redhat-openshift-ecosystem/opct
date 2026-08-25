@@ -11,6 +11,6 @@ import (
 var vfs embed.FS
 
 func main() {
-	assets.UpdateData(&vfs)
+	assets.UpdateData(vfs)
 	cmd.Execute()
 }

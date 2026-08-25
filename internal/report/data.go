@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"os"
 	"sort"
 	"strings"
@@ -488,10 +489,14 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 	}
 
 	// Aggregate Plugin errors
-	reResult.ErrorCounters = archive.MergeErrorCounters(
-		reResult.Plugins[plugin.PluginNameKubernetesConformance].ErrorCounters,
-		reResult.Plugins[plugin.PluginNameOpenShiftConformance].ErrorCounters,
-	)
+	var ecK8s, ecOCP *archive.ErrorCounter
+	if p, ok := reResult.Plugins[plugin.PluginNameKubernetesConformance]; ok {
+		ecK8s = p.ErrorCounters
+	}
+	if p, ok := reResult.Plugins[plugin.PluginNameOpenShiftConformance]; ok {
+		ecOCP = p.ErrorCounters
+	}
+	reResult.ErrorCounters = archive.MergeErrorCounters(ecK8s, ecOCP)
 
 	// Runtime
 	if reResult.Runtime == nil {
@@ -514,7 +519,7 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 	if rs.Sonobuoy != nil && rs.Sonobuoy.MetaConfig != nil {
 		reResult.Runtime.ServerConfig = rs.Sonobuoy.MetaConfig
 	}
-	if rs.Sonobuoy != nil && rs.Sonobuoy.MetaConfig != nil {
+	if rs.Sonobuoy != nil && rs.Sonobuoy.OpctConfig != nil {
 		reResult.Runtime.OpctConfig = rs.Sonobuoy.OpctConfig
 	}
 
@@ -553,7 +558,7 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 	}
 	for i := range reResult.Runtime.OpctConfig {
 		if reResult.Runtime.OpctConfig[i].Name == "run-mode" {
-			re.Setup.API.Workflow = reResult.Runtime.ServerConfig[i].Value
+			re.Setup.API.Workflow = reResult.Runtime.OpctConfig[i].Value
 		}
 	}
 	return nil
@@ -585,6 +590,11 @@ func (re *ReportData) populatePluginConformance(rs *summary.ResultSummary, reRes
 	case plugin.PluginNameArtifactsCollector:
 		pluginSum = rs.GetOpenShift().GetResultArtifactsCollector()
 		pluginTitle = "Results for Plugin Collector"
+	}
+
+	if pluginSum == nil || pluginSum.Name == "" {
+		log.Debugf("Skipping report for absent plugin %s", pluginID)
+		return nil
 	}
 
 	pluginRes := pluginSum.Status
@@ -764,7 +774,7 @@ func (re *ReportData) SaveResults(path string) error {
 			destFile = fmt.Sprintf("%s/index.html", path)
 		}
 
-		datS, err := vfs.GetData().ReadFile(srcTemplate)
+		datS, err := fs.ReadFile(vfs.GetData(), srcTemplate)
 		if err != nil {
 			return fmt.Errorf("unable to read file %q from VFS: %v", srcTemplate, err)
 		}

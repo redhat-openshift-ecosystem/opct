@@ -14,6 +14,10 @@ const (
 	// Old Plugin names (prior v0.2). It's used to keep compatibility
 	PluginOldNameKubernetesConformance = "openshift-kube-conformance"
 	PluginOldNameOpenShiftConformance  = "openshift-conformance-validated"
+
+	// WorkflowUpgrade is the run mode/workflow name for the upgrade path.
+	// Used by both the run-path (pkg/run) and report-path (internal/report).
+	WorkflowUpgrade = "upgrade"
 )
 
 type PluginDefinition struct {
