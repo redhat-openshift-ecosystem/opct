@@ -165,11 +165,11 @@ func (mg *MustGatherMetrics) extractMetrics(tarReader *tar.Reader) error {
 		// Read metric data
 		var metricPayload bytes.Buffer
 		if _, err := io.Copy(&metricPayload, gzReader); err != nil {
-			gzReader.Close()
+			_ = gzReader.Close()
 			log.Warnf("Failed to read %s: %v", fileName, err)
 			continue
 		}
-		gzReader.Close()
+		_ = gzReader.Close()
 
 		// Parse Prometheus JSON
 		var promResponse PrometheusResponse
