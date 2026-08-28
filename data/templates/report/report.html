@@ -215,8 +215,8 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         chartColors: ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'],
         chartInstances: {},
         etcdCharts: [
-          { id: "etcd-chart-0", path: "./metrics/query_range-etcd-disk-fsync-wal-duration-p99.json.gz.json", title: "etcd fsync WAL p99", unit: "ms", convertToMs: true },
-          { id: "etcd-chart-1", path: "./metrics/query_range-etcd-disk-fsync-db-duration-p99.json.gz.json", title: "etcd fsync DB p99", unit: "ms", convertToMs: true },
+          { id: "etcd-chart-0", path: "./metrics/query_range-etcd-disk-fsync-wal-duration-p99.json.gz.json", title: "etcd fsync WAL p99", label: "instance", unit: "ms", convertToMs: true },
+          { id: "etcd-chart-1", path: "./metrics/query_range-etcd-disk-fsync-db-duration-p99.json.gz.json", title: "etcd fsync DB p99", label: "instance", unit: "ms", convertToMs: true },
         ],
       };
     },
@@ -905,8 +905,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
               }
 
               let datasets = promResponse.data.result.map((result, i) => {
-                // Extract label from metric (first non-__name__ key)
-                let labelKey = Object.keys(result.metric).find(k => k !== '__name__') || 'instance';
+                let labelKey = chart.label || 'instance';
                 let labelValue = result.metric[labelKey] || 'unknown';
 
                 // Convert Prometheus values [timestamp, "value"] to Chart.js format

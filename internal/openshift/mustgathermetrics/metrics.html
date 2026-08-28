@@ -159,15 +159,36 @@
 
 <script>
 const chartConfigs = [
-  { id: "chart-0", path: "./query_range-etcd-disk-fsync-wal-duration-p99.json.gz.json", title: "etcd fsync WAL p99", unit: "ms", convertToMs: true },
-  { id: "chart-1", path: "./query_range-etcd-disk-fsync-db-duration-p99.json.gz.json", title: "etcd fsync DB p99", unit: "ms", convertToMs: true },
-  { id: "chart-2", path: "./query_range-etcd-peer-round-trip-time.json.gz.json", title: "etcd peer round trip time", unit: "ms", convertToMs: true },
-  { id: "chart-3", path: "./query_range-etcd-total-leader-elections-day.json.gz.json", title: "etcd total leader elections per day", unit: "count", convertToMs: false },
-  { id: "chart-4", path: "./query_range-etcd-request-duration-p99.json.gz.json", title: "etcd request duration p99", unit: "ms", convertToMs: true },
-  { id: "chart-5", path: "./query_range-api-kas-request-duration-p99.json.gz.json", title: "Kube API Server request duration p99", unit: "ms", convertToMs: true },
+  { id: "chart-0", path: "./query_range-etcd-disk-fsync-wal-duration-p99.json.gz.json", title: "etcd fsync WAL p99", label: "instance", unit: "ms", convertToMs: true },
+  { id: "chart-1", path: "./query_range-etcd-disk-fsync-db-duration-p99.json.gz.json", title: "etcd fsync DB p99", label: "instance", unit: "ms", convertToMs: true },
+  { id: "chart-2", path: "./query_range-etcd-peer-round-trip-time.json.gz.json", title: "etcd peer round trip time", label: "instance", unit: "ms", convertToMs: true },
+  { id: "chart-3", path: "./query_range-etcd-total-leader-elections-day.json.gz.json", title: "etcd total leader elections per day", label: "instance", unit: "count", convertToMs: false },
+  { id: "chart-4", path: "./query_range-etcd-request-duration-p99.json.gz.json", title: "etcd request duration p99", label: "operation", unit: "ms", convertToMs: true },
+  { id: "chart-5", path: "./query_range-api-kas-request-duration-p99.json.gz.json", title: "Kube API Server request duration p99", label: "verb", unit: "ms", convertToMs: true },
 ];
 
 const chartColors = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'];
+
+function metricLabelValue(result, config) {
+  const labelKey = config.label || 'instance';
+  return result.metric[labelKey] || 'unknown';
+}
+
+function buildDatasets(promResponse, config, borderWidth) {
+  return promResponse.data.result.map((result, i) => ({
+    label: metricLabelValue(result, config),
+    data: result.values.map(v => ({
+      x: new Date(v[0] * 1000),
+      y: config.convertToMs ? parseFloat(v[1]) * 1000 : parseFloat(v[1]),
+    })),
+    borderColor: chartColors[i % chartColors.length],
+    backgroundColor: 'transparent',
+    borderWidth: borderWidth,
+    pointRadius: 0,
+    tension: 0.3,
+  }));
+}
+
 const chartInstances = {};
 let modalChart = null;
 
@@ -197,25 +218,7 @@ chartConfigs.forEach(config => {
         throw new Error('Invalid Prometheus response format');
       }
 
-      const datasets = promResponse.data.result.map((result, i) => {
-        const labelKey = Object.keys(result.metric).find(k => k !== '__name__') || 'instance';
-        const labelValue = result.metric[labelKey] || 'unknown';
-
-        const dataPoints = result.values.map(v => ({
-          x: new Date(v[0] * 1000),
-          y: config.convertToMs ? parseFloat(v[1]) * 1000 : parseFloat(v[1])  // Convert seconds to ms
-        }));
-
-        return {
-          label: labelValue,
-          data: dataPoints,
-          borderColor: chartColors[i % chartColors.length],
-          backgroundColor: 'transparent',
-          borderWidth: 1.5,
-          pointRadius: 0,
-          tension: 0.3,
-        };
-      });
+      const datasets = buildDatasets(promResponse, config, 1.5);
 
       const canvas = document.getElementById(config.id);
       if (!canvas) return;
@@ -295,25 +298,7 @@ function expandChart(config) {
         throw new Error('Invalid Prometheus response format');
       }
 
-      const datasets = promResponse.data.result.map((result, i) => {
-        const labelKey = Object.keys(result.metric).find(k => k !== '__name__') || 'instance';
-        const labelValue = result.metric[labelKey] || 'unknown';
-
-        const dataPoints = result.values.map(v => ({
-          x: new Date(v[0] * 1000),
-          y: config.convertToMs ? parseFloat(v[1]) * 1000 : parseFloat(v[1])  // Convert seconds to ms
-        }));
-
-        return {
-          label: labelValue,
-          data: dataPoints,
-          borderColor: chartColors[i % chartColors.length],
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          pointRadius: 0,
-          tension: 0.3,
-        };
-      });
+      const datasets = buildDatasets(promResponse, config, 2);
 
       modalChart = new Chart(modalCanvas, {
         type: 'line',
