@@ -1028,6 +1028,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
               });
             })
             .catch(() => {
+              if (renderToken !== this._chartRenderToken) return;
               let el = document.getElementById(chart.id);
               if (el) el.parentElement.innerHTML = '<p class="text-muted"><i>Chart not available</i></p>';
             });
