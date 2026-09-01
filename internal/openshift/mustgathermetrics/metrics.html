@@ -7,6 +7,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js" integrity="sha384-b0GXujLkk9eYYSmcSfoyZbfyElGAQnDyY0skCHSG6w3JgTMFnz11ggrTAr7seu9f" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" integrity="sha384-cVMg8E3QFwTvGCDuK+ET4PD341jF3W8nO1auiXfuZNQkzbUUiBGLsIQUE+b1mxws" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js" integrity="sha384-Cs3dgUx6+jDxxuqHvVH8Onpyj2LF1gKZurLDlhqzuJmUqVYMJ0THTWpxK5Z086Zm" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js" integrity="sha384-dwwI6ICEN/0ZQlS5owhUa/6ZzvwUPmjH45bFVCAcjgjTulbHJvlE+TGU3g1k0N3R" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js" integrity="sha384-jLwhcmGu/RL8PSTUEl/559f8QVLL4QqM+HBvoZlt4F7XCdsdoDGAwW4nPFfoM7lU" crossorigin="anonymous"></script>
   <style>
@@ -162,6 +163,7 @@ const defaultChartColors = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f
 let chartColors = defaultChartColors.slice();
 const chartInstances = {};
 let modalChart = null;
+let modalExpandToken = 0;
 
 function metricLabelValue(result, config) {
   const labelKey = config.label || 'instance';
@@ -280,6 +282,7 @@ function initDashboard(chartConfigs) {
 }
 
 function expandChart(config) {
+  const expandToken = ++modalExpandToken;
   const modal = document.getElementById('chart-modal');
   const modalTitle = document.getElementById('modal-chart-title');
   const modalCanvas = document.getElementById('modal-chart-canvas');
@@ -289,10 +292,14 @@ function expandChart(config) {
 
   if (modalChart) {
     modalChart.destroy();
+    modalChart = null;
   }
 
   axios.get(config.path)
     .then(resp => {
+      if (expandToken !== modalExpandToken) return;
+      if (!modal.classList.contains('active')) return;
+
       const promResponse = resp.data;
       if (!promResponse.data || !promResponse.data.result) {
         throw new Error('Invalid Prometheus response format');
@@ -305,12 +312,14 @@ function expandChart(config) {
       });
     })
     .catch(err => {
+      if (expandToken !== modalExpandToken) return;
       console.error('Failed to load expanded chart:', err);
       modalCanvas.parentElement.innerHTML = '<div class="chart-unavailable">Failed to load chart data</div>';
     });
 }
 
 function closeModal() {
+  modalExpandToken++;
   const modal = document.getElementById('chart-modal');
   modal.classList.remove('active');
   if (modalChart) {
