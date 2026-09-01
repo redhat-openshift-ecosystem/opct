@@ -871,9 +871,51 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         let instance = this.chartInstances[chartId];
         if (instance) instance.resetZoom();
       },
+      cloneChartDatasets(instance) {
+        return {
+          datasets: instance.data.datasets.map(ds => ({
+            label: ds.label,
+            data: ds.data.map(p => ({ x: new Date(p.x), y: p.y })),
+            borderColor: ds.borderColor,
+            backgroundColor: ds.backgroundColor,
+            borderWidth: ds.borderWidth,
+            pointRadius: ds.pointRadius,
+            tension: ds.tension,
+          })),
+        };
+      },
+      buildExpandedChartOptions(chart) {
+        return {
+          responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: 1.8,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12 } } },
+            tooltip: { mode: 'index', intersect: false },
+            zoom: {
+              zoom: { drag: { enabled: true, backgroundColor: 'rgba(78,121,167,0.15)', borderColor: '#4e79a7', borderWidth: 1 }, mode: 'x' },
+              pan: { enabled: true, mode: 'x' },
+            },
+          },
+          scales: {
+            x: { type: 'time', time: { tooltipFormat: 'yyyy-MM-dd HH:mm' }, ticks: { maxTicksAllowed: 8, font: { size: 10 } } },
+            y: {
+              beginAtZero: false,
+              ticks: { font: { size: 10 } },
+              title: {
+                display: true,
+                text: chart ? chart.unit : '',
+                font: { size: 11, weight: 'bold' }
+              }
+            },
+          },
+        };
+      },
       expandChart(chartId) {
         let instance = this.chartInstances[chartId];
         if (!instance) return;
+        let chartConfig = this.etcdCharts.find(chart => chart.id === chartId);
         let overlay = document.createElement('div');
         overlay.className = 'etcd-chart-overlay';
         overlay.innerHTML = `<div class="etcd-chart-overlay-content">` +
@@ -882,32 +924,37 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
           `<button class="etcd-chart-btn" id="overlay-close" title="Close">&times;</button>` +
           `</div><canvas id="overlay-canvas"></canvas></div>`;
         document.body.appendChild(overlay);
-        let canvas = document.getElementById('overlay-canvas');
-        let expanded = new Chart(canvas, {
+
+        let expanded = null;
+        let closeOverlay = function() {
+          if (expanded) {
+            expanded.destroy();
+            expanded = null;
+          }
+          document.removeEventListener('keydown', onKeydown);
+          if (overlay.parentNode) {
+            document.body.removeChild(overlay);
+          }
+        };
+        let onKeydown = function(e) {
+          if (e.key === 'Escape') {
+            closeOverlay();
+          }
+        };
+
+        overlay.querySelector('#overlay-close').onclick = closeOverlay;
+        overlay.querySelector('#overlay-reset').onclick = function() {
+          if (expanded) expanded.resetZoom();
+        };
+        overlay.onclick = function(e) { if (e.target === overlay) { closeOverlay(); } };
+        document.addEventListener('keydown', onKeydown);
+
+        let canvas = overlay.querySelector('#overlay-canvas');
+        expanded = new Chart(canvas, {
           type: 'line',
-          data: JSON.parse(JSON.stringify(instance.data)),
-          options: Object.assign({}, JSON.parse(JSON.stringify(instance.options)), {
-            aspectRatio: 1.8,
-            plugins: {
-              legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12 } } },
-              tooltip: { mode: 'index', intersect: false },
-              zoom: {
-                zoom: { drag: { enabled: true, backgroundColor: 'rgba(78,121,167,0.15)', borderColor: '#4e79a7', borderWidth: 1 }, mode: 'x' },
-                pan: { enabled: true, mode: 'x' },
-              },
-            },
-          }),
+          data: this.cloneChartDatasets(instance),
+          options: this.buildExpandedChartOptions(chartConfig),
         });
-        // re-parse date objects lost in JSON serialization
-        expanded.data.datasets.forEach((ds, i) => {
-          ds.data = instance.data.datasets[i].data.map(p => ({ x: new Date(p.x), y: p.y }));
-          ds.borderColor = instance.data.datasets[i].borderColor;
-          ds.backgroundColor = instance.data.datasets[i].backgroundColor;
-        });
-        expanded.update();
-        document.getElementById('overlay-close').onclick = function() { expanded.destroy(); document.body.removeChild(overlay); };
-        document.getElementById('overlay-reset').onclick = function() { expanded.resetZoom(); };
-        overlay.onclick = function(e) { if (e.target === overlay) { expanded.destroy(); document.body.removeChild(overlay); } };
       },
       renderEtcdCharts() {
         // Generate render token to ignore stale axios responses
