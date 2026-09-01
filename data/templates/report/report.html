@@ -214,10 +214,8 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         menuBodyRight: '',
         chartColors: ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'],
         chartInstances: {},
-        etcdCharts: [
-          { id: "etcd-chart-0", path: "./metrics/query_range-etcd-disk-fsync-wal-duration-p99.json.gz.json", title: "etcd fsync WAL p99", label: "instance", unit: "ms", convertToMs: true },
-          { id: "etcd-chart-1", path: "./metrics/query_range-etcd-disk-fsync-db-duration-p99.json.gz.json", title: "etcd fsync DB p99", label: "instance", unit: "ms", convertToMs: true },
-        ],
+        etcdCharts: [],
+        metricsIndexPromise: null,
       };
     },
     methods: {
@@ -244,6 +242,19 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
       },
       appAddress() {
         return window.location.href.replace(/\/[^/]*$/, '')
+      },
+      loadMetricsIndex() {
+        if (!this.metricsIndexPromise) {
+          this.metricsIndexPromise = axios.get('./metrics/index.json')
+            .then(resp => {
+              if (resp.data.chartColors && resp.data.chartColors.length > 0) {
+                this.chartColors = resp.data.chartColors;
+              }
+              return resp.data.charts || [];
+            })
+            .catch(() => []);
+        }
+        return this.metricsIndexPromise;
       },
       fetchReport() {
         axios.defaults.headers.post['Content-Type'] ='application/json;charset=utf-8';
@@ -830,18 +841,30 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
           this.menuBodyRight = '<div class="alert alert-info" style="margin-bottom: 20px;">' +
             '<strong>📊 More Metrics:</strong> ' +
             '<a href="./metrics/metrics.html" target="_blank" style="text-decoration: underline;">Open full dashboard</a> ' +
-            'to view all 6 charts in an interactive grid dashboard with click-to-expand functionality.' +
+            'to view all charts in an interactive grid dashboard with click-to-expand functionality.' +
             '</div>'
-          for (let chart of this.etcdCharts) {
-            this.menuBodyRight += `<div class="etcd-chart-card" id="card-` + chart.id + `">` +
-              `<div class="etcd-chart-header"><h6>` + chart.title + `</h6>` +
-              `<div class="etcd-chart-toolbar">` +
-              `<button class="etcd-chart-btn" onclick="app_opct.resetChartZoom('` + chart.id + `')" title="Reset zoom">Reset</button>` +
-              `<button class="etcd-chart-btn" onclick="app_opct.expandChart('` + chart.id + `')" title="Expand chart">&#x26F6;</button>` +
-              `</div></div>` +
-              `<canvas id="` + chart.id + `"></canvas></div>`
-          }
-          this.$nextTick(() => { this.renderEtcdCharts(); });
+          this.loadMetricsIndex().then(allCharts => {
+            this.etcdCharts = allCharts
+              .filter(chart => chart.reportPreview)
+              .map((chart, i) => ({
+                id: 'etcd-chart-' + i,
+                path: './metrics/' + chart.path.replace(/^\.\//, ''),
+                title: chart.title,
+                label: chart.label,
+                unit: chart.unit,
+                convertToMs: chart.convertToMs,
+              }));
+            for (let chart of this.etcdCharts) {
+              this.menuBodyRight += `<div class="etcd-chart-card" id="card-` + chart.id + `">` +
+                `<div class="etcd-chart-header"><h6>` + chart.title + `</h6>` +
+                `<div class="etcd-chart-toolbar">` +
+                `<button class="etcd-chart-btn" onclick="app_opct.resetChartZoom('` + chart.id + `')" title="Reset zoom">Reset</button>` +
+                `<button class="etcd-chart-btn" onclick="app_opct.expandChart('` + chart.id + `')" title="Expand chart">&#x26F6;</button>` +
+                `</div></div>` +
+                `<canvas id="` + chart.id + `"></canvas></div>`
+            }
+            this.$nextTick(() => { this.renderEtcdCharts(); });
+          });
         }
       },
       resetChartZoom(chartId) {
