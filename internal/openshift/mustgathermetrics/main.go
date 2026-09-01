@@ -29,15 +29,19 @@ var indexHTML []byte
 
 // ChartConfig represents a single metric chart configuration
 type ChartConfig struct {
-	File  string `json:"file"`
-	Label string `json:"label"`
-	Title string `json:"title"`
-	ID    string `json:"id"`
+	File          string `json:"file"`
+	Label         string `json:"label"`
+	Title         string `json:"title"`
+	ID            string `json:"id"`
+	Unit          string `json:"unit"`
+	ConvertToMs   bool   `json:"convertToMs"`
+	ReportPreview bool   `json:"reportPreview"`
 }
 
 // ChartsConfig represents the configuration file structure
 type ChartsConfig struct {
-	Charts []ChartConfig `json:"charts"`
+	ChartColors []string      `json:"chartColors"`
+	Charts      []ChartConfig `json:"charts"`
 }
 
 // PrometheusResultMetric represents a single result from Prometheus query_range API
@@ -63,9 +67,10 @@ type Chart struct {
 
 // MustGatherMetrics processes metrics from must-gather archive
 type MustGatherMetrics struct {
-	reportPath string
-	data       *bytes.Buffer
-	charts     map[string]*Chart
+	reportPath  string
+	data        *bytes.Buffer
+	charts      map[string]*Chart
+	chartColors []string
 }
 
 // NewMustGatherMetrics creates a new metrics processor
@@ -85,9 +90,10 @@ func NewMustGatherMetrics(reportPath string, data *bytes.Buffer) (*MustGatherMet
 	}
 
 	return &MustGatherMetrics{
-		reportPath: reportPath,
-		data:       data,
-		charts:     charts,
+		reportPath:  reportPath,
+		data:        data,
+		charts:      charts,
+		chartColors: config.ChartColors,
 	}, nil
 }
 
@@ -192,10 +198,20 @@ func (mg *MustGatherMetrics) generateOutputFiles() error {
 
 	// Build index
 	type IndexEntry struct {
-		ID   string `json:"id"`
-		Path string `json:"path"`
+		ID            string `json:"id"`
+		Path          string `json:"path"`
+		Title         string `json:"title"`
+		Label         string `json:"label"`
+		Unit          string `json:"unit"`
+		ConvertToMs   bool   `json:"convertToMs"`
+		ReportPreview bool   `json:"reportPreview"`
 	}
-	var index []IndexEntry
+	type MetricsIndex struct {
+		ChartColors []string     `json:"chartColors"`
+		Charts      []IndexEntry `json:"charts"`
+	}
+	var index MetricsIndex
+	index.ChartColors = mg.chartColors
 
 	// Process each chart
 	for fileName, chart := range mg.charts {
@@ -228,9 +244,14 @@ func (mg *MustGatherMetrics) generateOutputFiles() error {
 		}
 
 		// Add to index
-		index = append(index, IndexEntry{
-			ID:   chart.Config.ID,
-			Path: fmt.Sprintf("./%s.json", fileName),
+		index.Charts = append(index.Charts, IndexEntry{
+			ID:            chart.Config.ID,
+			Path:          fmt.Sprintf("./%s.json", fileName),
+			Title:         chart.Config.Title,
+			Label:         chart.Config.Label,
+			Unit:          chart.Config.Unit,
+			ConvertToMs:   chart.Config.ConvertToMs,
+			ReportPreview: chart.Config.ReportPreview,
 		})
 
 		log.Debugf("Saved chart: %s", chartPath)
@@ -238,7 +259,7 @@ func (mg *MustGatherMetrics) generateOutputFiles() error {
 
 	// Save index.json
 	indexPath := filepath.Join(mg.reportPath, "index.json")
-	if len(index) == 0 {
+	if len(index.Charts) == 0 {
 		return fmt.Errorf("no chart JSON files were generated")
 	}
 
@@ -251,7 +272,7 @@ func (mg *MustGatherMetrics) generateOutputFiles() error {
 		return fmt.Errorf("failed to write index.json: %w", err)
 	}
 
-	log.Debugf("Saved index: %s (%d charts)", indexPath, len(index))
+	log.Debugf("Saved index: %s (%d charts)", indexPath, len(index.Charts))
 
 	// Save metrics.html (interactive dashboard)
 	metricsHTMLPath := filepath.Join(mg.reportPath, "metrics.html")
