@@ -18,6 +18,9 @@ import (
 	"github.com/ulikunitz/xz"
 )
 
+// maxMetricDecompressedBytes caps per-metric gzip decompression to mitigate gzip bombs.
+const maxMetricDecompressedBytes = 32 << 20 // 32 MiB
+
 //go:embed charts-config.json
 var chartsConfigJSON []byte
 
@@ -71,6 +74,7 @@ type MustGatherMetrics struct {
 	data        *bytes.Buffer
 	charts      map[string]*Chart
 	chartColors []string
+	chartOrder  []ChartConfig
 }
 
 // NewMustGatherMetrics creates a new metrics processor
@@ -94,6 +98,7 @@ func NewMustGatherMetrics(reportPath string, data *bytes.Buffer) (*MustGatherMet
 		data:        data,
 		charts:      charts,
 		chartColors: config.ChartColors,
+		chartOrder:  config.Charts,
 	}, nil
 }
 
@@ -168,18 +173,16 @@ func (mg *MustGatherMetrics) extractMetrics(tarReader *tar.Reader) error {
 			continue
 		}
 
-		// Read metric data
-		var metricPayload bytes.Buffer
-		if _, err := io.Copy(&metricPayload, gzReader); err != nil {
-			_ = gzReader.Close()
-			log.Warnf("Failed to read %s: %v", fileName, err)
-			continue
-		}
+		// Read metric data with a decompressed size cap
+		metricPayload, err := readDecompressedMetric(gzReader, fileName, maxMetricDecompressedBytes)
 		_ = gzReader.Close()
+		if err != nil {
+			return err
+		}
 
 		// Parse Prometheus JSON
 		var promResponse PrometheusResponse
-		if err := json.Unmarshal(metricPayload.Bytes(), &promResponse); err != nil {
+		if err := json.Unmarshal(metricPayload, &promResponse); err != nil {
 			log.Warnf("Failed to parse JSON for %s: %v", fileName, err)
 			continue
 		}
@@ -213,12 +216,14 @@ func (mg *MustGatherMetrics) generateOutputFiles() error {
 	var index MetricsIndex
 	index.ChartColors = mg.chartColors
 
-	// Process each chart
-	for fileName, chart := range mg.charts {
-		if chart.Data == nil {
-			log.Debugf("Skipping chart %s: no data loaded", fileName)
+	// Process each chart in configuration order for stable index.json output
+	for _, chartCfg := range mg.chartOrder {
+		chart, ok := mg.charts[chartCfg.File]
+		if !ok || chart.Data == nil {
+			log.Debugf("Skipping chart %s: no data loaded", chartCfg.File)
 			continue
 		}
+		fileName := chartCfg.File
 
 		// Filter NaN/Inf values (JSON doesn't support them)
 		filteredData := mg.filterInvalidValues(chart.Data)
@@ -289,6 +294,32 @@ func (mg *MustGatherMetrics) generateOutputFiles() error {
 	log.Debugf("Saved index redirect: %s", indexHTMLPath)
 
 	return nil
+}
+
+func readDecompressedMetric(gzReader io.Reader, fileName string, maxBytes int64) ([]byte, error) {
+	var payload bytes.Buffer
+	readBuf := make([]byte, 32*1024)
+
+	for {
+		n, err := gzReader.Read(readBuf)
+		if n > 0 {
+			if int64(payload.Len())+int64(n) > maxBytes {
+				return nil, fmt.Errorf("metric %s exceeds maximum decompressed size of %d bytes", fileName, maxBytes)
+			}
+			if _, writeErr := payload.Write(readBuf[:n]); writeErr != nil {
+				return nil, fmt.Errorf("failed to read %s: %w", fileName, writeErr)
+			}
+		}
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s: %w", fileName, err)
+		}
+	}
+
+	return payload.Bytes(), nil
 }
 
 // filterInvalidValues removes NaN and Inf values from Prometheus response
