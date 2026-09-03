@@ -123,7 +123,10 @@ func NewCmdRun() *cobra.Command {
 
 			// Pre-run validations
 			if errs := o.PreRunValidations(cli.KClient, cli.RestConfig); len(errs) > 0 {
-				return fmt.Errorf("pre-run validation failed with %d errors, fix it and try again", len(errs))
+				if !o.devSkipChecks {
+					return fmt.Errorf("pre-run validation failed with %d errors, fix it and try again", len(errs))
+				}
+				log.Warn("DEVEL MODE, THIS IS NOT SUPPORTED: Skipping preflight checks")
 			}
 
 			// Pre-run setup
@@ -205,8 +208,9 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().BoolVar(&o.dedicated, "dedicated", defaultDedicatedFlag, "Setup plugins to run in dedicated test environment.")
 	cmd.Flags().BoolVar(&o.dryRun, "dry-run", defaultDryRunFlag, "Run preflight checks only without creating resources")
 	cmd.Flags().BoolVarP(&o.verbose, "verbose", "v", defaultVerboseFlag, "Print rendered plugin manifests to stdout")
+	// unsupported-skip-checks is an alias of devel-skip-checks (both flags bind to the same variable).
 	cmd.Flags().BoolVar(&o.devSkipChecks, "devel-skip-checks", false, "Developer Mode only: skip checks")
-	cmd.Flags().BoolVar(&o.devSkipChecks, "unsupported-skip-checks", false, "Unsupported: alias for --devel-skip-checks")
+	cmd.Flags().BoolVar(&o.devSkipChecks, "unsupported-skip-checks", false, "Developer Mode only: skip checks")
 
 	// dev-count is an alias of devel-limit-tests (both flags bind to the same variable).
 	// TODO(mtulio): remove this flag in the future.
@@ -454,7 +458,6 @@ func (r *RunOptions) Run(cli *client.Client) error {
 		r.CollectorImage = fmt.Sprintf("%s/%s", imageRepository, pkg.CollectorImage)
 		r.MustGatherMonitoringImage = fmt.Sprintf("%s/%s", imageRepository, pkg.MustGatherMonitoringImage)
 	}
-
 	// Let Sonobuoy do some preflight checks before we run
 	errs := cli.SClient.PreflightChecks(&sonobuoyclient.PreflightConfig{
 		Namespace:           pkg.CertificationNamespace,
@@ -462,6 +465,7 @@ func (r *RunOptions) Run(cli *client.Client) error {
 		DNSPodLabels:        []string{"dns.operator.openshift.io/daemonset-dns=default"},
 		PreflightChecksSkip: []string{"existingnamespace"}, // Skip namespace check since we create it manually
 	})
+
 	if len(errs) > 0 {
 		for _, err := range errs {
 			log.Error(err)
