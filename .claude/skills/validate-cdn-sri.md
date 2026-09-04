@@ -16,9 +16,9 @@ bash hack/check-cdn-sri.sh
 ## What It Checks
 
 1. **CDN Whitelist** - Only `cdn.jsdelivr.net` and `unpkg.com` allowed
-2. **Version Pinning** - No `@latest`, exact semver for Vue.js (e.g., `@2.7.14`)
-3. **SRI Hashes** - All CDN dependencies must have `integrity="sha384-..."` 
-4. **SRI Format** - Must be valid SHA384 Base64 encoded
+2. **Version Pinning** - No `@latest`; every CDN package must use exact `@X.Y.Z` semver
+3. **SRI Hashes** - All CDN dependencies must have `integrity="sha384-..."`
+4. **SRI Format** - Must be a non-empty SHA-384 Base64 digest (`sha384-` + 64 chars)
 
 ## Files Validated
 
@@ -80,16 +80,22 @@ To:
 <script src="https://unpkg.com/package@1.2.3/..."></script>
 ```
 
-### Vue.js Version Not Semver
+### Partial or Missing Package Version
+
+Every CDN package must use exact `@X.Y.Z` semver (not `@1`, `@4`, `@2`, or unversioned URLs).
 
 Change from:
 ```html
-<script src="https://cdn.jsdelivr.net/npm/vue@2/..."></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script src="https://unpkg.com/bootstrap@4/dist/css/bootstrap.min.css"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
 ```
 
 To:
 ```html
-<script src="https://cdn.jsdelivr.net/npm/vue@2.7.14/..."></script>
+<script src="https://unpkg.com/axios@1.20.0/dist/axios.min.js"></script>
+<link href="https://unpkg.com/bootstrap@5.3.8/dist/css/bootstrap.min.css">
+<script src="https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.js"></script>
 ```
 
 ### Unauthorized CDN
@@ -100,7 +106,19 @@ Only these are allowed:
 
 Change to use one of these instead.
 
-## CI Check
+## Adversarial Fixture Tests
+
+The validator also runs regression fixtures under `test/testdata/cdn-sri/`:
+
+```bash
+bash hack/check-cdn-sri.sh --test-fixtures
+```
+
+Production validation plus fixtures run automatically in the default mode:
+
+```bash
+bash hack/check-cdn-sri.sh
+```
 
 This same check runs in GitHub Actions on every PR that modifies HTML files.
 
