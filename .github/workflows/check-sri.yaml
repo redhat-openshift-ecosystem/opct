@@ -31,8 +31,9 @@ jobs:
 
           echo "Requirements:"
           echo "  1. CDN host must be whitelisted"
-          echo "  2. CDN version must be pinned (no @latest)"
+          echo "  2. CDN version must be pinned (no @latest, no @major-only)"
           echo "  3. All dependencies must have SRI (Subresource Integrity)"
+          echo "  4. Each element must have its own integrity hash"
           echo ""
           echo "Allowed CDN hosts:"
           printf '  - %s\n' "${ALLOWED_CDNS[@]}"
@@ -43,14 +44,34 @@ jobs:
           while IFS= read -r file; do
             echo "Checking $file..."
 
-            # Extract CDN script and stylesheet URLs only
-            cdn_urls=$(grep -oE '(<script[^>]+src="|<link[^>]+href=")https?://[^"]+' "$file" | sed 's/.*="//; s/"$//' || true)
+            # Extract all external script/link elements with CDN URLs
+            # This handles single-quoted, double-quoted, and unquoted attributes
+            elements=$(grep -nE '<(script|link)[^>]*(src|href)=["\']?https?://[^"\'>\s]+' "$file" 2>/dev/null || true)
 
-            cdn_count=0
-            # Check each CDN URL
-            while IFS= read -r url; do
+            if [ -z "$elements" ]; then
+              echo "  ℹ️  No CDN dependencies found"
+              continue
+            fi
+
+            # Process each element individually
+            while IFS= read -r line_info; do
+              [ -z "$line_info" ] && continue
+
+              line_num=$(echo "$line_info" | cut -d: -f1)
+              line_content=$(echo "$line_info" | cut -d: -f2-)
+
+              # Extract the complete element (script or link tag)
+              if [[ "$line_content" == *"<script"* ]]; then
+                element_type="script"
+              elif [[ "$line_content" == *"<link"* ]]; then
+                element_type="link"
+              else
+                continue
+              fi
+
+              # Extract URL - handle both single and double quotes
+              url=$(echo "$line_content" | sed -E 's/.*\b(src|href)=["'"'"']?([^"'"'"'>\s]+).*/\2/')
               [ -z "$url" ] && continue
-              cdn_count=$((cdn_count + 1))
 
               # Extract host from URL
               host=$(echo "$url" | sed -E 's|https?://([^/]+).*|\1|')
@@ -65,7 +86,7 @@ jobs:
               done
 
               if [ $allowed -eq 0 ]; then
-                echo "  ❌ FAIL: Unauthorized CDN host: $host"
+                echo "  ❌ Line $line_num: Unauthorized CDN host: $host"
                 echo "     URL: $url"
                 failed=1
                 continue
@@ -73,27 +94,34 @@ jobs:
 
               # Check for @latest (unpinned version)
               if [[ "$url" == *"@latest"* ]]; then
-                echo "  ❌ FAIL: Unpinned version @latest"
+                echo "  ❌ Line $line_num: Unpinned version @latest detected"
                 echo "     URL: $url"
-                echo "     Fix: Pin to specific version (e.g., @2.23.1)"
+                echo "     Fix: Pin to specific version (e.g., @2.7.14)"
                 failed=1
                 continue
               fi
 
-              # Check if this CDN URL has SRI on the same line
-              line=$(grep -F "$url" "$file" || true)
-              if ! echo "$line" | grep -q 'integrity='; then
-                echo "  ❌ FAIL: Missing SRI hash"
+              # Special validation for Vue.js: must use semver (e.g., @2.7.14, not @2 or @2.7)
+              if [[ "$url" == *"/vue@"* ]]; then
+                if ! [[ "$url" =~ /vue@[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+                  echo "  ❌ Line $line_num: Vue version not fully pinned (semver required)"
+                  echo "     URL: $url"
+                  echo "     Fix: Use exact semver like @2.7.14"
+                  failed=1
+                  continue
+                fi
+              fi
+
+              # Check if this element has SRI hash on the same line
+              if ! echo "$line_content" | grep -q 'integrity='; then
+                echo "  ❌ Line $line_num: Missing SRI hash"
                 echo "     URL: $url"
                 failed=1
               else
-                echo "  ✅ $host - pinned + SRI"
+                echo "  ✅ Line $line_num: $element_type [$host] - pinned + SRI"
               fi
-            done <<< "$cdn_urls"
+            done <<< "$elements"
 
-            if [ $cdn_count -eq 0 ]; then
-              echo "  ℹ️  No CDN dependencies"
-            fi
             echo ""
           done < <(find . -name "*.html" -not -path "./node_modules/*" -not -path "./.git/*" -not -path "./build/*")
 
@@ -108,10 +136,14 @@ jobs:
             echo "   OLD: https://unpkg.com/bootstrap-vue@latest/dist/..."
             echo "   NEW: https://unpkg.com/bootstrap-vue@2.23.1/dist/..."
             echo ""
-            echo "2. Generate SRI hash for the URL:"
+            echo "2. For Vue.js, use full semver:"
+            echo "   OLD: https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"
+            echo "   NEW: https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.js"
+            echo ""
+            echo "3. Generate SRI hash for the URL:"
             echo "   curl -s <URL> | openssl dgst -sha384 -binary | openssl base64 -A"
             echo ""
-            echo "3. Add to HTML tag:"
+            echo "4. Add to HTML tag:"
             echo "   integrity=\"sha384-<HASH>\" crossorigin=\"anonymous\""
             echo ""
             exit 1
@@ -122,5 +154,6 @@ jobs:
           echo "=========================================="
           echo "All CDN dependencies:"
           echo "  - Use whitelisted hosts only"
-          echo "  - Have pinned versions (no @latest)"
+          echo "  - Have pinned versions (no @latest, semver for Vue)"
           echo "  - Have SRI (Subresource Integrity) hashes"
+          echo "  - Each element has its own integrity attribute"
