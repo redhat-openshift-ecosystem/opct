@@ -103,7 +103,7 @@ jobs:
 
               # Special validation for Vue.js: must use semver (e.g., @2.7.14, not @2 or @2.7)
               if [[ "$url" == *"/vue@"* ]]; then
-                if ! [[ "$url" =~ /vue@[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+                if ! [[ "$url" =~ /vue@[0-9]+\.[0-9]+\.[0-9] ]]; then
                   echo "  ❌ Line $line_num: Vue version not fully pinned (semver required)"
                   echo "     URL: $url"
                   echo "     Fix: Use exact semver like @2.7.14"
