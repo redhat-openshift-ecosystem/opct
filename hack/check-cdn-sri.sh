@@ -26,12 +26,13 @@ for file in data/templates/report/report.html data/templates/report/filter.html;
   # Collapse to single line so multiline <script>/<link> elements are parsed correctly
   collapsed=$(tr '\n' ' ' < "$file")
 
-  # Check 1: No unauthorized CDN hosts in <script>/<link> src/href attributes
-  # Anchored hostname match rejects cdn.jsdelivr.net.evil.invalid style bypasses;
-  # element-level extraction via collapsed content handles multiline tags
+  # Check 1: No unauthorized CDN hosts in <script>/<link> elements
+  # URL_CHARS stops at double-quote, single-quote, space, or > — handles all quote styles
+  # Anchored hostname match rejects cdn.jsdelivr.net.evil.invalid style bypasses
+  URL_CHARS='[^"'"'"' >]'
   bad_cdns=$(echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | \
-    grep -oE '(src|href)="https://[^"]+' | \
-    grep -oE 'https://[^/"]+' | \
+    grep -oE "https://${URL_CHARS}+" | \
+    grep -oE 'https://[^/]+' | \
     grep -Ev '^https://(cdn\.jsdelivr\.net|unpkg\.com)$' || true)
   if [ -n "$bad_cdns" ]; then
     echo "❌ FAIL: Found unauthorized CDN hosts in script/link tags"
@@ -55,10 +56,11 @@ for file in data/templates/report/report.html data/templates/report/filter.html;
   fi
 
   # Check 4: Every CDN <script>/<link> element must have an integrity attribute
+  # Match CDN URLs regardless of quote style (no (src|href)=" prefix required)
   cdn_count=$(echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | \
-    grep -cE '(src|href)="https://(cdn\.jsdelivr\.net|unpkg\.com)' || true)
+    grep -cE 'https://(cdn\.jsdelivr\.net|unpkg\.com)' || true)
   sri_count=$(echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | \
-    grep -E '(src|href)="https://(cdn\.jsdelivr\.net|unpkg\.com)' | \
+    grep -E 'https://(cdn\.jsdelivr\.net|unpkg\.com)' | \
     grep -c 'integrity=' || true)
 
   if [ "$cdn_count" -ne "$sri_count" ]; then
