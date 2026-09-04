@@ -1,5 +1,5 @@
 ---
-name: Pull Request Check
+name: check-pull-request
 on:
   pull_request:
     types: [opened, labeled, unlabeled, synchronize]

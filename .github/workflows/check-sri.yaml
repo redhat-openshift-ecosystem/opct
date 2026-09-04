@@ -1,0 +1,26 @@
+name: check-cdn-sri
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - '**/*.html'
+      - 'hack/check-cdn-sri.sh'
+      - 'test/testdata/cdn-sri/**'
+      - '.github/workflows/check-sri.yaml'
+  push:
+    branches:
+      - main
+
+jobs:
+  check-sri:
+    name: Verify CDN dependencies have SRI and pinned versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check CDN security
+        run: bash hack/check-cdn-sri.sh
