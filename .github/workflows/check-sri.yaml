@@ -8,6 +8,7 @@ on:
     paths:
       - '**/*.html'
       - 'hack/check-cdn-sri.sh'
+      - 'test/testdata/cdn-sri/**'
       - '.github/workflows/check-sri.yaml'
   push:
     branches:
