@@ -23,16 +23,23 @@ for file in data/templates/report/report.html data/templates/report/filter.html;
   echo ""
   echo "Checking $file..."
 
+  # Collapse to single line so multiline <script>/<link> elements are parsed correctly
+  collapsed=$(tr '\n' ' ' < "$file")
+
   # Check 1: No unauthorized CDN hosts in <script>/<link> src/href attributes
-  # Uses anchored hostname match to reject cdn.jsdelivr.net.evil.invalid style bypasses
-  bad_cdns=$(grep -E '<script|<link' "$file" | grep -oE '(src|href)="https://[^"]+' | grep -oE 'https://[^/"]+' | grep -Ev '^https://(cdn\.jsdelivr\.net|unpkg\.com)$' || true)
+  # Anchored hostname match rejects cdn.jsdelivr.net.evil.invalid style bypasses;
+  # element-level extraction via collapsed content handles multiline tags
+  bad_cdns=$(echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | \
+    grep -oE '(src|href)="https://[^"]+' | \
+    grep -oE 'https://[^/"]+' | \
+    grep -Ev '^https://(cdn\.jsdelivr\.net|unpkg\.com)$' || true)
   if [ -n "$bad_cdns" ]; then
     echo "❌ FAIL: Found unauthorized CDN hosts in script/link tags"
     echo "$bad_cdns"
     failed=1
   fi
 
-  # Check 2: No @latest versions
+  # Check 2: No @latest versions (URL patterns are always single-line)
   if grep -q '@latest' "$file"; then
     echo "❌ FAIL: Found @latest (unpinned) versions"
     grep -n '@latest' "$file" || true
@@ -47,19 +54,23 @@ for file in data/templates/report/report.html data/templates/report/filter.html;
     failed=1
   fi
 
-  # Check 4: All CDN script/link tags must have integrity attribute
-  cdn_count=$(grep -o 'https://cdn.jsdelivr.net\|https://unpkg.com' "$file" | wc -l)
-  sri_count=$(grep 'https://cdn.jsdelivr.net\|https://unpkg.com' "$file" | grep -c 'integrity=' || true)
+  # Check 4: Every CDN <script>/<link> element must have an integrity attribute
+  cdn_count=$(echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | \
+    grep -cE '(src|href)="https://(cdn\.jsdelivr\.net|unpkg\.com)' || true)
+  sri_count=$(echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | \
+    grep -E '(src|href)="https://(cdn\.jsdelivr\.net|unpkg\.com)' | \
+    grep -c 'integrity=' || true)
 
   if [ "$cdn_count" -ne "$sri_count" ]; then
     echo "❌ FAIL: Not all CDN dependencies have SRI hashes"
-    echo "   Found $cdn_count CDN URLs, but only $sri_count have integrity"
+    echo "   Found $cdn_count CDN elements, but only $sri_count have integrity"
     failed=1
   fi
 
   # Check 5: Valid SRI format (sha384-<base64>)
-  if grep -q 'integrity=' "$file"; then
-    if ! grep 'integrity=' "$file" | grep -q 'sha384-'; then
+  if echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | grep -qE 'integrity='; then
+    if ! echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | \
+         grep -E 'integrity=' | grep -q 'sha384-'; then
       echo "❌ FAIL: Invalid SRI format (must be sha384-...)"
       failed=1
     fi
