@@ -41,9 +41,8 @@ func cmdStatusRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Wait for Sonobuoy to create
-	if err := wait.WaitForRequiredResources(o.kclient); err != nil {
-		log.WithError(err).Error("error waiting for sonobuoy pods to become ready")
+	if err := wait.WaitForAggregatorReady(cmd.Context(), o.kclient); err != nil {
+		log.WithError(err).Error("error waiting for sonobuoy aggregator to become ready")
 		return err
 	}
 
