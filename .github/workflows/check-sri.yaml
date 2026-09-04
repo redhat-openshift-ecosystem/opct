@@ -1,4 +1,4 @@
-name: Check CDN SRI
+name: check-cdn-sri
 
 on:
   pull_request:
