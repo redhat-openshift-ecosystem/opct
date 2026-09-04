@@ -23,8 +23,9 @@ for file in data/templates/report/report.html data/templates/report/filter.html;
   echo ""
   echo "Checking $file..."
 
-  # Check 1: No unauthorized CDN hosts in <script> and <link> tags (only cdn.jsdelivr.net and unpkg.com allowed)
-  bad_cdns=$(grep -E '<script|<link' "$file" | grep -oE '(src|href)="https://[^"]+' | grep -v 'cdn.jsdelivr.net\|unpkg.com' || true)
+  # Check 1: No unauthorized CDN hosts in <script>/<link> src/href attributes
+  # Uses anchored hostname match to reject cdn.jsdelivr.net.evil.invalid style bypasses
+  bad_cdns=$(grep -E '<script|<link' "$file" | grep -oE '(src|href)="https://[^"]+' | grep -oE 'https://[^/"]+' | grep -Ev '^https://(cdn\.jsdelivr\.net|unpkg\.com)$' || true)
   if [ -n "$bad_cdns" ]; then
     echo "❌ FAIL: Found unauthorized CDN hosts in script/link tags"
     echo "$bad_cdns"
@@ -38,10 +39,11 @@ for file in data/templates/report/report.html data/templates/report/filter.html;
     failed=1
   fi
 
-  # Check 3: Vue.js must use exact semver (e.g., @2.7.14, not @2)
-  if grep -E 'vue@2"' "$file" || grep -E "vue@2'" "$file" || grep -E 'vue@2 ' "$file"; then
-    echo "❌ FAIL: Vue.js not pinned to semver (use @2.7.14, not @2)"
-    grep -n 'vue@2' "$file" || true
+  # Check 3: Vue.js must use exact semver X.Y.Z (rejects @2, @2.7, @2.7.14foo, @2.7.14.1)
+  bad_vue=$(grep -oE 'vue@[^/"]+' "$file" | grep -Ev '^vue@[0-9]+\.[0-9]+\.[0-9]+$' || true)
+  if [ -n "$bad_vue" ]; then
+    echo "❌ FAIL: Vue.js not pinned to exact semver X.Y.Z (use @2.7.14, not @2 or @2.7.14foo)"
+    echo "$bad_vue"
     failed=1
   fi
 

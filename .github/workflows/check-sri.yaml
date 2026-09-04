@@ -1,9 +1,14 @@
 name: check-cdn-sri
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     paths:
       - '**/*.html'
+      - 'hack/check-cdn-sri.sh'
+      - '.github/workflows/check-sri.yaml'
   push:
     branches:
       - main
