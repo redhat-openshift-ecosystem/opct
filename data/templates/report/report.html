@@ -847,7 +847,9 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
             '<a href="./metrics/metrics.html" target="_blank" style="text-decoration: underline;">Open full dashboard</a> ' +
             'to view all charts in an interactive grid dashboard with click-to-expand functionality.' +
             '</div>'
+          const menuToken = this._chartRenderToken;
           this.loadMetricsIndex().then(allCharts => {
+            if (menuToken !== this._chartRenderToken) return;
             this.etcdCharts = allCharts
               .filter(chart => chart.reportPreview)
               .map((chart, i) => ({

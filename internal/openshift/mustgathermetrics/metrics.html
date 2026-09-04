@@ -40,6 +40,10 @@
       transform: translateY(-2px);
       box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
+    .chart-card:focus-visible {
+      outline: 2px solid #4e79a7;
+      outline-offset: 2px;
+    }
     .chart-card h5 {
       margin: 0 0 15px 0;
       font-size: 14px;
@@ -267,7 +271,16 @@ function initDashboard(chartConfigs) {
   chartConfigs.forEach(config => {
     const card = document.createElement('div');
     card.className = 'chart-card';
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', 'Expand ' + config.title);
     card.onclick = () => expandChart(config);
+    card.onkeydown = event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        expandChart(config);
+      }
+    };
 
     card.innerHTML = `
       <h5>${config.title}</h5>
