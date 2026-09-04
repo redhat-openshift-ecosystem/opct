@@ -1,108 +1,192 @@
 #!/bin/bash
 # CDN SRI (Subresource Integrity) verification script
 #
-# Usage: ./hack/check-cdn-sri.sh
+# Usage:
+#   ./hack/check-cdn-sri.sh              # validate production HTML templates
+#   ./hack/check-cdn-sri.sh --test-fixtures  # run adversarial regression tests
 #
 # This script validates that all CDN dependencies in HTML templates:
 # 1. Use only whitelisted CDN hosts (cdn.jsdelivr.net, unpkg.com)
-# 2. Have pinned versions (no @latest, exact semver for Vue.js)
-# 3. Include SRI hashes for integrity verification
-#
-# Run this locally before pushing to verify CDN security compliance.
+# 2. Have exact pinned versions (X.Y.Z semver for every CDN package)
+# 3. Include valid SRI SHA-384 hashes on each CDN script/link element
 
 set -e
 
-echo "=========================================="
-echo "CDN SECURITY CHECK"
-echo "=========================================="
+URL_CHARS='[^"'"'"' >]'
+CDN_HOST_PATTERN='^https://(cdn\.jsdelivr\.net|unpkg\.com)$'
+SEMVER_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+$'
+SRI_PATTERN='^sha384-[A-Za-z0-9+/]{64}$'
 
-failed=0
+validate_file() {
+  local file=$1
+  local file_failed=0
 
-# Check report.html and filter.html
-for file in data/templates/report/report.html data/templates/report/filter.html; do
   echo ""
   echo "Checking $file..."
 
-  # Collapse to single line so multiline <script>/<link> elements are parsed correctly
-  collapsed=$(tr '\n' ' ' < "$file")
+  if [ ! -f "$file" ]; then
+    echo "❌ FAIL: file not found: $file"
+    return 1
+  fi
 
-  # Check 1: No unauthorized CDN hosts in <script>/<link> elements
-  # URL_CHARS stops at double-quote, single-quote, space, or > — handles all quote styles
-  # Anchored hostname match rejects cdn.jsdelivr.net.evil.invalid style bypasses
-  URL_CHARS='[^"'"'"' >]'
-  bad_cdns=$(echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | \
-    grep -oE "https://${URL_CHARS}+" | \
-    grep -oE 'https://[^/]+' | \
-    grep -Ev '^https://(cdn\.jsdelivr\.net|unpkg\.com)$' || true)
+  collapsed=$(tr '\n' ' ' < "$file")
+  elements=$(echo "$collapsed" | grep -oE '<(script|link)[^>]+>' || true)
+
+  # Check 1: no unauthorized CDN hosts in script/link elements
+  bad_cdns=$(echo "$elements" | grep -oE "https://${URL_CHARS}+" | \
+    grep -oE 'https://[^/]+' | grep -Ev "$CDN_HOST_PATTERN" || true)
   if [ -n "$bad_cdns" ]; then
     echo "❌ FAIL: Found unauthorized CDN hosts in script/link tags"
     echo "$bad_cdns"
-    failed=1
+    file_failed=1
   fi
 
-  # Check 2: No @latest versions (URL patterns are always single-line)
+  # Check 2: no @latest versions
   if grep -q '@latest' "$file"; then
     echo "❌ FAIL: Found @latest (unpinned) versions"
     grep -n '@latest' "$file" || true
-    failed=1
+    file_failed=1
   fi
 
-  # Check 3: Vue.js must use exact semver X.Y.Z (rejects @2, @2.7, @2.7.14foo, @2.7.14.1)
-  bad_vue=$(grep -oE 'vue@[^/"]+' "$file" | grep -Ev '^vue@[0-9]+\.[0-9]+\.[0-9]+$' || true)
-  if [ -n "$bad_vue" ]; then
-    echo "❌ FAIL: Vue.js not pinned to exact semver X.Y.Z (use @2.7.14, not @2 or @2.7.14foo)"
-    echo "$bad_vue"
-    failed=1
+  # Check 3: every CDN URL must pin an exact X.Y.Z version
+  cdn_urls=$(echo "$elements" | grep -oE "https://${URL_CHARS}+" | \
+    grep -E 'https://(cdn\.jsdelivr\.net|unpkg\.com)' || true)
+  if [ -n "$cdn_urls" ]; then
+    while IFS= read -r url; do
+      [ -z "$url" ] && continue
+      version=$(echo "$url" | grep -oE '@[^/"]+' | head -1 | cut -c2-)
+      if [ -z "$version" ]; then
+        echo "❌ FAIL: CDN URL missing exact version (expected @X.Y.Z): $url"
+        file_failed=1
+        continue
+      fi
+      if ! echo "$version" | grep -Eq "$SEMVER_PATTERN"; then
+        echo "❌ FAIL: CDN URL not pinned to exact semver X.Y.Z (got @${version}): $url"
+        file_failed=1
+      fi
+    done <<< "$cdn_urls"
   fi
 
-  # Check 4: Every CDN <script>/<link> element must have an integrity attribute
-  # Match CDN URLs regardless of quote style (no (src|href)=" prefix required)
-  cdn_count=$(echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | \
-    grep -cE 'https://(cdn\.jsdelivr\.net|unpkg\.com)' || true)
-  sri_count=$(echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | \
-    grep -E 'https://(cdn\.jsdelivr\.net|unpkg\.com)' | \
-    grep -c 'integrity=' || true)
+  # Check 4: each CDN script/link element must include a valid SRI hash
+  while IFS= read -r element; do
+    [ -z "$element" ] && continue
+    echo "$element" | grep -qE 'https://(cdn\.jsdelivr\.net|unpkg\.com)' || continue
 
-  if [ "$cdn_count" -ne "$sri_count" ]; then
-    echo "❌ FAIL: Not all CDN dependencies have SRI hashes"
-    echo "   Found $cdn_count CDN elements, but only $sri_count have integrity"
-    failed=1
-  fi
-
-  # Check 5: Valid SRI format (sha384-<base64>)
-  if echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | grep -qE 'integrity='; then
-    if ! echo "$collapsed" | grep -oE '<(script|link)[^>]+>' | \
-         grep -E 'integrity=' | grep -q 'sha384-'; then
-      echo "❌ FAIL: Invalid SRI format (must be sha384-...)"
-      failed=1
+    integrity=$(echo "$element" | grep -oE 'integrity=(["'"'"'])([^"'"'"']*)\1' | \
+      head -1 | sed -E 's/^integrity=(["'"'"'])(.*)\1$/\2/')
+    if [ -z "$integrity" ]; then
+      echo "❌ FAIL: CDN element missing integrity attribute"
+      echo "   $element"
+      file_failed=1
+      continue
     fi
-  fi
+    if ! echo "$integrity" | grep -Eq "$SRI_PATTERN"; then
+      echo "❌ FAIL: Invalid SRI format (expected sha384-<64-char base64>): $integrity"
+      echo "   $element"
+      file_failed=1
+    fi
+  done <<< "$elements"
 
-  if [ $failed -eq 0 ]; then
+  if [ "$file_failed" -eq 0 ]; then
     echo "✅ PASS"
     echo "   • No unauthorized CDNs"
-    echo "   • All versions pinned (no @latest)"
-    echo "   • Vue.js uses semver (@X.Y.Z)"
-    echo "   • All CDN deps have SRI hashes"
+    echo "   • All versions pinned to exact X.Y.Z semver"
+    echo "   • All CDN elements have valid SRI SHA-384 hashes"
   fi
-done
 
-echo ""
-if [ $failed -eq 1 ]; then
+  return "$file_failed"
+}
+
+run_production_checks() {
+  local failed=0
+
   echo "=========================================="
-  echo "❌ CHECK FAILED"
+  echo "CDN SECURITY CHECK"
   echo "=========================================="
+
+  for file in data/templates/report/report.html data/templates/report/filter.html; do
+    if ! validate_file "$file"; then
+      failed=1
+    fi
+  done
+
   echo ""
-  echo "How to fix:"
-  echo "  1. Verify CDN hosts are whitelisted: cdn.jsdelivr.net, unpkg.com"
-  echo "  2. Remove @latest - pin to exact versions"
-  echo "  3. For Vue.js, use semver: vue@2.7.14 (not vue@2)"
-  echo "  4. Generate SRI hashes:"
-  echo "     curl -s <URL> | openssl dgst -sha384 -binary | openssl base64 -A"
-  echo ""
-  exit 1
-else
+  if [ "$failed" -eq 1 ]; then
+    echo "=========================================="
+    echo "❌ CHECK FAILED"
+    echo "=========================================="
+    echo ""
+    echo "How to fix:"
+    echo "  1. Verify CDN hosts are whitelisted: cdn.jsdelivr.net, unpkg.com"
+    echo "  2. Remove @latest and partial versions - pin every package to @X.Y.Z"
+    echo "  3. Generate SRI hashes:"
+    echo "     curl -s <URL> | openssl dgst -sha384 -binary | openssl base64 -A"
+    echo ""
+    return 1
+  fi
+
   echo "=========================================="
   echo "✅ CHECK PASSED"
   echo "=========================================="
-fi
+  return 0
+}
+
+run_fixture_tests() {
+  local fixture_dir="test/testdata/cdn-sri"
+  local failed=0
+
+  echo "=========================================="
+  echo "CDN SRI ADVERSARIAL FIXTURE TESTS"
+  echo "=========================================="
+
+  for fixture in "$fixture_dir"/bad-*.html; do
+    [ -e "$fixture" ] || continue
+    echo ""
+    echo "Expect FAIL: $fixture"
+    if validate_file "$fixture"; then
+      echo "❌ REGRESSION: expected validator to reject $fixture"
+      failed=1
+    else
+      echo "✅ Correctly rejected"
+    fi
+  done
+
+  for fixture in "$fixture_dir"/good-*.html; do
+    [ -e "$fixture" ] || continue
+    echo ""
+    echo "Expect PASS: $fixture"
+    if validate_file "$fixture"; then
+      echo "✅ Correctly accepted"
+    else
+      echo "❌ REGRESSION: expected validator to accept $fixture"
+      failed=1
+    fi
+  done
+
+  echo ""
+  if [ "$failed" -eq 1 ]; then
+    echo "=========================================="
+    echo "❌ FIXTURE TESTS FAILED"
+    echo "=========================================="
+    return 1
+  fi
+
+  echo "=========================================="
+  echo "✅ FIXTURE TESTS PASSED"
+  echo "=========================================="
+  return 0
+}
+
+case "${1:-}" in
+  --test-fixtures)
+    run_fixture_tests
+    ;;
+  "")
+    run_production_checks
+    run_fixture_tests
+    ;;
+  *)
+    echo "Usage: $0 [--test-fixtures]" >&2
+    exit 2
+    ;;
+esac
