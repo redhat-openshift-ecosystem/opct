@@ -1,11 +1,14 @@
 package mustgathermetrics
 
 import (
+	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/ulikunitz/xz"
 )
 
 func TestReadDecompressedMetricWithinLimit(t *testing.T) {
@@ -32,6 +35,63 @@ func TestReadDecompressedMetricRejectsOversized(t *testing.T) {
 	if !strings.Contains(err.Error(), "exceeds maximum decompressed size") {
 		t.Fatalf("readDecompressedMetric() error = %v, want size limit error", err)
 	}
+}
+
+func TestExtractMetricsRejectsOversizedNonMetricMember(t *testing.T) {
+	const archiveLimit int64 = 4096
+	largePayload := make([]byte, archiveLimit*2)
+
+	archive := buildTestTarXZ(t, map[string][]byte{
+		"other/large.bin": largePayload,
+	})
+
+	tarReader, err := readArchiveWithLimit(archive, archiveLimit)
+	if err != nil {
+		t.Fatalf("readArchiveWithLimit() error = %v", err)
+	}
+
+	mg := &MustGatherMetrics{charts: map[string]*Chart{}}
+	err = mg.extractMetrics(tarReader)
+	if err == nil {
+		t.Fatal("extractMetrics() expected error for oversized non-metric member")
+	}
+	if !strings.Contains(err.Error(), "archive exceeds maximum decompressed size") {
+		t.Fatalf("extractMetrics() error = %v, want archive size limit error", err)
+	}
+}
+
+func buildTestTarXZ(t *testing.T, entries map[string][]byte) *bytes.Buffer {
+	t.Helper()
+
+	var xzBuf bytes.Buffer
+	xzWriter, err := xz.NewWriter(&xzBuf)
+	if err != nil {
+		t.Fatalf("xz.NewWriter: %v", err)
+	}
+
+	tarWriter := tar.NewWriter(xzWriter)
+	for name, content := range entries {
+		header := &tar.Header{
+			Name: name,
+			Mode: 0644,
+			Size: int64(len(content)),
+		}
+		if err := tarWriter.WriteHeader(header); err != nil {
+			t.Fatalf("tar.WriteHeader(%q): %v", name, err)
+		}
+		if _, err := tarWriter.Write(content); err != nil {
+			t.Fatalf("tar.Write(%q): %v", name, err)
+		}
+	}
+
+	if err := tarWriter.Close(); err != nil {
+		t.Fatalf("tar.Close: %v", err)
+	}
+	if err := xzWriter.Close(); err != nil {
+		t.Fatalf("xz.Close: %v", err)
+	}
+
+	return &xzBuf
 }
 
 func gzipReader(t *testing.T, payload string) io.Reader {

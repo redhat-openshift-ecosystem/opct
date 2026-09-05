@@ -21,6 +21,9 @@ import (
 // maxMetricDecompressedBytes caps per-metric gzip decompression to mitigate gzip bombs.
 const maxMetricDecompressedBytes = 32 << 20 // 32 MiB
 
+// maxArchiveDecompressedBytes caps total xz decompressed output for the tar archive.
+const maxArchiveDecompressedBytes = 256 << 20 // 256 MiB
+
 //go:embed charts-config.json
 var chartsConfigJSON []byte
 
@@ -128,11 +131,56 @@ func (mg *MustGatherMetrics) Process() error {
 
 // readArchive reads the tar.xz archive
 func (mg *MustGatherMetrics) readArchive(buf *bytes.Buffer) (*tar.Reader, error) {
+	return readArchiveWithLimit(buf, maxArchiveDecompressedBytes)
+}
+
+func readArchiveWithLimit(buf *bytes.Buffer, limit int64) (*tar.Reader, error) {
 	xzReader, err := xz.NewReader(buf)
 	if err != nil {
 		return nil, err
 	}
-	return tar.NewReader(xzReader), nil
+	return tar.NewReader(&decompressedByteLimiter{r: xzReader, limit: limit}), nil
+}
+
+// decompressedByteLimiter enforces a cumulative decompressed-byte budget on the xz stream.
+type decompressedByteLimiter struct {
+	r     io.Reader
+	n     int64
+	limit int64
+}
+
+func (l *decompressedByteLimiter) Read(p []byte) (int, error) {
+	if l.n >= l.limit {
+		return 0, fmt.Errorf("archive exceeds maximum decompressed size of %d bytes", l.limit)
+	}
+
+	remaining := l.limit - l.n
+	if int64(len(p)) > remaining {
+		p = p[:remaining]
+	}
+
+	n, err := l.r.Read(p)
+	l.n += int64(n)
+
+	if l.n > l.limit {
+		return n, fmt.Errorf("archive exceeds maximum decompressed size of %d bytes", l.limit)
+	}
+
+	if l.n == l.limit && err == nil {
+		var scratch [1]byte
+		extra, err2 := l.r.Read(scratch[:])
+		if extra > 0 {
+			return n, fmt.Errorf("archive exceeds maximum decompressed size of %d bytes", l.limit)
+		}
+		if err2 != nil && err2 != io.EOF {
+			if n > 0 {
+				return n, err2
+			}
+			return 0, err2
+		}
+	}
+
+	return n, err
 }
 
 // extractMetrics walks through the tar archive and extracts metric files

@@ -844,7 +844,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         if (this.report.summary.features.hasMetricsData) {
           this.menuBodyRight = '<div class="alert alert-info" style="margin-bottom: 20px;">' +
             '<strong>📊 More Metrics:</strong> ' +
-            '<a href="./metrics/metrics.html" target="_blank" style="text-decoration: underline;">Open full dashboard</a> ' +
+            '<a href="./metrics/metrics.html" target="_blank" rel="noopener noreferrer" style="text-decoration: underline;">Open full dashboard</a> ' +
             'to view all charts in an interactive grid dashboard with click-to-expand functionality.' +
             '</div>'
           const menuToken = this._chartRenderToken;
