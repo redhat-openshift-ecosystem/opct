@@ -864,20 +864,20 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
               this.menuBodyRight += `<div class="etcd-chart-card" id="card-` + chart.id + `">` +
                 `<div class="etcd-chart-header"><h6>` + chart.title + `</h6>` +
                 `<div class="etcd-chart-toolbar">` +
-                `<button class="etcd-chart-btn" onclick="app_opct.resetChartZoom('` + chart.id + `')" title="Reset zoom">Reset</button>` +
-                `<button class="etcd-chart-btn" onclick="app_opct.expandChart('` + chart.id + `')" title="Expand chart">&#x26F6;</button>` +
+                `<button class="etcd-chart-btn" onclick="app_opct.menuEtcdResetChartZoom('` + chart.id + `')" title="Reset zoom">Reset</button>` +
+                `<button class="etcd-chart-btn" onclick="app_opct.menuEtcdExpandChart('` + chart.id + `')" title="Expand chart">&#x26F6;</button>` +
                 `</div></div>` +
                 `<canvas id="` + chart.id + `"></canvas></div>`
             }
-            this.$nextTick(() => { this.renderEtcdCharts(); });
+            this.$nextTick(() => { this.menuEtcdRenderCharts(); });
           });
         }
       },
-      resetChartZoom(chartId) {
+      menuEtcdResetChartZoom(chartId) {
         let instance = this.chartInstances[chartId];
         if (instance) instance.resetZoom();
       },
-      cloneChartDatasets(instance) {
+      menuEtcdCloneChartDatasets(instance) {
         return {
           datasets: instance.data.datasets.map(ds => ({
             label: ds.label,
@@ -890,7 +890,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
           })),
         };
       },
-      buildExpandedChartOptions(chart) {
+      menuEtcdBuildExpandedChartOptions(chart) {
         return {
           responsive: true,
           maintainAspectRatio: true,
@@ -918,7 +918,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
           },
         };
       },
-      expandChart(chartId) {
+      menuEtcdExpandChart(chartId) {
         let instance = this.chartInstances[chartId];
         if (!instance) return;
         let chartConfig = this.etcdCharts.find(chart => chart.id === chartId);
@@ -958,11 +958,11 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         let canvas = overlay.querySelector('#overlay-canvas');
         expanded = new Chart(canvas, {
           type: 'line',
-          data: this.cloneChartDatasets(instance),
-          options: this.buildExpandedChartOptions(chartConfig),
+          data: this.menuEtcdCloneChartDatasets(instance),
+          options: this.menuEtcdBuildExpandedChartOptions(chartConfig),
         });
       },
-      renderEtcdCharts() {
+      menuEtcdRenderCharts() {
         // Generate render token to ignore stale axios responses
         const renderToken = (this._chartRenderToken || 0) + 1;
         this._chartRenderToken = renderToken;

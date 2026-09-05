@@ -104,7 +104,7 @@ run_production_checks() {
   echo "CDN SECURITY CHECK"
   echo "=========================================="
 
-  for file in data/templates/report/report.html data/templates/report/filter.html internal/openshift/mustgathermetrics/metrics.html; do
+  for file in data/templates/report/report.html data/templates/report/filter.html data/templates/report/metrics.html; do
     if ! validate_file "$file"; then
       failed=1
     fi

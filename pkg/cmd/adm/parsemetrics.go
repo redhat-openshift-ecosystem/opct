@@ -72,7 +72,7 @@ func parseMetricsRun(cmd *cobra.Command, args []string) {
 		log.Errorf("processing metric: %v", err)
 		os.Exit(1)
 	}
-	log.Infof("Success! Chart JSON files created at %s/\n", parseMetricsArgs.output)
-	log.Infof("Generated files: index.json and individual chart JSON files")
-	log.Infof("TIP: These files are used by the OPCT web UI report")
+	log.Infof("Success! Metrics report created at %s/\n", parseMetricsArgs.output)
+	log.Infof("TIP: cd %s && python -m http.server", parseMetricsArgs.output)
+	log.Info("Open your browser and navigate the reports: http://localhost:8000/index.html http://localhost:8000/metrics.html")
 }

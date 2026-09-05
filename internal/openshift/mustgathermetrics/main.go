@@ -4,16 +4,17 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	vfs "github.com/redhat-openshift-ecosystem/opct/internal/assets"
 	log "github.com/sirupsen/logrus"
 	"github.com/ulikunitz/xz"
 )
@@ -24,14 +25,7 @@ const maxMetricDecompressedBytes = 32 << 20 // 32 MiB
 // maxArchiveDecompressedBytes caps total xz decompressed output for the tar archive.
 const maxArchiveDecompressedBytes = 256 << 20 // 256 MiB
 
-//go:embed charts-config.json
-var chartsConfigJSON []byte
-
-//go:embed metrics.html
-var metricsHTML []byte
-
-//go:embed index.html
-var indexHTML []byte
+const reportTemplateBasePath = "data/templates/report"
 
 // ChartConfig represents a single metric chart configuration
 type ChartConfig struct {
@@ -78,10 +72,27 @@ type MustGatherMetrics struct {
 	charts      map[string]*Chart
 	chartColors []string
 	chartOrder  []ChartConfig
+	metricsHTML []byte
+	indexHTML   []byte
 }
 
 // NewMustGatherMetrics creates a new metrics processor
 func NewMustGatherMetrics(reportPath string, data *bytes.Buffer) (*MustGatherMetrics, error) {
+	chartsConfigJSON, err := loadReportTemplate("charts-config.json")
+	if err != nil {
+		return nil, err
+	}
+
+	metricsHTML, err := loadReportTemplate("metrics.html")
+	if err != nil {
+		return nil, err
+	}
+
+	indexHTML, err := loadReportTemplate("index.html")
+	if err != nil {
+		return nil, err
+	}
+
 	// Load chart configurations
 	var config ChartsConfig
 	if err := json.Unmarshal(chartsConfigJSON, &config); err != nil {
@@ -102,7 +113,18 @@ func NewMustGatherMetrics(reportPath string, data *bytes.Buffer) (*MustGatherMet
 		charts:      charts,
 		chartColors: config.ChartColors,
 		chartOrder:  config.Charts,
+		metricsHTML: metricsHTML,
+		indexHTML:   indexHTML,
 	}, nil
+}
+
+func loadReportTemplate(name string) ([]byte, error) {
+	path := reportTemplateBasePath + "/" + name
+	content, err := fs.ReadFile(vfs.GetData(), path)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read template %q from VFS: %w", path, err)
+	}
+	return content, nil
 }
 
 // Process extracts and processes metrics from the must-gather archive
@@ -329,14 +351,14 @@ func (mg *MustGatherMetrics) generateOutputFiles() error {
 
 	// Save metrics.html (interactive dashboard)
 	metricsHTMLPath := filepath.Join(mg.reportPath, "metrics.html")
-	if err := os.WriteFile(metricsHTMLPath, metricsHTML, 0644); err != nil {
+	if err := os.WriteFile(metricsHTMLPath, mg.metricsHTML, 0644); err != nil {
 		return fmt.Errorf("failed to write metrics.html: %w", err)
 	}
 	log.Debugf("Saved metrics dashboard: %s", metricsHTMLPath)
 
 	// Save index.html (redirect to metrics.html)
 	indexHTMLPath := filepath.Join(mg.reportPath, "index.html")
-	if err := os.WriteFile(indexHTMLPath, indexHTML, 0644); err != nil {
+	if err := os.WriteFile(indexHTMLPath, mg.indexHTML, 0644); err != nil {
 		return fmt.Errorf("failed to write index.html: %w", err)
 	}
 	log.Debugf("Saved index redirect: %s", indexHTMLPath)
@@ -344,6 +366,8 @@ func (mg *MustGatherMetrics) generateOutputFiles() error {
 	return nil
 }
 
+// readDecompressedMetric reads a gzip-compressed metric payload up to maxBytes.
+// It returns an error when the decompressed output exceeds the configured limit.
 func readDecompressedMetric(gzReader io.Reader, fileName string, maxBytes int64) ([]byte, error) {
 	var payload bytes.Buffer
 	readBuf := make([]byte, 32*1024)
