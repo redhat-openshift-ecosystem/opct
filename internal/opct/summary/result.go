@@ -512,15 +512,15 @@ func (rs *ResultSummary) extractAndLoadData() error {
 			log.Error("Processing results/Populating/Populating Summary/Processing/CAMGI: Not Found")
 		}
 		if len(MetricsData.Bytes()) > 0 {
-			rs.Metrics, err = mustgathermetrics.NewMustGatherMetrics(rs.SavePath+"/metrics", pathMetrics, "/metrics", &MetricsData)
+			rs.Metrics, err = mustgathermetrics.NewMustGatherMetrics(rs.SavePath+"/metrics", &MetricsData)
 			if err != nil {
 				log.Errorf("Processing results/Populating/Populating Summary/Processing/MetricsData: %v", err)
 			} else {
-				err := rs.Metrics.Process()
-				if err != nil {
+				if err := rs.Metrics.Process(); err != nil {
 					log.Errorf("Processing MetricsData: %v", err)
+				} else {
+					rs.HasMetrics = true
 				}
-				rs.HasMetrics = true
 			}
 		} else {
 			log.Error("Processing results/Populating/Populating Summary/Processing/MetricsData: Not Found")

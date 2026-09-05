@@ -24,6 +24,7 @@ bash hack/check-cdn-sri.sh
 
 - `data/templates/report/report.html`
 - `data/templates/report/filter.html`
+- `data/templates/report/metrics.html`
 
 ## Output
 

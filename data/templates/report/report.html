@@ -10,6 +10,10 @@ preventing conflict with Vue/JS language. -->
   <!-- Load required Bootstrap and BootstrapVue CSS -->
   <script src="https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.js" integrity="sha384-Sn2JSwaWbMx5CCyudCHwrWyeaYh2SB8aLP+O0vHDVlgEBN2y0LXSHlxZqWlYcy50" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/axios@1.20.0/dist/axios.min.js" integrity="sha384-mIJWc6qj9ALoBF2yHkNOf0fbGel66+X3UkhYw57p36/PaTyDpO9pvnxrVZ7ZGJfi" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js" integrity="sha384-b0GXujLkk9eYYSmcSfoyZbfyElGAQnDyY0skCHSG6w3JgTMFnz11ggrTAr7seu9f" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" integrity="sha384-cVMg8E3QFwTvGCDuK+ET4PD341jF3W8nO1auiXfuZNQkzbUUiBGLsIQUE+b1mxws" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js" integrity="sha384-Cs3dgUx6+jDxxuqHvVH8Onpyj2LF1gKZurLDlhqzuJmUqVYMJ0THTWpxK5Z086Zm" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js" integrity="sha384-dwwI6ICEN/0ZQlS5owhUa/6ZzvwUPmjH45bFVCAcjgjTulbHJvlE+TGU3g1k0N3R" crossorigin="anonymous"></script>
   <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap@5.3.8/dist/css/bootstrap.min.css" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous" />
   <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@2.23.1/dist/bootstrap-vue.min.css" integrity="sha384-7CcIBqeb3HS2ZhyrZTEb8HKY7kbfIkmwSSrFmyEOSV11tQ7z0md3fP01eWYZ6ZDv" crossorigin="anonymous" />
 
@@ -21,12 +25,11 @@ preventing conflict with Vue/JS language. -->
 <!-- Tab manager -->
 <div class="tab">
   <button class="tablinks" onclick="openTab(event, 'OPCT')" id="tabDefault">OPCT</button>
-  <button class="tablinks" onclick="openTab(event, 'CAMGI')">CAMGI</button>
+  <button class="tablinks" onclick="window.open('./metrics/metrics.html', '_blank')">Dashboard</button>
   <button class="tablinks" onclick="openTab(event, 'Tests')">Tests</button>
   <button class="tablinks" onclick="openTab(event, 'MGEvents')">Events</button>
   <!-- <button class="tablinks" onclick="openExternalTab(event, '/must-gather/event-filter.html')">Events</button> -->
-  <!-- <button class="tablinks" onclick="openTab(event, 'Metrics')">Metrics</button> -->
-  <button class="tablinks" onclick="openExternalTab(event, '/metrics')">Metrics</button>
+  <button class="tablinks" onclick="openTab(event, 'CAMGI')">CAMGI</button>
 </div>
 
 <!-- Tab content: OPCT -->
@@ -98,8 +101,19 @@ preventing conflict with Vue/JS language. -->
         <div v-if="isLoading">
           <div>Loading... ({{ loadingMessage }})</div>
         </div>
-        <div id="main-content" class="overflow-auto"><span v-html="menuTitle"></span></div>
-        <div id="main-content" class="overflow-auto"><span v-html="menuBody"></span></div>
+        <div class="overflow-auto"><span v-html="menuTitle"></span></div>
+        <div v-if="menuBodyRight" id="split-container" class="d-flex" style="height: calc(100vh - 120px)">
+          <div id="panel-left" class="etcd-panel-left overflow-auto">
+            <span v-html="menuBody"></span>
+          </div>
+          <div id="panel-divider" class="etcd-panel-divider"></div>
+          <div id="panel-right" class="etcd-panel-right overflow-auto">
+            <span v-html="menuBodyRight"></span>
+          </div>
+        </div>
+        <div v-else class="overflow-auto">
+          <span v-html="menuBody"></span>
+        </div>
       </div>
     </div>
   </div>
@@ -201,6 +215,11 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         isLoading: true,
         loadingMessage: '',
         showMetrics: false,
+        menuBodyRight: '',
+        chartColors: ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'],
+        chartInstances: {},
+        etcdCharts: [],
+        metricsIndexPromise: null,
       };
     },
     methods: {
@@ -227,6 +246,19 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
       },
       appAddress() {
         return window.location.href.replace(/\/[^/]*$/, '')
+      },
+      loadMetricsIndex() {
+        if (!this.metricsIndexPromise) {
+          this.metricsIndexPromise = axios.get('./metrics/index.json')
+            .then(resp => {
+              if (resp.data.chartColors && resp.data.chartColors.length > 0) {
+                this.chartColors = resp.data.chartColors;
+              }
+              return resp.data.charts || [];
+            })
+            .catch(() => []);
+        }
+        return this.metricsIndexPromise;
       },
       fetchReport() {
         axios.defaults.headers.post['Content-Type'] ='application/json;charset=utf-8';
@@ -288,6 +320,15 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
       changeMenuCleanup() {
         this.menuTitle = '';
         this.menuBody = '';
+        this.menuBodyRight = '';
+        // Destroy existing Chart.js instances to prevent memory leaks
+        Object.values(this.chartInstances).forEach(chart => chart.destroy());
+        this.chartInstances = {};
+        this._chartRenderToken = (this._chartRenderToken || 0) + 1;
+        var left = document.getElementById('panel-left');
+        if (left) { left.style.width = ''; left.style.minWidth = ''; }
+        var right = document.getElementById('panel-right');
+        if (right) { right.style.width = ''; right.style.minWidth = ''; }
       },
       createTableRevHTML(table=[]) {
         htmlTable = `<table class="table table-sm table-striped font-monospace"><tbody>`
@@ -777,10 +818,8 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
       changeMenuETCD() {
         this.menuTitle = `<h1>etcd information</h1>`
         this.menuBody = this.pageHeadline
-        this.menuBody += "<p>Information extracted from etcd logs.</>"
+        this.menuBody += "<p>Information extracted from etcd logs.</p>"
 
-        // TODO#1 create checks / summary in the top of page
-        // TODO#2 implement checks rules
         if (this.report.provider.mustGatherInfo.ErrorEtcdLogs.ErrorCounters !== undefined) {
           table = this.extractErrorCountersToTable(this.report.provider.mustGatherInfo.ErrorEtcdLogs.ErrorCounters)
           table.header = "Counters for error pattern in etcd logs"
@@ -792,7 +831,6 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
             "Aggregated pod logs 'apply request took too long'",
             this.report.provider.mustGatherInfo.ErrorEtcdLogs)
         }
-        // by pod
         for (let i in this.report.provider.mustGatherInfo.NamespaceErrors) {
           if (this.report.provider.mustGatherInfo.NamespaceErrors[i].ErrorEtcdLogs !== undefined) {
             podName = this.report.provider.mustGatherInfo.NamespaceErrors[i].Pod
@@ -801,6 +839,205 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
               "Pod '"+ podName +"' logs: 'apply request took too long'",
               this.report.provider.mustGatherInfo.NamespaceErrors[i].ErrorEtcdLogs)
           }
+        }
+
+        if (this.report.summary.features.hasMetricsData) {
+          this.menuBodyRight = '<div class="alert alert-info" style="margin-bottom: 20px;">' +
+            '<strong>📊 More Metrics:</strong> ' +
+            '<a href="./metrics/metrics.html" target="_blank" rel="noopener noreferrer" style="text-decoration: underline;">Open full dashboard</a> ' +
+            'to view all charts in an interactive grid dashboard with click-to-expand functionality.' +
+            '</div>'
+          const menuToken = this._chartRenderToken;
+          this.loadMetricsIndex().then(allCharts => {
+            if (menuToken !== this._chartRenderToken) return;
+            this.etcdCharts = allCharts
+              .filter(chart => chart.reportPreview)
+              .map((chart, i) => ({
+                id: 'etcd-chart-' + i,
+                path: './metrics/' + chart.path.replace(/^\.\//, ''),
+                title: chart.title,
+                label: chart.label,
+                unit: chart.unit,
+                convertToMs: chart.convertToMs,
+              }));
+            for (let chart of this.etcdCharts) {
+              this.menuBodyRight += `<div class="etcd-chart-card" id="card-` + chart.id + `">` +
+                `<div class="etcd-chart-header"><h6>` + chart.title + `</h6>` +
+                `<div class="etcd-chart-toolbar">` +
+                `<button class="etcd-chart-btn" onclick="app_opct.menuEtcdResetChartZoom('` + chart.id + `')" title="Reset zoom">Reset</button>` +
+                `<button class="etcd-chart-btn" onclick="app_opct.menuEtcdExpandChart('` + chart.id + `')" title="Expand chart">&#x26F6;</button>` +
+                `</div></div>` +
+                `<canvas id="` + chart.id + `"></canvas></div>`
+            }
+            this.$nextTick(() => { this.menuEtcdRenderCharts(); });
+          });
+        }
+      },
+      menuEtcdResetChartZoom(chartId) {
+        let instance = this.chartInstances[chartId];
+        if (instance) instance.resetZoom();
+      },
+      menuEtcdCloneChartDatasets(instance) {
+        return {
+          datasets: instance.data.datasets.map(ds => ({
+            label: ds.label,
+            data: ds.data.map(p => ({ x: new Date(p.x), y: p.y })),
+            borderColor: ds.borderColor,
+            backgroundColor: ds.backgroundColor,
+            borderWidth: ds.borderWidth,
+            pointRadius: ds.pointRadius,
+            tension: ds.tension,
+          })),
+        };
+      },
+      menuEtcdBuildExpandedChartOptions(chart) {
+        return {
+          responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: 1.8,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12 } } },
+            tooltip: { mode: 'index', intersect: false },
+            zoom: {
+              zoom: { drag: { enabled: true, backgroundColor: 'rgba(78,121,167,0.15)', borderColor: '#4e79a7', borderWidth: 1 }, mode: 'x' },
+              pan: { enabled: true, mode: 'x' },
+            },
+          },
+          scales: {
+            x: { type: 'time', time: { tooltipFormat: 'yyyy-MM-dd HH:mm' }, ticks: { maxTicksAllowed: 8, font: { size: 10 } } },
+            y: {
+              beginAtZero: false,
+              ticks: { font: { size: 10 } },
+              title: {
+                display: true,
+                text: chart ? chart.unit : '',
+                font: { size: 11, weight: 'bold' }
+              }
+            },
+          },
+        };
+      },
+      menuEtcdExpandChart(chartId) {
+        let instance = this.chartInstances[chartId];
+        if (!instance) return;
+        let chartConfig = this.etcdCharts.find(chart => chart.id === chartId);
+        let overlay = document.createElement('div');
+        overlay.className = 'etcd-chart-overlay';
+        overlay.innerHTML = `<div class="etcd-chart-overlay-content">` +
+          `<div class="etcd-chart-overlay-header">` +
+          `<button class="etcd-chart-btn" id="overlay-reset" title="Reset zoom">Reset</button>` +
+          `<button class="etcd-chart-btn" id="overlay-close" title="Close">&times;</button>` +
+          `</div><canvas id="overlay-canvas"></canvas></div>`;
+        document.body.appendChild(overlay);
+
+        let expanded = null;
+        let closeOverlay = function() {
+          if (expanded) {
+            expanded.destroy();
+            expanded = null;
+          }
+          document.removeEventListener('keydown', onKeydown);
+          if (overlay.parentNode) {
+            document.body.removeChild(overlay);
+          }
+        };
+        let onKeydown = function(e) {
+          if (e.key === 'Escape') {
+            closeOverlay();
+          }
+        };
+
+        overlay.querySelector('#overlay-close').onclick = closeOverlay;
+        overlay.querySelector('#overlay-reset').onclick = function() {
+          if (expanded) expanded.resetZoom();
+        };
+        overlay.onclick = function(e) { if (e.target === overlay) { closeOverlay(); } };
+        document.addEventListener('keydown', onKeydown);
+
+        let canvas = overlay.querySelector('#overlay-canvas');
+        expanded = new Chart(canvas, {
+          type: 'line',
+          data: this.menuEtcdCloneChartDatasets(instance),
+          options: this.menuEtcdBuildExpandedChartOptions(chartConfig),
+        });
+      },
+      menuEtcdRenderCharts() {
+        // Generate render token to ignore stale axios responses
+        const renderToken = (this._chartRenderToken || 0) + 1;
+        this._chartRenderToken = renderToken;
+        // Destroy existing Chart.js instances before creating new ones
+        Object.values(this.chartInstances).forEach(chart => chart.destroy());
+        this.chartInstances = {};
+        for (let chart of this.etcdCharts) {
+          axios.get(chart.path)
+            .then(resp => {
+              // Ignore stale responses from previous render calls
+              if (renderToken !== this._chartRenderToken) return;
+              // Parse Prometheus JSON format (query_range API response)
+              let promResponse = resp.data;
+              if (!promResponse.data || !promResponse.data.result) {
+                throw new Error('Invalid Prometheus response format');
+              }
+
+              let datasets = promResponse.data.result.map((result, i) => {
+                let labelKey = chart.label || 'instance';
+                let labelValue = result.metric[labelKey] || 'unknown';
+
+                // Convert Prometheus values [timestamp, "value"] to Chart.js format
+                let dataPoints = result.values.map(v => ({
+                  x: new Date(v[0] * 1000), // Unix timestamp to JS Date
+                  y: chart.convertToMs ? parseFloat(v[1]) * 1000 : parseFloat(v[1])  // Convert seconds to ms if needed
+                }));
+
+                return {
+                  label: labelValue,
+                  data: dataPoints,
+                  borderColor: this.chartColors[i % this.chartColors.length],
+                  backgroundColor: 'transparent',
+                  borderWidth: 1.5,
+                  pointRadius: 0,
+                  tension: 0.3,
+                };
+              });
+              let canvas = document.getElementById(chart.id);
+              if (!canvas) return;
+              this.chartInstances[chart.id] = new Chart(canvas, {
+                type: 'line',
+                data: { datasets: datasets },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: true,
+                  aspectRatio: 2.2,
+                  interaction: { mode: 'index', intersect: false },
+                  plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: { mode: 'index', intersect: false },
+                    zoom: {
+                      zoom: { drag: { enabled: true, backgroundColor: 'rgba(78,121,167,0.15)', borderColor: '#4e79a7', borderWidth: 1 }, mode: 'x' },
+                      pan: { enabled: true, mode: 'x' },
+                    },
+                  },
+                  scales: {
+                    x: { type: 'time', time: { tooltipFormat: 'yyyy-MM-dd HH:mm' }, ticks: { maxTicksAllowed: 8, font: { size: 10 } } },
+                    y: {
+                      beginAtZero: false,
+                      ticks: { font: { size: 10 } },
+                      title: {
+                        display: true,
+                        text: chart.unit,
+                        font: { size: 11, weight: 'bold' }
+                      }
+                    },
+                  },
+                },
+              });
+            })
+            .catch(() => {
+              if (renderToken !== this._chartRenderToken) return;
+              let el = document.getElementById(chart.id);
+              if (el) el.parentElement.innerHTML = '<p class="text-muted"><i>Chart not available</i></p>';
+            });
         }
       },
       changeMenuNetwork() {
@@ -1184,6 +1421,36 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
   /* main */
   document.getElementById("tabDefault").click();
   app_opct.changeMenu('summary')
+
+  /* Resizable split-pane divider */
+  document.addEventListener('mousedown', function(e) {
+    if (e.target.id !== 'panel-divider') return;
+    e.preventDefault();
+    var container = document.getElementById('split-container');
+    var left = document.getElementById('panel-left');
+    var right = document.getElementById('panel-right');
+    var divider = document.getElementById('panel-divider');
+    var startX = e.clientX;
+    var startLeftW = left.offsetWidth;
+    var totalW = container.offsetWidth - divider.offsetWidth;
+
+    function onMove(e) {
+      var dx = e.clientX - startX;
+      var newLeftW = Math.max(200, Math.min(totalW - 200, startLeftW + dx));
+      var leftPct = (newLeftW / container.offsetWidth) * 100;
+      var rightPct = ((totalW - newLeftW) / container.offsetWidth) * 100;
+      left.style.width = leftPct + '%';
+      left.style.minWidth = leftPct + '%';
+      right.style.width = rightPct + '%';
+      right.style.minWidth = rightPct + '%';
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 </script>
 
 </body>

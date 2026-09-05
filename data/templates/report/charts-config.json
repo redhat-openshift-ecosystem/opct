@@ -1,0 +1,68 @@
+{
+  "chartColors": [
+    "#4e79a7",
+    "#f28e2b",
+    "#e15759",
+    "#76b7b2",
+    "#59a14f",
+    "#edc948",
+    "#b07aa1",
+    "#ff9da7"
+  ],
+  "charts": [
+    {
+      "file": "query_range-etcd-disk-fsync-db-duration-p99.json.gz",
+      "label": "instance",
+      "title": "etcd fsync DB p99",
+      "id": "id1",
+      "unit": "ms",
+      "convertToMs": true,
+      "reportPreview": true
+    },
+    {
+      "file": "query_range-api-kas-request-duration-p99.json.gz",
+      "label": "verb",
+      "title": "Kube API request p99",
+      "id": "id2",
+      "unit": "ms",
+      "convertToMs": true,
+      "reportPreview": false
+    },
+    {
+      "file": "query_range-etcd-disk-fsync-wal-duration-p99.json.gz",
+      "label": "instance",
+      "title": "etcd fsync WAL p99",
+      "id": "id0",
+      "unit": "ms",
+      "convertToMs": true,
+      "reportPreview": true
+    },
+    {
+      "file": "query_range-etcd-peer-round-trip-time.json.gz",
+      "label": "instance",
+      "title": "etcd peer round trip",
+      "id": "id3",
+      "unit": "ms",
+      "convertToMs": true,
+      "reportPreview": false
+    },
+    {
+      "file": "query_range-etcd-total-leader-elections-day.json.gz",
+      "label": "instance",
+      "title": "etcd peer total leader election",
+      "id": "id4",
+      "unit": "count",
+      "convertToMs": false,
+      "reportPreview": false
+    },
+    {
+      "file": "query_range-etcd-request-duration-p99.json.gz",
+      "label": "operation",
+      "title": "etcd req duration p99",
+      "id": "id5",
+      "unit": "ms",
+      "convertToMs": true,
+      "reportPreview": false
+    }
+  ]
+}
