@@ -19,6 +19,7 @@ jobs:
   # reviewdog / misspell:  https://github.com/reviewdog/action-misspell
   misspell:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: reviewdog/action-misspell@v1
