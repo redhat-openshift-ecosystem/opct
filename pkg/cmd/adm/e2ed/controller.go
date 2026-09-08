@@ -138,11 +138,13 @@ func showCounters(stop chan struct{}) {
 }
 
 // dedicatedNodeNames returns the names of the nodes holding the OPCT dedicated node taint.
+// Only the NoSchedule effect applied by "opct adm e2e-dedicated taint-node" is considered, since
+// that is the only effect the injected toleration matches.
 func dedicatedNodeNames(nodes []*corev1.Node) map[string]struct{} {
 	dedicated := make(map[string]struct{})
 	for _, node := range nodes {
 		for _, taint := range node.Spec.Taints {
-			if taint.Key == types.DedicatedNodeRoleLabel {
+			if taint.Key == types.DedicatedNodeRoleLabel && taint.Effect == corev1.TaintEffectNoSchedule {
 				dedicated[node.Name] = struct{}{}
 				break
 			}

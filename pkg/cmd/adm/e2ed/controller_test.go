@@ -162,6 +162,14 @@ func TestIsPinnedToDedicatedNode(t *testing.T) {
 			want:  false,
 		},
 		{
+			// The controller only injects a NoSchedule toleration, so a pod pinned to a node
+			// tainted with NoExecute would stay unschedulable after the mutation.
+			name:  "pod pinned to a node tainted with NoExecute is not pinned",
+			pod:   podWithSelector(map[string]string{"kubernetes.io/hostname": "worker-noexecute"}),
+			nodes: append(opctCluster(), newNodeTaintedWith("worker-noexecute", corev1.TaintEffectNoExecute)),
+			want:  false,
+		},
+		{
 			name:  "cluster without a dedicated node never pins",
 			pod:   podWithSelector(map[string]string{"kubernetes.io/hostname": "worker-0"}),
 			nodes: []*corev1.Node{newNode("worker-0", false, nil)},
@@ -184,10 +192,25 @@ func TestIsPinnedToDedicatedNode(t *testing.T) {
 	}
 }
 
+// newNodeTaintedWith builds a node holding the dedicated node key with an arbitrary taint effect.
+func newNodeTaintedWith(name string, effect corev1.TaintEffect) *corev1.Node {
+	node := newNode(name, false, map[string]string{types.DedicatedNodeRoleLabel: ""})
+	node.Spec.Taints = append(node.Spec.Taints, corev1.Taint{
+		Key:    types.DedicatedNodeRoleLabel,
+		Effect: effect,
+	})
+	return node
+}
+
 func TestDedicatedNodeNames(t *testing.T) {
 	nodes := opctCluster()
 	// A node labelled but not tainted is not reserved yet, only the taint blocks scheduling.
 	nodes = append(nodes, newNode("worker-labelled", false, map[string]string{types.DedicatedNodeRoleLabel: ""}))
+	// The injected toleration only matches NoSchedule, so the other effects are not handled here.
+	nodes = append(nodes,
+		newNodeTaintedWith("worker-noexecute", corev1.TaintEffectNoExecute),
+		newNodeTaintedWith("worker-prefernoschedule", corev1.TaintEffectPreferNoSchedule),
+	)
 
 	dedicated := dedicatedNodeNames(nodes)
 	if len(dedicated) != 1 {
