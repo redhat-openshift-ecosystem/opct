@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
 )
@@ -208,9 +209,18 @@ func listNodes(store cache.Store) []*corev1.Node {
 func controllerRun() {
 	log.Info("Starting the e2e-dedicated controller...")
 
-	config, err := rest.InClusterConfig()
+	// The controller normally runs in-cluster, the kubeconfig lookup allows running it locally
+	// against a live cluster while developing or reproducing scheduling issues.
+	config, err := func() (*rest.Config, error) {
+		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+		if cfg, err := kubeConfig.ClientConfig(); err == nil {
+			return cfg, nil
+		}
+		return rest.InClusterConfig()
+	}()
 	if err != nil {
-		log.Fatalf("Failed to get in-cluster config: %v. Ensure the KUBECONFIG environment variable is set or config is in the path:\n", err)
+		log.Fatalf("Failed to get the cluster config: %v. Ensure the KUBECONFIG environment variable is set or config is in the path:\n", err)
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
