@@ -181,8 +181,10 @@ func isPinnedToDedicatedNode(pod *corev1.Pod, nodes []*corev1.Node) bool {
 	for _, node := range nodes {
 		ok, err := required.Match(node)
 		if err != nil {
+			// Skipping the node would drop the only candidate able to prove the pod is not pinned,
+			// so an unresolvable placement leaves the pod untouched instead of mutating it.
 			log.Debugf("[%s] failed to match node %s against the pod node affinity: %v", getPodKey(pod.Namespace, pod.Name), node.Name, err)
-			continue
+			return false
 		}
 		if !ok {
 			continue
@@ -212,14 +214,15 @@ func controllerRun() {
 	log.Info("Starting the e2e-dedicated controller...")
 
 	// The controller normally runs in-cluster, the kubeconfig lookup allows running it locally
-	// against a live cluster while developing or reproducing scheduling issues.
+	// against a live cluster while developing or reproducing scheduling issues. The in-cluster
+	// config is resolved first so a kubeconfig reaching the pod can't shadow the service account.
 	config, err := func() (*rest.Config, error) {
-		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-		if cfg, err := kubeConfig.ClientConfig(); err == nil {
+		if cfg, err := rest.InClusterConfig(); err == nil {
 			return cfg, nil
 		}
-		return rest.InClusterConfig()
+		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+		return kubeConfig.ClientConfig()
 	}()
 	if err != nil {
 		log.Fatalf("Failed to get the cluster config: %v. Ensure the KUBECONFIG environment variable is set or config is in the path:\n", err)
