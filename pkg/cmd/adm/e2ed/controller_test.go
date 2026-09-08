@@ -204,8 +204,8 @@ func newNodeTaintedWith(name string, effect corev1.TaintEffect) *corev1.Node {
 
 func TestDedicatedNodeNames(t *testing.T) {
 	nodes := opctCluster()
-	// A node labelled but not tainted is not reserved yet, only the taint blocks scheduling.
-	nodes = append(nodes, newNode("worker-labelled", false, map[string]string{types.DedicatedNodeRoleLabel: ""}))
+	// A node labeled but not tainted is not reserved yet, only the taint blocks scheduling.
+	nodes = append(nodes, newNode("worker-labeled", false, map[string]string{types.DedicatedNodeRoleLabel: ""}))
 	// The injected toleration only matches NoSchedule, so the other effects are not handled here.
 	nodes = append(nodes,
 		newNodeTaintedWith("worker-noexecute", corev1.TaintEffectNoExecute),
