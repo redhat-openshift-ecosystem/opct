@@ -26,6 +26,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.6.7
 	github.com/montanaflynn/stats v0.7.1
 	gopkg.in/yaml.v3 v3.0.1
+	k8s.io/component-helpers v0.34.1
 )
 
 require (
