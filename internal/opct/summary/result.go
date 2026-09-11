@@ -298,6 +298,7 @@ func (rs *ResultSummary) extractAndLoadData() error {
 		pathMetaConfig = "meta/config.json"
 
 		// Sonobuoy plugin files
+		pathPluginDefinition05 = "plugins/05-openshift-cluster-upgrade/definition.json"
 		pathPluginDefinition10 = "plugins/10-openshift-kube-conformance/definition.json"
 		pathPluginDefinition20 = "plugins/20-openshift-conformance-validated/definition.json"
 
@@ -321,6 +322,7 @@ func (rs *ResultSummary) extractAndLoadData() error {
 	// Data bindings
 	mustGather := bytes.Buffer{}
 	saveToFlagEnabled := rs.SavePath != ""
+	testsSuiteUpgrade := bytes.Buffer{}
 	testsSuiteK8S := bytes.Buffer{}
 	testsSuiteOCP := bytes.Buffer{}
 
@@ -340,6 +342,7 @@ func (rs *ResultSummary) extractAndLoadData() error {
 	openshiftConfigMapList := v1.ConfigMapList{}
 	nodes := v1.NodeList{}
 
+	pluginDef05 := SonobuoyPluginDefinition{}
 	pluginDef10 := SonobuoyPluginDefinition{}
 	pluginDef20 := SonobuoyPluginDefinition{}
 
@@ -372,6 +375,9 @@ func (rs *ResultSummary) extractAndLoadData() error {
 		if err := results.ExtractFileIntoStruct(pathResourceClusterNetwork, path, info, &ocpCN); err != nil {
 			return fmt.Errorf("extracting file '%s': %w", path, err)
 		}
+		if err := results.ExtractFileIntoStruct(pathPluginDefinition05, path, info, &pluginDef05); err != nil {
+			return fmt.Errorf("extracting file '%s': %w", path, err)
+		}
 		if err := results.ExtractFileIntoStruct(pathPluginDefinition10, path, info, &pluginDef10); err != nil {
 			return fmt.Errorf("extracting file '%s': %w", path, err)
 		}
@@ -394,6 +400,10 @@ func (rs *ResultSummary) extractAndLoadData() error {
 			return fmt.Errorf("extracting file '%s': %w", path, err)
 		}
 		// Extract raw files
+		if warn := results.ExtractBytes(pathPluginArtifactTestsUpgrade, path, info, &testsSuiteUpgrade); warn != nil {
+			log.Warnf("Unable to load file %s: %v\n", pathPluginArtifactTestsUpgrade, warn)
+			return fmt.Errorf("extracting file '%s': %w", path, warn)
+		}
 		if warn := results.ExtractBytes(pathPluginArtifactTestsK8S, path, info, &testsSuiteK8S); warn != nil {
 			log.Warnf("Unable to load file %s: %v\n", pathPluginArtifactTestsK8S, warn)
 			return fmt.Errorf("extracting file '%s': %w", path, warn)
@@ -476,12 +486,16 @@ func (rs *ResultSummary) extractAndLoadData() error {
 	if err := rs.GetOpenShift().ExtractOpenShiftConfigMap(&openshiftConfigMapList); err != nil {
 		log.Warnf("Processing results/Populating/Populating Summary/Processing/Object/OpenShiftConfigInstallManifest: %v", err)
 	}
+	if err := rs.Suites.UpgradeConformance.Load(pathPluginArtifactTestsUpgrade, &testsSuiteUpgrade); err != nil {
+		log.Warnf("Processing results/Populating/Populating Summary/Processing/Plugin/upgrade: %v", err)
+	}
 	if err := rs.Suites.KubernetesConformance.Load(pathPluginArtifactTestsK8S, &testsSuiteK8S); err != nil {
 		log.Warnf("Processing results/Populating/Populating Summary/Processing/Plugin/kube: %v", err)
 	}
 	if err := rs.Suites.OpenshiftConformance.Load(pathPluginArtifactTestsOCP, &testsSuiteOCP); err != nil {
 		log.Warnf("Processing results/Populating/Populating Summary/Processing/Plugin/openshift: %v", err)
 	}
+	rs.GetSonobuoy().SetPluginDefinition(plugin.PluginNameOpenShiftUpgrade, &pluginDef05)
 	rs.GetSonobuoy().SetPluginDefinition(plugin.PluginNameKubernetesConformance, &pluginDef10)
 	rs.GetSonobuoy().SetPluginDefinition(plugin.PluginNameOpenShiftConformance, &pluginDef20)
 
