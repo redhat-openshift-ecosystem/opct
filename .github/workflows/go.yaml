@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - release-*
+      - devel-OPCT-430
   push:
     branches:
       - main
