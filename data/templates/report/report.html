@@ -65,6 +65,9 @@ preventing conflict with Vue/JS language. -->
             <span class= "badge bg-[[ .Summary.Alerts.PluginOCP ]] float-right">[[ .Summary.Alerts.PluginOCPMessage ]]</span>
             [[ end ]]
           </a>
+          [[ if and .Provider.IsUpgradeWorkflow (index .Provider.Plugins "05-openshift-cluster-upgrade") ]]
+          <a href="#" v-on:click="changeMenu('05-openshift-cluster-upgrade')" class="list-group-item list-group-item-action">Suite Upgrade</a>
+          [[ end ]]
           <a href="#" v-on:click="changeMenu('suite-errors')" class="list-group-item list-group-item-action">Suite Errors
             [[ if .Summary.Alerts.SuiteErrors ]]
             <span class= "badge bg-[[ .Summary.Alerts.SuiteErrors ]] float-right">[[ .Summary.Alerts.SuiteErrorsMessage ]]</span>
@@ -78,7 +81,6 @@ preventing conflict with Vue/JS language. -->
           <a href="#" v-on:click="changeMenu('etcd')" class="list-group-item list-group-item-action">etcd</a>
           <a href="#" v-on:click="changeMenu('network')" class="list-group-item list-group-item-action">Network</a>
           <a href="#" v-on:click="changeMenu('runtime')" class="list-group-item list-group-item-action">Runtime</a>
-          <a class="list-group-item list-group-item-action disabled">Suite Upgrade</a>
           <a class="list-group-item list-group-item-action disabled">Plugin Artifacts</a>
 
           <!-- TODO: parse firing alerts
@@ -297,6 +299,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
           break;
         case "10-openshift-kube-conformance":
         case "20-openshift-conformance-validated":
+        case "05-openshift-cluster-upgrade":
           console.log("menu selected: conformance plugin " + m);
           this.changeMenuPluginConformance(m)
           break;
@@ -616,6 +619,22 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         }
         return data;
       },
+      getPluginTestResults(pluginName, plugin) {
+        const tests = Object.values(plugin.tests || {});
+        const rows = tests.map(test => {
+          let details = "";
+          if (test.status === "failed" || test.status === "timeout") {
+            details = "<a href=\"./failures-" + pluginName + "/" + test.id + "-failure.txt\" target=\"_blank\">failure</a><br>" +
+              "<a href=\"./failures-" + pluginName + "/" + test.id + "-systemOut.txt\" target=\"_blank\">systemOut</a>";
+          }
+          return {
+            "Status": test.status || "-",
+            "Test Name": test.name,
+            "Failure Details": details,
+          };
+        });
+        return rows.sort((a, b) => a["Test Name"].localeCompare(b["Test Name"]));
+      },
       changeMenuPluginConformance(pluginName) {
         this.menuTitle = `<h1>Conformance Suite</h1>`
         this.menuBody = this.pageHeadline
@@ -623,7 +642,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
 
         let plugin = this.report.provider.plugins[pluginName]
         if (!plugin) {
-          this.menuBody += "<p><i>Plugin not loaded (skipped in upgrade mode)</i></p>"
+          this.menuBody += "<p><i>Suite is not applicable: no plugin result was loaded from this archive.</i></p>"
           return;
         }
 
@@ -637,6 +656,15 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         }
         this.menuBody += this.createTableHTML(table=tbTests);
         this.menuBody += "<i>*Prio.Failures: Priority failures after filters</i><p>";
+
+        let tbTestResults = {
+          header: "Test results (" + Object.keys(plugin.tests || {}).length + ")",
+          data: this.getPluginTestResults(pluginName, plugin),
+          headline: "",
+          fields: ["Status", "Test Name", "Failure Details"],
+          fieldMap: {}
+        }
+        this.menuBody += this.createTableHTML(table=tbTestResults);
 
         this.menuBody += "<p><b>Failures filtered by OPCT report pipeline:</b></p>";
         // Create table with counters by filter
