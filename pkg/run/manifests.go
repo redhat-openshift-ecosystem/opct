@@ -60,12 +60,17 @@ func loadPluginManifests(r *RunOptions) ([]*manifest.Manifest, error) {
 			log.Errorf("error loading configuration for plugin %s: %v", m, err)
 			return nil, err
 		}
+		pluginName := asset.SonobuoyConfig.PluginName
+
+		if r.mode != plugin.WorkflowUpgrade && pluginName == plugin.PluginNameOpenShiftUpgrade {
+			log.Infof("Skipping plugin %s outside upgrade mode", pluginName)
+			continue
+		}
 
 		// Skip conformance plugins (10, 20, 80) in upgrade mode.
 		// These plugins produce invalid results due to binary/release version
 		// mismatch when the cluster is upgraded mid-run.
 		if r.mode == plugin.WorkflowUpgrade {
-			pluginName := asset.SonobuoyConfig.PluginName
 			switch pluginName {
 			case plugin.PluginNameKubernetesConformance,
 				plugin.PluginNameOpenShiftConformance,
