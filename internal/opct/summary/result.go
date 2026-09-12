@@ -232,6 +232,13 @@ func (rs *ResultSummary) processPluginResult(obj *results.Item) error {
 
 	testItems := make(map[string]*plugin.TestItem, len(tests))
 	for idx, item := range tests {
+		if existing, ok := testItems[item.Name]; ok &&
+			(existing.Status == results.StatusFailed || existing.Status == results.StatusTimeout) &&
+			item.Status != results.StatusFailed && item.Status != results.StatusTimeout {
+			// Sonobuoy result files can contain the same test name more than once.
+			// Keep the failing occurrence so the report retains its failure details.
+			continue
+		}
 		testItems[item.Name] = &plugin.TestItem{
 			Name:  item.Name,
 			ID:    fmt.Sprintf("%s-%d", obj.Name, idx),

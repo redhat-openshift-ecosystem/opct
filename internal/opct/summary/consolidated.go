@@ -876,11 +876,7 @@ func (cs *ConsolidatedSummary) extractFailuresDetailsByPlugin(path, pluginName s
 	if err := createDir(subdir, ignoreExistingDir); err != nil {
 		return err
 	}
-	errFailures := make([]string, len(resultsProvider.Tests))
-	for k := range resultsProvider.Tests {
-		errFailures = append(errFailures, k)
-	}
-	if err := extractSaveTestErrors(subdir, resultsProvider.Tests, errFailures); err != nil {
+	if err := extractSaveTestErrors(subdir, resultsProvider.Tests, resultsProvider.FailedList); err != nil {
 		return err
 	}
 

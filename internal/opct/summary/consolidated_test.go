@@ -56,6 +56,11 @@ func TestSaveUpgradeFailureDetails(t *testing.T) {
 				Failure:   failure,
 				SystemOut: systemOut,
 			},
+			"passed upgrade test": {
+				ID:     "05-openshift-cluster-upgrade-1",
+				Name:   "passed upgrade test",
+				Status: "passed",
+			},
 		},
 	}
 	cs.Provider.Suites.UpgradeConformance.Tests = []string{failedUpgradeTest}
@@ -77,4 +82,10 @@ func TestSaveUpgradeFailureDetails(t *testing.T) {
 	gotSystemOut, err := os.ReadFile(systemOutPath)
 	require.NoError(t, err)
 	assert.Equal(t, systemOut, string(gotSystemOut))
+
+	entries, err := os.ReadDir(filepath.Join(outputDir, "failures-05-openshift-cluster-upgrade"))
+	require.NoError(t, err)
+	require.Len(t, entries, 2)
+	assert.Equal(t, "05-openshift-cluster-upgrade-0-failure.txt", entries[0].Name())
+	assert.Equal(t, "05-openshift-cluster-upgrade-0-systemOut.txt", entries[1].Name())
 }
