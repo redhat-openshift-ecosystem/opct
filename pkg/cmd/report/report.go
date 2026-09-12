@@ -599,16 +599,34 @@ func showSummaryPlugin(re *report.ReportResult, pluginName string, bProcessed bo
 func showErrorDetails(re *report.ReportData, verbose bool) error {
 	fmt.Printf("\n==> Result details by conformance plugins: \n")
 
-	showErrorDetailPlugin(re.Provider.Plugins[plugin.PluginNameKubernetesConformance], verbose)
-	showErrorDetailPlugin(re.Provider.Plugins[plugin.PluginNameOpenShiftConformance], verbose)
+	pluginNames := make([]string, 0, len(re.Provider.Plugins))
+	for pluginName, p := range re.Provider.Plugins {
+		if p == nil {
+			log.Errorf("unable to get plugin %s", pluginName)
+			continue
+		}
+		if p.Stat != nil && p.Stat.Status == "skipped" {
+			continue
+		}
+		switch pluginName {
+		case plugin.PluginNameOpenShiftUpgrade,
+			plugin.PluginNameKubernetesConformance,
+			plugin.PluginNameOpenShiftConformance:
+			pluginNames = append(pluginNames, pluginName)
+		}
+	}
+	sort.Strings(pluginNames)
+	for _, pluginName := range pluginNames {
+		showErrorDetailPlugin(pluginName, re.Provider.Plugins[pluginName], verbose)
+	}
 
 	return nil
 }
 
 // showErrorDetailPlugin Show failed e2e tests by filter, when verbose each filter will be shown.
-func showErrorDetailPlugin(p *report.ReportPlugin, verbose bool) {
+func showErrorDetailPlugin(pluginName string, p *report.ReportPlugin, verbose bool) {
 	if p == nil {
-		errlog.LogError(fmt.Errorf("unable to get plugin"))
+		log.Errorf("unable to get plugin %s", pluginName)
 		return
 	}
 	fmt.Printf("==> %s - test failures:\n", p.Name)

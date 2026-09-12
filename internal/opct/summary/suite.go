@@ -11,6 +11,7 @@ const (
 )
 
 type OpenshiftTestsSuites struct {
+	UpgradeConformance    *OpenshiftTestsSuite
 	KubernetesConformance *OpenshiftTestsSuite
 	OpenshiftConformance  *OpenshiftTestsSuite
 }

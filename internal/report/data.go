@@ -50,17 +50,18 @@ type ReportChecks struct {
 }
 
 type ReportResult struct {
-	Version          *ReportVersion           `json:"version"`
-	Infra            *ReportInfra             `json:"infra"`
-	ClusterOperators *ReportClusterOperators  `json:"clusterOperators"`
-	ClusterHealth    *ReportClusterHealth     `json:"clusterHealth"`
-	Plugins          map[string]*ReportPlugin `json:"plugins"`
-	HasValidBaseline bool                     `json:"hasValidBaseline"`
-	MustGatherInfo   *mustgather.MustGather   `json:"mustGatherInfo,omitempty"`
-	ErrorCounters    *archive.ErrorCounter    `json:"errorCounters,omitempty"`
-	Runtime          *ReportRuntime           `json:"runtime,omitempty"`
-	Nodes            []*summary.Node          `json:"nodes,omitempty"`
-	InstallInvoker   *string                  `json:"installInvoker,omitempty"`
+	Version           *ReportVersion           `json:"version"`
+	Infra             *ReportInfra             `json:"infra"`
+	ClusterOperators  *ReportClusterOperators  `json:"clusterOperators"`
+	ClusterHealth     *ReportClusterHealth     `json:"clusterHealth"`
+	Plugins           map[string]*ReportPlugin `json:"plugins"`
+	HasValidBaseline  bool                     `json:"hasValidBaseline"`
+	MustGatherInfo    *mustgather.MustGather   `json:"mustGatherInfo,omitempty"`
+	ErrorCounters     *archive.ErrorCounter    `json:"errorCounters,omitempty"`
+	Runtime           *ReportRuntime           `json:"runtime,omitempty"`
+	Nodes             []*summary.Node          `json:"nodes,omitempty"`
+	InstallInvoker    *string                  `json:"installInvoker,omitempty"`
+	IsUpgradeWorkflow bool                     `json:"isUpgradeWorkflow,omitempty"`
 }
 
 func (rt *ReportResult) GetPlugins() []string {
@@ -559,6 +560,7 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 	for i := range reResult.Runtime.OpctConfig {
 		if reResult.Runtime.OpctConfig[i].Name == "run-mode" {
 			re.Setup.API.Workflow = reResult.Runtime.OpctConfig[i].Value
+			reResult.IsUpgradeWorkflow = reResult.Runtime.OpctConfig[i].Value == plugin.WorkflowUpgrade
 		}
 	}
 	return nil
@@ -584,6 +586,7 @@ func (re *ReportData) populatePluginConformance(rs *summary.ResultSummary, reRes
 	case plugin.PluginNameOpenShiftUpgrade:
 		pluginSum = rs.GetOpenShift().GetResultConformanceUpgrade()
 		pluginTitle = "Results for OpenShift Conformance Upgrade Suite"
+		suite = rs.GetSuites().UpgradeConformance
 	case plugin.PluginNameConformanceReplay:
 		pluginSum = rs.GetOpenShift().GetResultConformanceReplay()
 		pluginTitle = "Results for Replay test suite"
@@ -616,9 +619,9 @@ func (re *ReportData) populatePluginConformance(rs *summary.ResultSummary, reRes
 		Tests: pluginSum.Tests,
 	}
 
-	// No more advanced fields to create for non-Conformance
+	// No more advanced fields to create for non-Conformance.
 	switch pluginID {
-	case plugin.PluginNameOpenShiftUpgrade, plugin.PluginNameArtifactsCollector:
+	case plugin.PluginNameArtifactsCollector:
 		return nil
 	}
 
