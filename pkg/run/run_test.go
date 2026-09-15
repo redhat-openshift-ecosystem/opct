@@ -47,10 +47,10 @@ func TestResolveKubernetesSuiteName(t *testing.T) {
 			expected: "kubernetes/conformance",
 		},
 		{
-			name:     "OCP 4.20 uses parallel/minimal suite",
+			name:     "OCP 4.20 uses conformance suite",
 			major:    4,
 			minor:    20,
-			expected: "kubernetes/conformance/parallel/minimal",
+			expected: "kubernetes/conformance",
 		},
 		{
 			name:     "OCP 4.21 uses conformance suite",
