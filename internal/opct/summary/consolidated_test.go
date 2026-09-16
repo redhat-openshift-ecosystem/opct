@@ -112,13 +112,15 @@ func TestApplyFilterKnownFailures(t *testing.T) {
 			expectedExcludedCount: 0,
 		},
 		{
-			name: "should_exclude_user_api_test_when_failure_is_empty",
+			name: "should_NOT_exclude_user_api_test_when_failure_is_empty",
 			inputFailures: []string{
 				userAPITestName,
 			},
-			failureMessages:       map[string]string{},
-			expectedFailures:      []string{},
-			expectedExcludedCount: 1,
+			failureMessages: map[string]string{},
+			expectedFailures: []string{
+				userAPITestName,
+			},
+			expectedExcludedCount: 0,
 		},
 		{
 			name: "should_exclude_name_only_entries_without_pattern_check",

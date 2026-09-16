@@ -651,8 +651,14 @@ func (cs *ConsolidatedSummary) applyFilterKnownFailuresForPlugin(pluginName stri
 				filterFailures = append(filterFailures, v)
 				continue
 			}
+			// Pattern configured but Failure message is empty — can't confirm
+			// false positive, keep in failures.
+			log.Warnf("filter(%s): known failure %q has a pattern configured (%q) but empty failure message, NOT excluding",
+				filterID, v, pattern)
+			filterFailures = append(filterFailures, v)
+			continue
 		}
-		// No pattern configured or no failure message to check — exclude by name (backward compat).
+		// No pattern configured — exclude by name (backward compat).
 		filterFailuresExcluded = append(filterFailuresExcluded, v)
 	}
 	sort.Strings(filterFailures)
