@@ -567,6 +567,18 @@ func (cs *ConsolidatedSummary) applyFilterKnownFailures(filterID string) error {
 		"[sig-auth][Feature:UserAPI] users can manipulate groups [apigroup:user.openshift.io][apigroup:authorization.openshift.io][apigroup:project.openshift.io] [Suite:openshift/conformance/parallel]",
 	}
 
+	// TestSuiteKnownFailurePatterns defines conditional exclusions: when a test name
+	// matches a known failure AND has a pattern entry, the filter only excludes
+	// the test if the actual failure message contains the configured substring.
+	// This prevents masking real bugs that happen to fail the same test with a
+	// different error. Tests without an entry here are excluded by name only.
+	cs.Provider.TestSuiteKnownFailurePatterns = map[string]string{
+		// The UserAPI test fails in OPCT because the SA token always carries
+		// system:serviceaccounts groups. If the failure message does NOT mention
+		// serviceaccounts, a different (potentially real) bug is surfacing.
+		"[sig-auth][Feature:UserAPI] users can manipulate groups [apigroup:user.openshift.io][apigroup:authorization.openshift.io][apigroup:project.openshift.io] [Suite:openshift/conformance/parallel]": "system:serviceaccounts",
+	}
+
 	for _, pluginName := range []string{
 		plugin.PluginNameOpenShiftUpgrade,
 		plugin.PluginNameKubernetesConformance,
@@ -622,6 +634,25 @@ func (cs *ConsolidatedSummary) applyFilterKnownFailuresForPlugin(pluginName stri
 			filterFailures = append(filterFailures, v)
 			continue
 		}
+		// Check if there is a conditional failure-message pattern for this
+		// known failure. When a pattern is configured, only exclude the test
+		// when the actual failure message matches, so that real bugs with a
+		// different error are not masked.
+		if pattern, hasPattern := cs.Provider.TestSuiteKnownFailurePatterns[v]; hasPattern {
+			if testItem, ok := ps.Tests[v]; ok && testItem.Failure != "" {
+				if strings.Contains(testItem.Failure, pattern) {
+					// Confirmed false positive — exclude.
+					filterFailuresExcluded = append(filterFailuresExcluded, v)
+					continue
+				}
+				// Pattern did not match — potential real bug, keep in failures.
+				log.Warnf("filter(%s): known failure %q has unexpected error message (does not contain %q), NOT excluding",
+					filterID, v, pattern)
+				filterFailures = append(filterFailures, v)
+				continue
+			}
+		}
+		// No pattern configured or no failure message to check — exclude by name (backward compat).
 		filterFailuresExcluded = append(filterFailuresExcluded, v)
 	}
 	sort.Strings(filterFailures)

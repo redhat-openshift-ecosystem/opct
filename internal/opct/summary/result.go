@@ -56,6 +56,13 @@ type ResultSummary struct {
 	// Plugin Know failures
 	TestSuiteKnownFailures []string
 
+	// TestSuiteKnownFailurePatterns maps a known failure test name to an expected
+	// failure message substring. When a pattern is set for a test, Filter5 only
+	// excludes the test if the actual failure message contains the pattern.
+	// Tests in TestSuiteKnownFailures without an entry here are excluded
+	// unconditionally (backward-compatible behavior).
+	TestSuiteKnownFailurePatterns map[string]string
+
 	// BaselineAPI holds the data fetched from the baseline API.
 	BaselineAPI string
 }

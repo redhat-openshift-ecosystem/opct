@@ -48,18 +48,25 @@ func TestApplyFilterKnownFailures(t *testing.T) {
 		"[apigroup:project.openshift.io] " +
 		"[Suite:openshift/conformance/parallel]"
 
+	// SA-specific failure message that is the expected false positive.
+	const saFailureMsg = "unexpected groups returned for user/~: got [system:authenticated system:serviceaccounts system:serviceaccounts:opct]"
+
 	tests := []struct {
 		name                  string
 		inputFailures         []string
+		failureMessages       map[string]string // test name → Failure field content
 		expectedFailures      []string
 		expectedExcludedCount int
 	}{
 		{
-			name: "should_exclude_all_known_failures",
+			name: "should_exclude_all_known_failures_with_matching_pattern",
 			inputFailures: []string{
 				"[sig-arch] External binary usage",
 				"[sig-mco] Machine config pools complete upgrade",
 				userAPITestName,
+			},
+			failureMessages: map[string]string{
+				userAPITestName: saFailureMsg,
 			},
 			expectedFailures:      []string{},
 			expectedExcludedCount: 3,
@@ -71,6 +78,9 @@ func TestApplyFilterKnownFailures(t *testing.T) {
 				userAPITestName,
 				"[sig-network] another real failure",
 			},
+			failureMessages: map[string]string{
+				userAPITestName: saFailureMsg,
+			},
 			expectedFailures: []string{
 				"[sig-apps] some real failure test",
 				"[sig-network] another real failure",
@@ -78,16 +88,52 @@ func TestApplyFilterKnownFailures(t *testing.T) {
 			expectedExcludedCount: 1,
 		},
 		{
-			name: "should_exclude_user_api_groups_test",
+			name: "should_exclude_user_api_test_when_failure_matches_sa_pattern",
 			inputFailures: []string{
 				userAPITestName,
+			},
+			failureMessages: map[string]string{
+				userAPITestName: saFailureMsg,
 			},
 			expectedFailures:      []string{},
 			expectedExcludedCount: 1,
 		},
 		{
+			name: "should_NOT_exclude_user_api_test_when_failure_does_not_match_pattern",
+			inputFailures: []string{
+				userAPITestName,
+			},
+			failureMessages: map[string]string{
+				userAPITestName: "completely different error: connection refused",
+			},
+			expectedFailures: []string{
+				userAPITestName,
+			},
+			expectedExcludedCount: 0,
+		},
+		{
+			name: "should_exclude_user_api_test_when_failure_is_empty",
+			inputFailures: []string{
+				userAPITestName,
+			},
+			failureMessages:       map[string]string{},
+			expectedFailures:      []string{},
+			expectedExcludedCount: 1,
+		},
+		{
+			name: "should_exclude_name_only_entries_without_pattern_check",
+			inputFailures: []string{
+				"[sig-arch] External binary usage",
+				"[sig-mco] Machine config pools complete upgrade",
+			},
+			failureMessages:       map[string]string{},
+			expectedFailures:      []string{},
+			expectedExcludedCount: 2,
+		},
+		{
 			name:                  "should_handle_no_failures",
 			inputFailures:         []string{},
+			failureMessages:       map[string]string{},
 			expectedFailures:      []string{},
 			expectedExcludedCount: 0,
 		},
@@ -97,11 +143,29 @@ func TestApplyFilterKnownFailures(t *testing.T) {
 				"[sig-apps] deployments should work",
 				"[sig-network] services should be reachable",
 			},
+			failureMessages: map[string]string{},
 			expectedFailures: []string{
 				"[sig-apps] deployments should work",
 				"[sig-network] services should be reachable",
 			},
 			expectedExcludedCount: 0,
+		},
+		{
+			name: "should_keep_user_api_with_real_bug_and_exclude_others",
+			inputFailures: []string{
+				"[sig-arch] External binary usage",
+				userAPITestName,
+				"[sig-apps] deployments should work",
+			},
+			failureMessages: map[string]string{
+				// UserAPI fails with a non-SA error → potential real bug
+				userAPITestName: "user groups API returned 500 Internal Server Error",
+			},
+			expectedFailures: []string{
+				"[sig-apps] deployments should work",
+				userAPITestName,
+			},
+			expectedExcludedCount: 1, // only sig-arch excluded
 		},
 	}
 
@@ -110,11 +174,15 @@ func TestApplyFilterKnownFailures(t *testing.T) {
 			// Build test items map required by the filter (ps.Tests[v].State access)
 			testItems := make(plugin.Tests, len(tt.inputFailures))
 			for _, name := range tt.inputFailures {
-				testItems[name] = &plugin.TestItem{
+				item := &plugin.TestItem{
 					Name:   name,
 					Status: "failed",
 					State:  "processed",
 				}
+				if msg, ok := tt.failureMessages[name]; ok {
+					item.Failure = msg
+				}
+				testItems[name] = item
 			}
 
 			// Create a plugin summary with failures in FailedFilter1
