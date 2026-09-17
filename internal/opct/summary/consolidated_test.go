@@ -38,15 +38,8 @@ func TestApplyFilterSuiteUpgradeOnlyArchive(t *testing.T) {
 }
 
 func TestApplyFilterKnownFailures(t *testing.T) {
-	// userAPITestName is the full test name for the UserAPI groups test
-	// that is a known false-positive in OPCT environments using SA-based auth.
-	// The test checks group membership of the authenticated user via users/~
-	// and expects system:masters or system:cluster-admins, but ServiceAccounts
-	// are always in system:serviceaccounts groups instead.
-	const userAPITestName = "[sig-auth][Feature:UserAPI] users can manipulate groups " +
-		"[apigroup:user.openshift.io][apigroup:authorization.openshift.io]" +
-		"[apigroup:project.openshift.io] " +
-		"[Suite:openshift/conformance/parallel]"
+	// userAPITestName aliases the exported constant for brevity in test cases.
+	const userAPITestName = KnownFailureUserAPIGroups
 
 	// SA-specific failure message that is the expected false positive.
 	const saFailureMsg = "unexpected groups returned for user/~: got [system:authenticated system:serviceaccounts system:serviceaccounts:opct]"
@@ -251,7 +244,7 @@ func TestKnownFailuresListContainsExpectedEntries(t *testing.T) {
 	expectedEntries := []string{
 		"[sig-arch] External binary usage",
 		"[sig-mco] Machine config pools complete upgrade",
-		"[sig-auth][Feature:UserAPI] users can manipulate groups [apigroup:user.openshift.io][apigroup:authorization.openshift.io][apigroup:project.openshift.io] [Suite:openshift/conformance/parallel]",
+		KnownFailureUserAPIGroups,
 	}
 
 	assert.Equal(t, expectedEntries, cs.Provider.TestSuiteKnownFailures,

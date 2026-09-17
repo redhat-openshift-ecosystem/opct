@@ -18,6 +18,14 @@ import (
 	"github.com/redhat-openshift-ecosystem/opct/internal/report/baseline"
 )
 
+// KnownFailureUserAPIGroups is the full test name for the UserAPI groups test
+// that is a known false-positive in OPCT environments using ServiceAccount-based auth.
+// Exported so tests can reference the same string and prevent drift.
+const KnownFailureUserAPIGroups = "[sig-auth][Feature:UserAPI] users can manipulate groups " +
+	"[apigroup:user.openshift.io][apigroup:authorization.openshift.io]" +
+	"[apigroup:project.openshift.io] " +
+	"[Suite:openshift/conformance/parallel]"
+
 // ConsolidatedSummary Aggregate the results of provider and baseline
 type ConsolidatedSummary struct {
 	Verbose     bool
@@ -564,7 +572,7 @@ func (cs *ConsolidatedSummary) applyFilterKnownFailures(filterID string) error {
 	cs.Provider.TestSuiteKnownFailures = []string{
 		"[sig-arch] External binary usage",
 		"[sig-mco] Machine config pools complete upgrade",
-		"[sig-auth][Feature:UserAPI] users can manipulate groups [apigroup:user.openshift.io][apigroup:authorization.openshift.io][apigroup:project.openshift.io] [Suite:openshift/conformance/parallel]",
+		KnownFailureUserAPIGroups,
 	}
 
 	// TestSuiteKnownFailurePatterns defines conditional exclusions: when a test name
@@ -576,7 +584,7 @@ func (cs *ConsolidatedSummary) applyFilterKnownFailures(filterID string) error {
 		// The UserAPI test fails in OPCT because the SA token always carries
 		// system:serviceaccounts groups. If the failure message does NOT mention
 		// serviceaccounts, a different (potentially real) bug is surfacing.
-		"[sig-auth][Feature:UserAPI] users can manipulate groups [apigroup:user.openshift.io][apigroup:authorization.openshift.io][apigroup:project.openshift.io] [Suite:openshift/conformance/parallel]": "system:serviceaccounts",
+		KnownFailureUserAPIGroups: "system:serviceaccounts",
 	}
 
 	for _, pluginName := range []string{
@@ -639,19 +647,25 @@ func (cs *ConsolidatedSummary) applyFilterKnownFailuresForPlugin(pluginName stri
 		// when the actual failure message matches, so that real bugs with a
 		// different error are not masked.
 		if pattern, hasPattern := cs.Provider.TestSuiteKnownFailurePatterns[v]; hasPattern {
-			if testItem, ok := ps.Tests[v]; ok && testItem.Failure != "" {
-				if strings.Contains(testItem.Failure, pattern) {
-					// Confirmed false positive — exclude.
-					filterFailuresExcluded = append(filterFailuresExcluded, v)
+			if testItem, ok := ps.Tests[v]; ok {
+				failureMsg := testItem.Failure
+				if failureMsg == "" {
+					failureMsg = testItem.SystemOut
+				}
+				if failureMsg != "" {
+					if strings.Contains(failureMsg, pattern) {
+						// Confirmed false positive — exclude.
+						filterFailuresExcluded = append(filterFailuresExcluded, v)
+						continue
+					}
+					// Pattern did not match — potential real bug, keep in failures.
+					log.Warnf("filter(%s): known failure %q has unexpected error message (does not contain %q), NOT excluding",
+						filterID, v, pattern)
+					filterFailures = append(filterFailures, v)
 					continue
 				}
-				// Pattern did not match — potential real bug, keep in failures.
-				log.Warnf("filter(%s): known failure %q has unexpected error message (does not contain %q), NOT excluding",
-					filterID, v, pattern)
-				filterFailures = append(filterFailures, v)
-				continue
 			}
-			// Pattern configured but Failure message is empty — can't confirm
+			// Pattern configured but Failure and SystemOut are both empty — can't confirm
 			// false positive, keep in failures.
 			log.Warnf("filter(%s): known failure %q has a pattern configured (%q) but empty failure message, NOT excluding",
 				filterID, v, pattern)
