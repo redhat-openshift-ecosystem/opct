@@ -18,6 +18,14 @@ import (
 	"github.com/redhat-openshift-ecosystem/opct/internal/report/baseline"
 )
 
+// KnownFailureUserAPIGroups is the full test name for the UserAPI groups test
+// that is a known false-positive in OPCT environments using ServiceAccount-based auth.
+// Exported so tests can reference the same string and prevent drift.
+const KnownFailureUserAPIGroups = "[sig-auth][Feature:UserAPI] users can manipulate groups " +
+	"[apigroup:user.openshift.io][apigroup:authorization.openshift.io]" +
+	"[apigroup:project.openshift.io] " +
+	"[Suite:openshift/conformance/parallel]"
+
 // ConsolidatedSummary Aggregate the results of provider and baseline
 type ConsolidatedSummary struct {
 	Verbose     bool
@@ -550,9 +558,33 @@ func (cs *ConsolidatedSummary) applyFilterKnownFailures(filterID string) error {
 	//  - The test is not relevant to the validation process, the custom MCP is used
 	//    in the OPCT topology to executed in-cluster validation. If MCP is not used,
 	//    the test environment would be evicted when the dedicated node is drained.
+	// "[sig-auth][Feature:UserAPI] users can manipulate groups ..." :
+	//  - The test (openshift/origin test/extended/user/basic.go) calls `GET users/~`
+	//    and expects the authenticated identity to belong to system:masters or
+	//    system:cluster-admins. OPCT runs tests using a ServiceAccount
+	//    (sonobuoy-serviceaccount) whose token claims always include the groups
+	//    [system:authenticated, system:serviceaccounts, system:serviceaccounts:<ns>].
+	//    These groups are injected by the API server token authenticator and cannot
+	//    be changed via RBAC scoping — RBAC controls what the SA can *do*, not what
+	//    it *is*. A proper fix requires changing the upstream test to accept
+	//    SA-based identities.
+	//    Reference: https://issues.redhat.com/browse/OPCT-353
 	cs.Provider.TestSuiteKnownFailures = []string{
 		"[sig-arch] External binary usage",
 		"[sig-mco] Machine config pools complete upgrade",
+		KnownFailureUserAPIGroups,
+	}
+
+	// TestSuiteKnownFailurePatterns defines conditional exclusions: when a test name
+	// matches a known failure AND has a pattern entry, the filter only excludes
+	// the test if the actual failure message contains the configured substring.
+	// This prevents masking real bugs that happen to fail the same test with a
+	// different error. Tests without an entry here are excluded by name only.
+	cs.Provider.TestSuiteKnownFailurePatterns = map[string]string{
+		// The UserAPI test fails in OPCT because the SA token always carries
+		// system:serviceaccounts groups. If the failure message does NOT mention
+		// serviceaccounts, a different (potentially real) bug is surfacing.
+		KnownFailureUserAPIGroups: "system:serviceaccounts",
 	}
 
 	for _, pluginName := range []string{
@@ -610,6 +642,39 @@ func (cs *ConsolidatedSummary) applyFilterKnownFailuresForPlugin(pluginName stri
 			filterFailures = append(filterFailures, v)
 			continue
 		}
+		// Check if there is a conditional failure-message pattern for this
+		// known failure. When a pattern is configured, only exclude the test
+		// when the actual failure message matches, so that real bugs with a
+		// different error are not masked.
+		if pattern, hasPattern := cs.Provider.TestSuiteKnownFailurePatterns[v]; hasPattern {
+			if testItem, ok := ps.Tests[v]; ok {
+				failureMsg := testItem.Failure
+				if failureMsg == "" {
+					failureMsg = testItem.SystemOut
+				}
+				if failureMsg != "" {
+					if strings.Contains(failureMsg, pattern) {
+						// Confirmed false positive — exclude.
+						log.Debugf("filter(%s): known failure %q matched pattern %q in failure message, excluding as confirmed false-positive",
+							filterID, v, pattern)
+						filterFailuresExcluded = append(filterFailuresExcluded, v)
+						continue
+					}
+					// Pattern did not match — potential real bug, keep in failures.
+					log.Warnf("filter(%s): known failure %q has unexpected error message (does not contain %q), NOT excluding",
+						filterID, v, pattern)
+					filterFailures = append(filterFailures, v)
+					continue
+				}
+			}
+			// Pattern configured but Failure and SystemOut are both empty — can't confirm
+			// false positive, keep in failures.
+			log.Warnf("filter(%s): known failure %q has a pattern configured (%q) but empty failure message, NOT excluding",
+				filterID, v, pattern)
+			filterFailures = append(filterFailures, v)
+			continue
+		}
+		// No pattern configured — exclude by name (backward compat).
 		filterFailuresExcluded = append(filterFailuresExcluded, v)
 	}
 	sort.Strings(filterFailures)
