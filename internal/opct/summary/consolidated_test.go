@@ -48,6 +48,7 @@ func TestApplyFilterKnownFailures(t *testing.T) {
 		name                  string
 		inputFailures         []string
 		failureMessages       map[string]string // test name → Failure field content
+		systemOutMessages     map[string]string // test name → SystemOut field content
 		expectedFailures      []string
 		expectedExcludedCount int
 	}{
@@ -116,6 +117,18 @@ func TestApplyFilterKnownFailures(t *testing.T) {
 			expectedExcludedCount: 0,
 		},
 		{
+			name: "should_exclude_user_api_test_when_systemout_matches_pattern",
+			inputFailures: []string{
+				userAPITestName,
+			},
+			failureMessages: map[string]string{},
+			systemOutMessages: map[string]string{
+				userAPITestName: saFailureMsg,
+			},
+			expectedFailures:      []string{},
+			expectedExcludedCount: 1,
+		},
+		{
 			name: "should_exclude_name_only_entries_without_pattern_check",
 			inputFailures: []string{
 				"[sig-arch] External binary usage",
@@ -176,6 +189,9 @@ func TestApplyFilterKnownFailures(t *testing.T) {
 				}
 				if msg, ok := tt.failureMessages[name]; ok {
 					item.Failure = msg
+				}
+				if msg, ok := tt.systemOutMessages[name]; ok {
+					item.SystemOut = msg
 				}
 				testItems[name] = item
 			}
