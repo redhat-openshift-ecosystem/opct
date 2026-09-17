@@ -655,6 +655,8 @@ func (cs *ConsolidatedSummary) applyFilterKnownFailuresForPlugin(pluginName stri
 				if failureMsg != "" {
 					if strings.Contains(failureMsg, pattern) {
 						// Confirmed false positive — exclude.
+						log.Debugf("filter(%s): known failure %q matched pattern %q in failure message, excluding as confirmed false-positive",
+							filterID, v, pattern)
 						filterFailuresExcluded = append(filterFailuresExcluded, v)
 						continue
 					}
