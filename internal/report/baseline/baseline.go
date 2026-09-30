@@ -79,7 +79,8 @@ func NewBaselineReportSummary() *BaselineConfig {
 
 // createS3Clients creates the S3 client and uploader to interact with the S3 storage, checking if
 // bucket exists.
-//nolint:staticcheck //lint:ignore SA1019 manager kept until transfermanager reaches v1, see createS3Client.
+//nolint:staticcheck
+//lint:ignore SA1019 manager kept until transfermanager reaches v1, see createS3Client.
 func (brs *BaselineConfig) createS3Clients(ctx context.Context) (*s3.Client, *manager.Uploader, error) {
 	if !brs.checkRequiredParams() {
 		return nil, nil, fmt.Errorf("missing required parameters or dependencies to enable this feature")

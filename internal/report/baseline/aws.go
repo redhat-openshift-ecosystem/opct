@@ -43,7 +43,8 @@ func newAWSConfig(ctx context.Context, region string) (aws.Config, error) {
 // pre-1.0 and free to break its API between minor releases. Staying on manager
 // until that module reaches v1; tracked separately from this SDK migration.
 //
-//nolint:staticcheck //lint:ignore SA1019 transfermanager replacement is not yet v1.
+//nolint:staticcheck
+//lint:ignore SA1019 transfermanager replacement is not yet v1.
 func createS3Client(ctx context.Context, region string) (*s3.Client, *manager.Uploader, error) {
 	cfg, err := newAWSConfig(ctx, region)
 	if err != nil {
@@ -51,7 +52,8 @@ func createS3Client(ctx context.Context, region string) (*s3.Client, *manager.Up
 	}
 
 	svc := s3.NewFromConfig(cfg)
-	//nolint:staticcheck //lint:ignore SA1019 transfermanager replacement is not yet v1.
+	//nolint:staticcheck
+	//lint:ignore SA1019 transfermanager replacement is not yet v1.
 	uploader := manager.NewUploader(svc)
 
 	return svc, uploader, nil
