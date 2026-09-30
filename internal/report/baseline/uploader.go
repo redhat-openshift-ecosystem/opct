@@ -39,7 +39,7 @@ func (brs *BaselineConfig) UploadBaseline(ctx context.Context, filePath, resPath
 	log.Debugf("UploadBaseline(): uploading to object %s", objectKeyArtifact)
 	s3ObjectURI := "s3://" + brs.bucketName + "/" + objectKeyArtifact
 	if !dryRun {
-		//lint:ignore SA1019 manager kept until transfermanager reaches v1, see createS3Client.
+		//nolint:staticcheck //lint:ignore SA1019 manager kept until transfermanager reaches v1, see createS3Client.
 		_, err := uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket:   aws.String(brs.bucketName),
 			Key:      aws.String(objectKeyArtifact),
