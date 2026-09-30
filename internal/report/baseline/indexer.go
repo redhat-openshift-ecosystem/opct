@@ -1,18 +1,30 @@
 package baseline
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/cloudfront"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
+	cftypes "github.com/aws/aws-sdk-go-v2/service/cloudfront/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	log "github.com/sirupsen/logrus"
 )
+
+// s3API is the subset of the S3 client used by the indexer, letting tests
+// substitute a mock. SDK v2 ships no generated interface equivalent to v1's
+// s3iface.S3API, so consumers declare the methods they depend on.
+type s3API interface {
+	GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+	ListObjectsV2(context.Context, *s3.ListObjectsV2Input, ...func(*s3.Options)) (*s3.ListObjectsV2Output, error)
+	PutObject(context.Context, *s3.PutObjectInput, ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+	CopyObject(context.Context, *s3.CopyObjectInput, ...func(*s3.Options)) (*s3.CopyObjectOutput, error)
+}
 
 type baselineIndexItem struct {
 	Date             string                 `json:"date"`
@@ -37,19 +49,19 @@ type baselineIndex struct {
 // and calculates the latest by release and platform type, creating an index.json.
 // It uses incremental indexing: loads the existing index and only fetches
 // metadata for new objects not already in the index.
-func (brs *BaselineConfig) CreateBaselineIndex() error {
-	svcS3, _, err := brs.createS3Clients()
+func (brs *BaselineConfig) CreateBaselineIndex(ctx context.Context) error {
+	svcS3, _, err := brs.createS3Clients(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create S3 client and validate bucket: %w", err)
 	}
 
-	objects, err := ListObjects(svcS3, brs.bucketRegion, brs.bucketName, "api/v0/result/summary/")
+	objects, err := ListObjects(ctx, svcS3, brs.bucketRegion, brs.bucketName, "api/v0/result/summary/")
 	if err != nil {
 		return err
 	}
 
 	// Load existing index from S3 for incremental updates.
-	existingIndex, err := brs.loadIndexFromS3(svcS3)
+	existingIndex, err := brs.loadIndexFromS3(ctx, svcS3)
 	if err != nil {
 		log.Warnf("Could not load existing index, performing full reindex: %v", err)
 	}
@@ -57,7 +69,7 @@ func (brs *BaselineConfig) CreateBaselineIndex() error {
 	// Build set of paths currently in S3 to prune deleted objects from the index.
 	currentPaths := make(map[string]struct{}, len(objects))
 	for _, obj := range objects {
-		currentPaths[aws.StringValue(obj.Key)] = struct{}{}
+		currentPaths[aws.ToString(obj.Key)] = struct{}{}
 	}
 
 	knownPaths := make(map[string]bool)
@@ -81,7 +93,7 @@ func (brs *BaselineConfig) CreateBaselineIndex() error {
 
 	var newCount int
 	for _, obj := range objects {
-		objectKey := *obj.Key
+		objectKey := aws.ToString(obj.Key)
 
 		name := objectKey[strings.LastIndex(objectKey, "/")+1:]
 		if name == "index.json" || strings.HasSuffix(name, "_latest.json") {
@@ -93,7 +105,7 @@ func (brs *BaselineConfig) CreateBaselineIndex() error {
 		}
 
 		newCount++
-		item, err := brs.fetchObjectMetadata(svcS3, objectKey, name, obj)
+		item, err := brs.fetchObjectMetadata(ctx, svcS3, objectKey, name, obj)
 		if err != nil {
 			log.Errorf("failed to process object %s: %v", objectKey, err)
 			continue
@@ -122,7 +134,7 @@ func (brs *BaselineConfig) CreateBaselineIndex() error {
 	for kLatest, latest := range index.Latest {
 		latestObjectKey := fmt.Sprintf("api/v0/result/summary/%s_latest.json", kLatest)
 		log.Infof("Creating latest object for %q to %q", kLatest, latestObjectKey)
-		_, err := svcS3.CopyObject(&s3.CopyObjectInput{
+		_, err := svcS3.CopyObject(ctx, &s3.CopyObjectInput{
 			Bucket:     aws.String(brs.bucketName),
 			CopySource: aws.String(fmt.Sprintf("%v/%v", brs.bucketName, latest.Path)),
 			Key:        aws.String(latestObjectKey),
@@ -139,7 +151,7 @@ func (brs *BaselineConfig) CreateBaselineIndex() error {
 	}
 
 	// Save the index to the bucket
-	_, err = svcS3.PutObject(&s3.PutObjectInput{
+	_, err = svcS3.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(brs.bucketName),
 		Key:    aws.String(indexObjectKey),
 		Body:   strings.NewReader(string(indexJSON)),
@@ -149,7 +161,7 @@ func (brs *BaselineConfig) CreateBaselineIndex() error {
 	}
 
 	// Expire cache from cloudfront distribution
-	svcCloudfront, err := createCloudFrontClient(brs.bucketRegion)
+	svcCloudfront, err := createCloudFrontClient(ctx, brs.bucketRegion)
 	if err != nil {
 		return fmt.Errorf("failed to create cloudfront client: %w", err)
 	}
@@ -158,17 +170,13 @@ func (brs *BaselineConfig) CreateBaselineIndex() error {
 		"/result/summary/*_latest.json",
 	}
 	log.Infof("Creating cache invalidation for %v", strings.Join(invalidationPathsStr, " "))
-	var invalidationPaths []*string
-	for _, path := range invalidationPathsStr {
-		invalidationPaths = append(invalidationPaths, aws.String(path))
-	}
-	_, err = svcCloudfront.CreateInvalidation(&cloudfront.CreateInvalidationInput{
+	_, err = svcCloudfront.CreateInvalidation(ctx, &cloudfront.CreateInvalidationInput{
 		DistributionId: aws.String(brs.cloudfrontDistributionID),
-		InvalidationBatch: &cloudfront.InvalidationBatch{
+		InvalidationBatch: &cftypes.InvalidationBatch{
 			CallerReference: aws.String(time.Now().Format(time.RFC3339)),
-			Paths: &cloudfront.Paths{
-				Quantity: aws.Int64(int64(len(invalidationPaths))),
-				Items:    invalidationPaths,
+			Paths: &cftypes.Paths{
+				Quantity: aws.Int32(int32(len(invalidationPathsStr))),
+				Items:    invalidationPathsStr,
 			},
 		},
 	})
@@ -185,8 +193,8 @@ aws cloudfront create-invalidation \
 }
 
 // loadIndexFromS3 reads the existing index.json from S3 for incremental updates.
-func (brs *BaselineConfig) loadIndexFromS3(svc s3iface.S3API) (*baselineIndex, error) {
-	resp, err := svc.GetObject(&s3.GetObjectInput{
+func (brs *BaselineConfig) loadIndexFromS3(ctx context.Context, svc s3API) (*baselineIndex, error) {
+	resp, err := svc.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(brs.bucketName),
 		Key:    aws.String(indexObjectKey),
 	})
@@ -222,8 +230,8 @@ func (brs *BaselineConfig) loadIndexFromS3(svc s3iface.S3API) (*baselineIndex, e
 }
 
 // fetchObjectMetadata downloads a single S3 object and extracts its index metadata.
-func (brs *BaselineConfig) fetchObjectMetadata(svc s3iface.S3API, objectKey, name string, obj *s3.Object) (*baselineIndexItem, error) {
-	objReader, err := svc.GetObject(&s3.GetObjectInput{
+func (brs *BaselineConfig) fetchObjectMetadata(ctx context.Context, svc s3API, objectKey, name string, obj s3types.Object) (*baselineIndexItem, error) {
+	objReader, err := svc.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(brs.bucketName),
 		Key:    aws.String(objectKey),
 	})
@@ -281,7 +289,7 @@ func (brs *BaselineConfig) fetchObjectMetadata(svc s3iface.S3API, objectKey, nam
 		Date:             executionDate,
 		Name:             strings.Split(name, ".json")[0],
 		Path:             objectKey,
-		Size:             fmt.Sprintf("%d", *obj.Size),
+		Size:             fmt.Sprintf("%d", aws.ToInt64(obj.Size)),
 		OpenShiftRelease: openShiftRelease,
 		PlatformType:     platformType,
 		Tags:             tags,
@@ -289,18 +297,18 @@ func (brs *BaselineConfig) fetchObjectMetadata(svc s3iface.S3API, objectKey, nam
 }
 
 // ListObjects lists all objects in the bucket, paginating through all results.
-func ListObjects(svc s3iface.S3API, bucketRegion, bucketName, path string) ([]*s3.Object, error) {
-	var objects []*s3.Object
-	input := &s3.ListObjectsInput{
+func ListObjects(ctx context.Context, svc s3API, bucketRegion, bucketName, path string) ([]s3types.Object, error) {
+	var objects []s3types.Object
+	paginator := s3.NewListObjectsV2Paginator(svc, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucketName),
 		Prefix: aws.String(path),
-	}
-	err := svc.ListObjectsPages(input, func(page *s3.ListObjectsOutput, lastPage bool) bool {
-		objects = append(objects, page.Contents...)
-		return true
 	})
-	if err != nil {
-		return nil, err
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		objects = append(objects, page.Contents...)
 	}
 	return objects, nil
 }

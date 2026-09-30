@@ -1,18 +1,18 @@
 package baseline
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	log "github.com/sirupsen/logrus"
 )
 
-func (brs *BaselineConfig) UploadBaseline(filePath, resPath string, meta map[string]string, dryRun bool) error {
-	svcS3, uploader, err := brs.createS3Clients()
+func (brs *BaselineConfig) UploadBaseline(ctx context.Context, filePath, resPath string, meta map[string]string, dryRun bool) error {
+	svcS3, uploader, err := brs.createS3Clients(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create S3 client and validate bucket: %w", err)
 	}
@@ -39,10 +39,11 @@ func (brs *BaselineConfig) UploadBaseline(filePath, resPath string, meta map[str
 	log.Debugf("UploadBaseline(): uploading to object %s", objectKeyArtifact)
 	s3ObjectURI := "s3://" + brs.bucketName + "/" + objectKeyArtifact
 	if !dryRun {
-		_, err := uploader.Upload(&s3manager.UploadInput{
+		//nolint:staticcheck // SA1019: manager kept until transfermanager reaches v1, see createS3Client.
+		_, err := uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket:   aws.String(brs.bucketName),
 			Key:      aws.String(objectKeyArtifact),
-			Metadata: aws.StringMap(meta),
+			Metadata: meta,
 			Body:     fdArchive,
 		})
 		if err != nil {
@@ -66,11 +67,11 @@ func (brs *BaselineConfig) UploadBaseline(filePath, resPath string, meta map[str
 	log.Debugf("UploadBaseline(): uploading baseline summary to %q", objectKeySummary)
 	s3ObjectURI = "s3://" + brs.bucketName + "/" + objectKeySummary
 	if !dryRun {
-		_, err = svcS3.PutObject(&s3.PutObjectInput{
+		_, err = svcS3.PutObject(ctx, &s3.PutObjectInput{
 			Bucket:   aws.String(brs.bucketName),
 			Key:      aws.String(objectKeySummary),
 			Body:     fdSummary,
-			Metadata: aws.StringMap(meta),
+			Metadata: meta,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to upload file %s to bucket %s: %w", filenameSummary, brs.bucketName, err)

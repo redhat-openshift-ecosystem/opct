@@ -12,14 +12,15 @@
 package baseline
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/hashicorp/go-retryablehttp"
 	log "github.com/sirupsen/logrus"
 )
@@ -78,19 +79,20 @@ func NewBaselineReportSummary() *BaselineConfig {
 
 // createS3Clients creates the S3 client and uploader to interact with the S3 storage, checking if
 // bucket exists.
-func (brs *BaselineConfig) createS3Clients() (*s3.S3, *s3manager.Uploader, error) {
+//nolint:staticcheck // SA1019: manager kept until transfermanager reaches v1, see createS3Client.
+func (brs *BaselineConfig) createS3Clients(ctx context.Context) (*s3.Client, *manager.Uploader, error) {
 	if !brs.checkRequiredParams() {
 		return nil, nil, fmt.Errorf("missing required parameters or dependencies to enable this feature")
 	}
 
 	// create s3 client
-	svcS3, uploader, err := createS3Client(brs.bucketRegion)
+	svcS3, uploader, err := createS3Client(ctx, brs.bucketRegion)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Check if the bucket exists
-	bucketExists, err := checkBucketExists(svcS3, brs.bucketName)
+	bucketExists, err := checkBucketExists(ctx, svcS3, brs.bucketName)
 	if err != nil {
 		return nil, nil, err
 	}

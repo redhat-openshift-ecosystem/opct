@@ -1,36 +1,32 @@
 package baseline
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
-// mockS3Client implements s3iface.S3API for testing.
-// Only the methods used by the indexer are implemented;
-// the rest panic via the embedded interface nil pointer,
-// which is fine — unused methods are never called.
+// mockS3Client implements the s3API subset used by the indexer.
 type mockS3Client struct {
-	s3iface.S3API
-	objects     map[string][]byte
-	listOutput []*s3.Object
+	objects    map[string][]byte
+	listOutput []s3types.Object
 	putCalls   []s3.PutObjectInput
 	copyCalls  []s3.CopyObjectInput
 }
 
 func newMockS3(objects map[string][]byte) *mockS3Client {
-	var list []*s3.Object
+	var list []s3types.Object
 	for key, body := range objects {
 		size := int64(len(body))
 		k := key
-		list = append(list, &s3.Object{
+		list = append(list, s3types.Object{
 			Key:  &k,
 			Size: &size,
 		})
@@ -41,8 +37,8 @@ func newMockS3(objects map[string][]byte) *mockS3Client {
 	}
 }
 
-func (m *mockS3Client) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
-	key := aws.StringValue(input.Key)
+func (m *mockS3Client) GetObject(_ context.Context, input *s3.GetObjectInput, _ ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
+	key := aws.ToString(input.Key)
 	body, ok := m.objects[key]
 	if !ok {
 		return nil, fmt.Errorf("NoSuchKey: %s", key)
@@ -52,34 +48,25 @@ func (m *mockS3Client) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput,
 	}, nil
 }
 
-func (m *mockS3Client) ListObjectsPages(input *s3.ListObjectsInput, fn func(*s3.ListObjectsOutput, bool) bool) error {
-	prefix := aws.StringValue(input.Prefix)
-	var filtered []*s3.Object
+func (m *mockS3Client) ListObjectsV2(_ context.Context, input *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+	prefix := aws.ToString(input.Prefix)
+	var filtered []s3types.Object
 	for _, obj := range m.listOutput {
-		if strings.HasPrefix(aws.StringValue(obj.Key), prefix) {
+		if strings.HasPrefix(aws.ToString(obj.Key), prefix) {
 			filtered = append(filtered, obj)
 		}
 	}
-	fn(&s3.ListObjectsOutput{Contents: filtered}, true)
-	return nil
+	return &s3.ListObjectsV2Output{Contents: filtered}, nil
 }
 
-func (m *mockS3Client) PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error) {
+func (m *mockS3Client) PutObject(_ context.Context, input *s3.PutObjectInput, _ ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
 	m.putCalls = append(m.putCalls, *input)
 	return &s3.PutObjectOutput{}, nil
 }
 
-func (m *mockS3Client) CopyObject(input *s3.CopyObjectInput) (*s3.CopyObjectOutput, error) {
+func (m *mockS3Client) CopyObject(_ context.Context, input *s3.CopyObjectInput, _ ...func(*s3.Options)) (*s3.CopyObjectOutput, error) {
 	m.copyCalls = append(m.copyCalls, *input)
 	return &s3.CopyObjectOutput{}, nil
-}
-
-func (m *mockS3Client) HeadBucketWithContext(_ aws.Context, input *s3.HeadBucketInput, _ ...request.Option) (*s3.HeadBucketOutput, error) {
-	return &s3.HeadBucketOutput{}, nil
-}
-
-func (m *mockS3Client) HeadBucket(input *s3.HeadBucketInput) (*s3.HeadBucketOutput, error) {
-	return &s3.HeadBucketOutput{}, nil
 }
 
 // makeSummaryJSON builds a minimal summary object with setup.api tags.
@@ -117,7 +104,7 @@ func TestListObjects_Pagination(t *testing.T) {
 	}
 	mock := newMockS3(objects)
 
-	result, err := ListObjects(mock, "us-east-1", "test-bucket", "api/v0/result/summary/")
+	result, err := ListObjects(context.Background(), mock, "us-east-1", "test-bucket", "api/v0/result/summary/")
 	if err != nil {
 		t.Fatalf("ListObjects failed: %v", err)
 	}
@@ -135,12 +122,12 @@ func TestFetchObjectMetadata_ValidObject(t *testing.T) {
 	brs := &BaselineConfig{bucketName: "test-bucket"}
 
 	size := int64(len(body))
-	obj := &s3.Object{
+	obj := s3types.Object{
 		Key:  aws.String("api/v0/result/summary/4.17_None_20250115.json"),
 		Size: &size,
 	}
 
-	item, err := brs.fetchObjectMetadata(mock, "api/v0/result/summary/4.17_None_20250115.json", "4.17_None_20250115.json", obj)
+	item, err := brs.fetchObjectMetadata(context.Background(), mock, "api/v0/result/summary/4.17_None_20250115.json", "4.17_None_20250115.json", obj)
 	if err != nil {
 		t.Fatalf("fetchObjectMetadata failed: %v", err)
 	}
@@ -167,12 +154,12 @@ func TestFetchObjectMetadata_MalformedName(t *testing.T) {
 	brs := &BaselineConfig{bucketName: "test-bucket"}
 
 	size := int64(len(body))
-	obj := &s3.Object{
+	obj := s3types.Object{
 		Key:  aws.String("api/v0/result/summary/malformed.json"),
 		Size: &size,
 	}
 
-	_, err := brs.fetchObjectMetadata(mock, "api/v0/result/summary/malformed.json", "malformed.json", obj)
+	_, err := brs.fetchObjectMetadata(context.Background(), mock, "api/v0/result/summary/malformed.json", "malformed.json", obj)
 	if err == nil {
 		t.Fatal("expected error for malformed name, got nil")
 	}
@@ -200,12 +187,12 @@ func TestFetchObjectMetadata_NonStringTags(t *testing.T) {
 	brs := &BaselineConfig{bucketName: "test-bucket"}
 
 	size := int64(len(body))
-	s3obj := &s3.Object{
+	s3obj := s3types.Object{
 		Key:  aws.String("api/v0/result/summary/4.17_None_20250115.json"),
 		Size: &size,
 	}
 
-	item, err := brs.fetchObjectMetadata(mock, "api/v0/result/summary/4.17_None_20250115.json", "4.17_None_20250115.json", s3obj)
+	item, err := brs.fetchObjectMetadata(context.Background(), mock, "api/v0/result/summary/4.17_None_20250115.json", "4.17_None_20250115.json", s3obj)
 	if err != nil {
 		t.Fatalf("fetchObjectMetadata should not fail on non-string tags: %v", err)
 	}
@@ -234,7 +221,7 @@ func TestLoadIndexFromS3_FilterLatestPollution(t *testing.T) {
 	mock := newMockS3(objects)
 	brs := &BaselineConfig{bucketName: "test-bucket"}
 
-	idx, err := brs.loadIndexFromS3(mock)
+	idx, err := brs.loadIndexFromS3(context.Background(), mock)
 	if err != nil {
 		t.Fatalf("loadIndexFromS3 failed: %v", err)
 	}
@@ -252,7 +239,7 @@ func TestLoadIndexFromS3_NoIndex(t *testing.T) {
 	mock := newMockS3(map[string][]byte{})
 	brs := &BaselineConfig{bucketName: "test-bucket"}
 
-	_, err := brs.loadIndexFromS3(mock)
+	_, err := brs.loadIndexFromS3(context.Background(), mock)
 	if err == nil {
 		t.Fatal("expected error when index.json does not exist")
 	}
@@ -279,14 +266,14 @@ func TestCreateBaselineIndex_IncrementalSkipsExisting(t *testing.T) {
 
 	brs := &BaselineConfig{bucketName: "test-bucket", bucketRegion: "us-east-1"}
 
-	idx, err := brs.loadIndexFromS3(mock)
+	idx, err := brs.loadIndexFromS3(context.Background(), mock)
 	if err != nil {
 		t.Fatalf("loadIndexFromS3 failed: %v", err)
 	}
 
 	currentPaths := make(map[string]struct{})
 	for _, obj := range mock.listOutput {
-		currentPaths[aws.StringValue(obj.Key)] = struct{}{}
+		currentPaths[aws.ToString(obj.Key)] = struct{}{}
 	}
 
 	knownPaths := make(map[string]bool)
@@ -303,7 +290,7 @@ func TestCreateBaselineIndex_IncrementalSkipsExisting(t *testing.T) {
 	// Only the new object should need fetching.
 	var newCount int
 	for _, obj := range mock.listOutput {
-		key := aws.StringValue(obj.Key)
+		key := aws.ToString(obj.Key)
 		name := key[strings.LastIndex(key, "/")+1:]
 		if name == "index.json" || strings.HasSuffix(name, "_latest.json") {
 			continue
@@ -312,7 +299,7 @@ func TestCreateBaselineIndex_IncrementalSkipsExisting(t *testing.T) {
 			continue
 		}
 		newCount++
-		item, err := brs.fetchObjectMetadata(mock, key, name, obj)
+		item, err := brs.fetchObjectMetadata(context.Background(), mock, key, name, obj)
 		if err != nil {
 			t.Fatalf("fetchObjectMetadata failed for new object: %v", err)
 		}
@@ -365,7 +352,7 @@ func TestCreateBaselineIndex_PrunesDeletedObjects(t *testing.T) {
 func brs_loadAndPrune(mock *mockS3Client, objects map[string][]byte) ([]*baselineIndexItem, error) {
 	brs := &BaselineConfig{bucketName: "test-bucket"}
 
-	idx, err := brs.loadIndexFromS3(mock)
+	idx, err := brs.loadIndexFromS3(context.Background(), mock)
 	if err != nil {
 		return nil, err
 	}
