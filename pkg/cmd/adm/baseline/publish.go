@@ -155,7 +155,7 @@ func baselinePublishCmdRun(cmd *cobra.Command, args []string) {
 	log.Infof("Uploading baseline to storage")
 	// TODO: check if the baseline already exists. It should check the unique
 	// id other than the bucket name. The UUID is a good candidate.
-	err = brs.UploadBaseline(archive, saveDirectory, meta, baselinePublishArgs.dryRun)
+	err = brs.UploadBaseline(cmd.Context(), archive, saveDirectory, meta, baselinePublishArgs.dryRun)
 	if err != nil {
 		log.Fatalf("error uploading baseline: %v", err)
 	}

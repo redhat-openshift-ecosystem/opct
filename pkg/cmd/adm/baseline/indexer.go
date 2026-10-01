@@ -32,7 +32,7 @@ func init() {
 
 func baselineIndexerCmdRun(cmd *cobra.Command, args []string) {
 	rb := reb.NewBaselineReportSummary()
-	err := rb.CreateBaselineIndex()
+	err := rb.CreateBaselineIndex(cmd.Context())
 	if err != nil {
 		log.Fatalf("Failed to read index from bucket: %v", err)
 	}
