@@ -316,7 +316,7 @@ func (r *RunOptions) PreRunSetup(kclient kubernetes.Interface) error {
 				Verbs:     []string{"*"},
 			},
 			{
-				NonResourceURLs: []string{"/metrics", "/logs", "/logs/*"},
+				NonResourceURLs: []string{"/metrics", "/metrics/slis", "/logs", "/logs/*"},
 				Verbs:           []string{"get"},
 			},
 		},
