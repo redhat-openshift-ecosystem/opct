@@ -701,7 +701,9 @@ $ grep -B 5 'Creating failed JUnit' \
 The check counts how many of the parsed slow-request events reached 500 ms, rather than averaging their durations.
 The population parsed from the logs only contains requests etcd already considered slow, so its average is a
 conditional one: making a borderline request faster removes it from the sample and raises the average. Counting
-events per latency band does not have that defect — a cluster that got faster can never produce a worse result.`,
+events per latency band does not have that defect, because an improved request either leaves its band or stays put.
+This check is advisory and never fails, so it also passes on a proportion of the parsed population; the gating check,
+OPCT-010B, is stated purely in event counts.`,
 			Action:   `Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.`,
 			Expected: `The number of slow-request events reaching 500 ms stays within the limits observed on known, tested platforms: at most 10 events, or at most 40% of the parsed slow-request population. This check is advisory and never fails on its own; sustained severe degradation is gated by OPCT-010B.`,
 			Troubleshoot: `
@@ -727,7 +729,7 @@ Run the report with debug flag <code>--loglevel=debug</code>:
 ~~~text
 (...)
 DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010A acceptance criteria: want=[<=10 events or <=0.40] got=[39 events, 0.6094]
-DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010B acceptance criteria: want=[<=20 events or <=0.25] got=[32 events, 0.3168]
+DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010B acceptance criteria: want=[<=20 events] got=[32 events]
 ~~~
 
 Extract the information from the logs using parser utility:
@@ -759,7 +761,7 @@ References:
 			prefix := "Check OPCT-010B Failed"
 			res := CheckResult{
 				Name:   CheckResultNameFail,
-				Target: fmt.Sprintf("<=%d events, or <=%.0f%%, at or above %.0f ms", etcdSevereWarnCount, etcdSevereWarnRatio*100, etcdSlowSevereMs),
+				Target: fmt.Sprintf("<=%d events at or above %.0f ms", etcdSevereWarnCount, etcdSlowSevereMs),
 				Actual: "N/A",
 			}
 			stat, reason := etcdSlowStat(re)
@@ -791,15 +793,17 @@ References:
 				res.Actual = fmt.Sprintf("%d events (insufficient sample)", total)
 				return res
 			}
-			ratio := float64(severe) / float64(total)
-			res.Actual = fmt.Sprintf("%d/%d events (%.1f%%) >=%.0f ms", severe, total, ratio*100, etcdSlowSevereMs)
+			// Counts only: a proportion would divide by the censored population
+			// size, which shrinks as the cluster improves, and the verdict could
+			// then worsen for a cluster that got faster.
+			res.Actual = fmt.Sprintf("%d/%d events (%.1f%%) >=%.0f ms", severe, total, (float64(severe)/float64(total))*100, etcdSlowSevereMs)
 			switch {
-			case severe <= etcdSeverePassCount || ratio <= etcdSeverePassRatio:
+			case severe <= etcdSeverePassCount:
 				res.Name = CheckResultNamePass
-			case severe <= etcdSevereWarnCount || ratio <= etcdSevereWarnRatio:
+			case severe <= etcdSevereWarnCount:
 				res.Name = CheckResultNameWarn
 			default:
-				log.Debugf("%s acceptance criteria: want=[<=%d events or <=%.2f] got=[%d events, %.4f]", prefix, etcdSevereWarnCount, etcdSevereWarnRatio, severe, ratio)
+				log.Debugf("%s acceptance criteria: want=[<=%d events] got=[%d events]", prefix, etcdSevereWarnCount, severe)
 			}
 			return res
 		},
@@ -808,9 +812,12 @@ References:
 Requests taking a full second or more can impact cluster performance. The check counts how many parsed slow-request
 events fall in the 1000 ms and above band, rather than reporting the single highest value: one isolated outlier is
 expected on any cluster, and the highest observed value also grows with the length of the collection window, so it
-is not a stable signal. Repetition is what distinguishes degraded storage from normal variation.`,
+is not a stable signal. Repetition is what distinguishes degraded storage from normal variation.
+The criteria are absolute event counts rather than proportions. A proportion would divide by the size of the parsed
+population, which is itself censored and shrinks as borderline requests become fast, so a cluster that improved could
+be moved into a worse band. Counting avoids that.`,
 			Action:       "Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.",
-			Expected:     "At most 5 events, or at most 10% of the parsed slow-request population, reach 1000 ms. Beyond that the check warns, and it only fails above 20 events and 25% — a level not seen on any known, tested platform.",
+			Expected:     "At most 5 slow-request events reach 1000 ms. Beyond that the check warns, and it only fails above 20 such events — a level not seen on any known, tested platform.",
 			Troubleshoot: "Review Dependencies: [Troubleshooting section of OPCT-010A](#opct-010a)",
 			Dependencies: []string{"OPCT-010A"},
 		},
@@ -1499,8 +1506,17 @@ func (csum *CheckSummary) WriteDocumentation(docPath string) error {
 // population, and the mean of the remaining events increases. A cluster that
 // improved can therefore report a worse value. Counting events per band is
 // monotonic: an improved request either leaves its band or stays put, so the
-// result can never get worse. The single maximum has the complementary problem
-// of being one unbounded sample that grows with the collection window.
+// count can never rise when the cluster gets faster. The single maximum has the
+// complementary problem of being one unbounded sample that grows with the
+// collection window.
+//
+// Monotonicity holds only for criteria expressed as absolute event counts. A
+// criterion expressed as a proportion divides by the size of the same censored
+// population, so when borderline requests become fast and leave it the
+// denominator shrinks and the proportion rises. OPCT-010B gates the report and
+// is therefore stated purely in counts. OPCT-010A is advisory and can never
+// fail, so it also accepts a proportion in order to avoid flagging runs whose
+// population is large only because the collection window was long.
 //
 // The thresholds below are calibrated so that an environment performing
 // comparably to the Red Hat reference CI baseline is not blocked, while
@@ -1514,15 +1530,15 @@ const (
 	// etcdSlowMinSample is the smallest parsed population that yields a verdict.
 	etcdSlowMinSample = 10
 
-	// OPCT-010A: advisory bands for elevated (>=500ms) events.
+	// OPCT-010A: advisory bands for elevated (>=500ms) events. This check
+	// never fails, so it may use a proportion as an additional way to pass.
 	etcdElevatedPassCount = 10
 	etcdElevatedPassRatio = 0.40
 
-	// OPCT-010B: acceptance bands for severe (>=1000ms) events.
+	// OPCT-010B: acceptance bands for severe (>=1000ms) events. Counts only,
+	// so that the verdict stays monotonic under cluster improvement.
 	etcdSeverePassCount = 5
-	etcdSeverePassRatio = 0.10
 	etcdSevereWarnCount = 20
-	etcdSevereWarnRatio = 0.25
 )
 
 // etcdSlowStat resolves the parsed etcd slow-request statistics, returning a

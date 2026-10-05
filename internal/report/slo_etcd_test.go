@@ -89,11 +89,13 @@ func TestCheckOPCT010B_SevereSlowRequests(t *testing.T) {
 	}{
 		{"no severe events", 50, 0, CheckResultNamePass},
 		{"at absolute pass ceiling", 50, 5, CheckResultNamePass},
-		{"above count but within pass ratio", 100, 10, CheckResultNamePass},
-		{"above pass bands", 50, 11, CheckResultNameWarn},
+		// Counts only: a large population does not buy extra tolerance, and a
+		// small one does not lose any.
+		{"just above pass ceiling", 50, 6, CheckResultNameWarn},
+		{"same count in a large population", 1000, 6, CheckResultNameWarn},
 		{"at absolute warn ceiling", 50, 20, CheckResultNameWarn},
-		{"above warn count but within warn ratio", 200, 40, CheckResultNameWarn},
-		{"above warn count and ratio", 50, 21, CheckResultNameFail},
+		{"just above warn ceiling", 50, 21, CheckResultNameFail},
+		{"same count in a large population, failing", 1000, 21, CheckResultNameFail},
 		{"sample below minimum", 9, 9, CheckResultNameSkip},
 		// At the minimum sample size the absolute ceiling dominates: 10 severe
 		// events is too few to block on, however bad the proportion looks.
@@ -106,32 +108,74 @@ func TestCheckOPCT010B_SevereSlowRequests(t *testing.T) {
 	}
 }
 
+var etcdSeverity = map[CheckResultName]int{
+	CheckResultNamePass: 0,
+	CheckResultNameWarn: 1,
+	CheckResultNameFail: 2,
+}
+
 // The population is censored at etcd's own warning threshold, so improving a
-// borderline-slow request removes it from the sample. Counting events per band
-// must stay monotonic under that transformation: a cluster that got faster can
-// never produce a worse verdict. This is the defect that the previous
-// mean/maximum implementation exhibited.
+// borderline-slow request removes it from the sample entirely. OPCT-010B gates
+// the report, so its verdict must be monotonic under that transformation: a
+// cluster that got faster must never be moved into a worse band. This is the
+// defect the previous mean/maximum implementation exhibited, and the reason
+// OPCT-010B is expressed in absolute event counts rather than proportions.
 func TestCheckOPCT010B_MonotonicUnderImprovement(t *testing.T) {
-	severity := map[CheckResultName]int{
-		CheckResultNamePass: 0,
-		CheckResultNameWarn: 1,
-		CheckResultNameFail: 2,
+	for _, tc := range []struct {
+		name                       string
+		total, elevated, severe    int
+		improvedTotal              int
+		improvedElevated, improved int
+	}{
+		{
+			// The published 4.23 AWS-CCM baseline: 13 sub-threshold events
+			// stop being logged, severe count unchanged.
+			name:  "sub-threshold events leave the population",
+			total: 64, elevated: 39, severe: 13,
+			improvedTotal: 51, improvedElevated: 26, improved: 13,
+		},
+		{
+			// Half the population leaves. Under a proportional criterion this
+			// regressed from pass to warn: 10/100 is 10%, 10/50 is 20%.
+			name:  "half the population leaves, severe count unchanged",
+			total: 100, elevated: 50, severe: 10,
+			improvedTotal: 50, improvedElevated: 25, improved: 10,
+		},
+		{
+			name:  "severe events become non-severe",
+			total: 64, elevated: 39, severe: 13,
+			improvedTotal: 64, improvedElevated: 39, improved: 3,
+		},
+		{
+			name:  "every slow request disappears but the minimum sample",
+			total: 101, elevated: 60, severe: 32,
+			improvedTotal: 10, improvedElevated: 2, improved: 0,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			base := runEtcdCheck(t, newEtcdSlowReport(tc.total, tc.elevated, tc.severe), "OPCT-010B")
+			res := runEtcdCheck(t, newEtcdSlowReport(tc.improvedTotal, tc.improvedElevated, tc.improved), "OPCT-010B")
+			assert.LessOrEqual(t, etcdSeverity[res.Name], etcdSeverity[base.Name],
+				"improvement must not worsen the verdict: %s (%s) -> %s (%s)",
+				base.Name, base.Actual, res.Name, res.Actual)
+		})
 	}
-	// 64 events, 13 severe: the published 4.23 AWS-CCM baseline.
-	base := runEtcdCheck(t, newEtcdSlowReport(64, 39, 13), "OPCT-010B")
+}
 
-	t.Run("faster requests drop out of the logged population", func(t *testing.T) {
-		// 13 sub-threshold events stop being logged; severe count is unchanged.
-		res := runEtcdCheck(t, newEtcdSlowReport(51, 26, 13), "OPCT-010B")
-		assert.LessOrEqual(t, severity[base.Name], severity[res.Name],
-			"verdict must not improve spuriously")
-	})
-
-	t.Run("severe events becoming non-severe improves the verdict", func(t *testing.T) {
-		res := runEtcdCheck(t, newEtcdSlowReport(64, 39, 3), "OPCT-010B")
-		assert.GreaterOrEqual(t, severity[base.Name], severity[res.Name],
-			"fewer severe events must never worsen the verdict")
-	})
+// Exhaustive monotonicity sweep for OPCT-010B. For every population, removing
+// events from the sub-severe remainder must never produce a worse verdict.
+func TestCheckOPCT010B_MonotonicExhaustive(t *testing.T) {
+	for total := etcdSlowMinSample; total <= 120; total++ {
+		for severe := 0; severe <= total; severe++ {
+			base := runEtcdCheck(t, newEtcdSlowReport(total, severe, severe), "OPCT-010B")
+			// Shrink the censored population down to the severe events alone.
+			for shrunk := total - 1; shrunk >= severe && shrunk >= etcdSlowMinSample; shrunk-- {
+				res := runEtcdCheck(t, newEtcdSlowReport(shrunk, severe, severe), "OPCT-010B")
+				require.LessOrEqual(t, etcdSeverity[res.Name], etcdSeverity[base.Name],
+					"total=%d severe=%d shrunk to %d: %s -> %s", total, severe, shrunk, base.Name, res.Name)
+			}
+		}
+	}
 }
 
 func TestCheckOPCT010_MissingData(t *testing.T) {
