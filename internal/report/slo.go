@@ -761,7 +761,7 @@ References:
 			prefix := "Check OPCT-010B Failed"
 			res := CheckResult{
 				Name:   CheckResultNameFail,
-				Target: fmt.Sprintf("<=%d events at or above %.0f ms", etcdSevereWarnCount, etcdSlowSevereMs),
+				Target: fmt.Sprintf("pass <=%d, warn <=%d, events at or above %.0f ms", etcdSeverePassCount, etcdSevereWarnCount, etcdSlowSevereMs),
 				Actual: "N/A",
 			}
 			stat, reason := etcdSlowStat(re)
@@ -796,7 +796,9 @@ References:
 			// Counts only: a proportion would divide by the censored population
 			// size, which shrinks as the cluster improves, and the verdict could
 			// then worsen for a cluster that got faster.
-			res.Actual = fmt.Sprintf("%d/%d events (%.1f%%) >=%.0f ms", severe, total, (float64(severe)/float64(total))*100, etcdSlowSevereMs)
+			// The proportion is deliberately absent from the reported value: it
+			// plays no part in the verdict, and showing it suggests otherwise.
+			res.Actual = fmt.Sprintf("%d events >=%.0f ms (of %d parsed)", severe, etcdSlowSevereMs, total)
 			switch {
 			case severe <= etcdSeverePassCount:
 				res.Name = CheckResultNamePass
