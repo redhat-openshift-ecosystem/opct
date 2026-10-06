@@ -814,7 +814,7 @@ References:
 Requests taking a full second or more can impact cluster performance. The check counts how many parsed slow-request
 events fall in the 1000 ms and above band, rather than reporting the single highest value: one isolated outlier is
 expected on any cluster, and the highest observed value also grows with the length of the collection window, so it
-is not a stable signal. Repetition is what distinguishes degraded storage from normal variation.
+is not a stable signal. Repetition is what distinguishes sustained degradation from normal variation.
 The criteria are absolute event counts rather than proportions. A proportion would divide by the size of the parsed
 population, which is itself censored and shrinks as borderline requests become fast, so a cluster that improved could
 be moved into a worse band. Counting avoids that.`,
