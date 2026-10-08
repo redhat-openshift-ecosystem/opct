@@ -11,15 +11,24 @@ Follow the steps below to get started using the OPCT CLI to schedule a conforman
 
 Install the OPCT CLI using the following command:
 ```sh
-# Download the latest release
-wget -O ~/bin/opct \
-    https://github.com/redhat-openshift-ecosystem/opct/releases/latest/download/opct-linux-amd64
-
-# Make it executable
-chmod u+x ~/bin/opct
+curl -fsSL https://redhat-openshift-ecosystem.github.io/opct/install.sh | bash
 ```
 
+The installer detects your OS/architecture, verifies the published checksum, and
+installs `opct` into `$HOME/.local/bin`.
+
+To pin a specific release or change the destination directory:
+
+```sh
+curl -fsSL https://redhat-openshift-ecosystem.github.io/opct/install.sh \
+  | OPCT_VERSION=v0.6.7 INSTALL_DIR="$HOME/bin" bash
+```
+
+If the install directory is not already on your `PATH`, the installer prints the
+`export PATH=...` line to add to your shell profile.
+
 !!! info "See Also"
+    - Review the [installer source](https://redhat-openshift-ecosystem.github.io/opct/install.sh) before piping it to a shell
     - Use the [latest release](https://github.com/redhat-openshift-ecosystem/opct/releases/latest)
 
 ## Setup <a name="setup"></a>

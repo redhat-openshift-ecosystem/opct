@@ -14,29 +14,20 @@ test suites on OpenShift/OKD installations on cloud providers or hardware.
 - Download OPCT
 
 ```bash
-OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
-
-case "$(uname -m)" in
-  x86_64|amd64)
-    ARCH="amd64"
-    ;;
-  arm64|aarch64)
-    ARCH="arm64"
-    ;;
-  *)
-    echo "Unsupported architecture: $(uname -m)" >&2
-    exit 1
-    ;;
-esac
-
-BINARY="opct-${OS}-${ARCH}"
-
-curl -fL \
-  -o /usr/local/bin/opct \
-  "https://github.com/redhat-openshift-ecosystem/opct/releases/download/latest/${BINARY}"
-
-chmod +x /usr/local/bin/opct
+curl -fsSL https://redhat-openshift-ecosystem.github.io/opct/install.sh | bash
 ```
+
+The installer detects your OS/architecture, verifies the published checksum, and
+installs `opct` into `$HOME/.local/bin`. To pin a release or change the
+destination:
+
+```bash
+curl -fsSL https://redhat-openshift-ecosystem.github.io/opct/install.sh \
+  | OPCT_VERSION=v0.6.7 INSTALL_DIR="$HOME/bin" bash
+```
+
+If the install directory is not already on your `PATH`, the installer prints the
+`export PATH=...` line to add to your shell profile.
 
 - Setup a dedicated node to run the test environment (preferred to prevent disruption)
 
