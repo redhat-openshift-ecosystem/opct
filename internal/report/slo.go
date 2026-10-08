@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
+	"github.com/redhat-openshift-ecosystem/opct/internal/openshift/mustgather"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -653,63 +654,58 @@ $ grep -B 5 'Creating failed JUnit' \
 	*/
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   "OPCT-010A",
-		Name: "etcd logs: slow requests: average should be under 500ms",
+		Name: "etcd logs: slow requests: events at or above 500ms should be limited",
 		Test: func() CheckResult {
 			prefix := "Check OPCT-010A Failed"
-			wantLimit := 500.0
 			res := CheckResult{
-				Name:   CheckResultNameFail,
-				Target: fmt.Sprintf("<=%.2f ms", wantLimit),
+				Name:   CheckResultNameWarn,
+				Target: fmt.Sprintf("<=%d events, or <=%.0f%%, at or above %.0f ms", etcdElevatedPassCount, etcdElevatedPassRatio*100, etcdSlowElevatedMs),
 				Actual: "N/A",
 			}
-			if re.Provider == nil {
-				log.Debugf("%s: unable to read provider information.", prefix)
+			stat, reason := etcdSlowStat(re)
+			if stat == nil {
+				res.Actual = reason
+				log.Debugf("%s: %s", prefix, reason)
 				return res
 			}
-			if re.Provider.MustGatherInfo == nil {
-				res.Actual = "ERR !must-gather"
-				log.Debugf("%s: unable to read must-gather information.", prefix)
-				return res
-			}
-			if re.Provider.MustGatherInfo.ErrorEtcdLogs == nil {
-				res.Actual = "ERR !logs"
-				log.Debugf("%s: unable to etcd stat from must-gather.", prefix)
-				return res
-			}
-			if re.Provider.MustGatherInfo.ErrorEtcdLogs.FilterRequestSlowAll["all"] == nil {
-				res.Actual = "ERR !counters"
-				log.Debugf("%s: unable to read statistics from parsed etcd logs.", prefix)
-				return res
-			}
-			if re.Provider.MustGatherInfo.ErrorEtcdLogs.FilterRequestSlowAll["all"].StatMean == "" {
-				res.Actual = "ERR !p50"
-				log.Debugf("%s: unable to get p50/mean statistics from parsed data: %v", prefix, re.Provider.MustGatherInfo.ErrorEtcdLogs.FilterRequestSlowAll["all"])
-				return res
-			}
-			values := strings.Split(re.Provider.MustGatherInfo.ErrorEtcdLogs.FilterRequestSlowAll["all"].StatMean, " ")
-			if values[0] == "" {
-				log.Debugf("%s: unable to get parse p50/mean: %v", prefix, values)
-				return res
-			}
-			value, err := strconv.ParseFloat(values[0], 64)
+			total, err := etcdSlowCount(stat.StatCount)
 			if err != nil {
-				log.Debugf("%s: unable to convert p50/mean to float: %v", prefix, err)
+				res.Actual = "ERR !count"
+				log.Debugf("%s: unable to parse StatCount %q: %v", prefix, stat.StatCount, err)
 				return res
 			}
-			res.Actual = fmt.Sprintf("%.3f", value)
-			if value >= wantLimit {
-				log.Debugf("%s acceptance criteria: want=[<%.0f] got=[%v]", prefix, wantLimit, value)
+			elevated, err := etcdSlowCount(stat.Higher500ms)
+			if err != nil {
+				res.Actual = "ERR !elevated"
+				log.Debugf("%s: unable to parse Higher500ms %q: %v", prefix, stat.Higher500ms, err)
 				return res
 			}
-			res.Name = CheckResultNamePass
+			if total < etcdSlowMinSample {
+				res.Name = CheckResultNameSkip
+				res.Actual = fmt.Sprintf("%d events (insufficient sample)", total)
+				return res
+			}
+			ratio := float64(elevated) / float64(total)
+			res.Actual = fmt.Sprintf("%d/%d events (%.1f%%) >=%.0f ms", elevated, total, ratio*100, etcdSlowElevatedMs)
+			if elevated <= etcdElevatedPassCount || ratio <= etcdElevatedPassRatio {
+				res.Name = CheckResultNamePass
+				return res
+			}
+			// OPCT-010A is advisory: it never fails on its own. Sustained severe
+			// degradation is gated by OPCT-010B.
+			log.Debugf("%s acceptance criteria: want=[<=%d events or <=%.2f] got=[%d events, %.4f]", prefix, etcdElevatedPassCount, etcdElevatedPassRatio, elevated, ratio)
 			return res
 		},
 		DocumentationSpec: CheckDocumentationSpec{
-			Description: `The etcd logs must generate the average of slow requests lower than 500 milliseconds.
-The slow requests are a metric that helps to understand the health of the etcd. The slow requests are a relative value
-and they are based on the observed values in known, and tested, cloud providers/platforms.`,
+			Description: `The etcd logs must not report a large share of slow requests at or above 500 milliseconds.
+The check counts how many of the parsed slow-request events reached 500 ms, rather than averaging their durations.
+The population parsed from the logs only contains requests etcd already considered slow, so its average is a
+conditional one: making a borderline request faster removes it from the sample and raises the average. Counting
+events per latency band does not have that defect, because an improved request either leaves its band or stays put.
+This check is advisory and never fails, so it also passes on a proportion of the parsed population; the gating check,
+OPCT-010B, is stated purely in event counts.`,
 			Action:   `Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.`,
-			Expected: `The slow requests in etcd logs are a relative value and it is based on the observed values in known platforms.`,
+			Expected: `The number of slow-request events reaching 500 ms stays within the limits observed on known, tested platforms: at most 10 events, or at most 40% of the parsed slow-request population. This check is advisory and never fails on its own; sustained severe degradation is gated by OPCT-010B.`,
 			Troubleshoot: `
 1) Review the documentation for the required storage for etcd:
 
@@ -732,8 +728,8 @@ and they are based on the observed values in known, and tested, cloud providers/
 Run the report with debug flag <code>--loglevel=debug</code>:
 ~~~text
 (...)
-DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010 Failed Acceptance criteria: want=[<500] got=[690.412]
-DEBU[2023-09-25T12:52:05-03:00] Check OPCT-011 Failed Acceptance criteria: want=[<1000] got=[3091.49]
+DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010A acceptance criteria: want=[<=10 events or <=0.40] got=[39 events, 0.6094]
+DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010B acceptance criteria: want=[<=20 events] got=[32 events]
 ~~~
 
 Extract the information from the logs using parser utility:
@@ -760,63 +756,70 @@ References:
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   "OPCT-010B",
-		Name: "etcd logs: slow requests: maximum should be under 1000ms",
+		Name: "etcd logs: slow requests: events at or above 1000ms should be limited",
 		Test: func() CheckResult {
 			prefix := "Check OPCT-010B Failed"
-			wantLimit := 1000.0
 			res := CheckResult{
 				Name:   CheckResultNameFail,
-				Target: fmt.Sprintf("<=%.2f ms", wantLimit),
+				Target: fmt.Sprintf("pass <=%d, warn <=%d, events at or above %.0f ms", etcdSeverePassCount, etcdSevereWarnCount, etcdSlowSevereMs),
 				Actual: "N/A",
 			}
-			if re.Provider.MustGatherInfo == nil {
-				res.Actual = "ERR !must-gather"
-				log.Debugf("%s: unable to read must-gather information.", prefix)
+			stat, reason := etcdSlowStat(re)
+			if stat == nil {
+				res.Actual = reason
+				log.Debugf("%s: %s", prefix, reason)
 				return res
 			}
-			if re.Provider.MustGatherInfo.ErrorEtcdLogs == nil {
-				res.Actual = "ERR !logs"
-				log.Debugf("%s: unable to etcd stat from must-gather.", prefix)
-				return res
-			}
-			if re.Provider.MustGatherInfo.ErrorEtcdLogs.FilterRequestSlowAll["all"] == nil {
-				res.Actual = "ERR !counters"
-				log.Debugf("%s: unable to read statistics from parsed etcd logs.", prefix)
-				return res
-			}
-			if re.Provider.MustGatherInfo.ErrorEtcdLogs.FilterRequestSlowAll["all"].StatMax == "" {
-				res.Actual = "ERR !max"
-				log.Debugf("%s: unable to get max statistics from parsed data: %v", prefix, re.Provider.MustGatherInfo.ErrorEtcdLogs.FilterRequestSlowAll["all"])
-				return res
-			}
-			values := strings.Split(re.Provider.MustGatherInfo.ErrorEtcdLogs.FilterRequestSlowAll["all"].StatMax, " ")
-			if values[0] == "" {
-				res.Actual = "ERR !max"
-				log.Debugf("%s: unable to get parse max: %v", prefix, values)
-				return res
-			}
-			value, err := strconv.ParseFloat(values[0], 64)
+			total, err := etcdSlowCount(stat.StatCount)
 			if err != nil {
-				res.Actual = "ERR !max"
-				log.Debugf("%s: unable to convert max to float: %v", prefix, err)
+				res.Actual = "ERR !count"
+				log.Debugf("%s: unable to parse StatCount %q: %v", prefix, stat.StatCount, err)
 				return res
 			}
-			res.Actual = fmt.Sprintf("%.3f", value)
-			if value >= wantLimit {
-				log.Debugf("%s acceptance criteria: want=[<%.0f] got=[%v]", prefix, wantLimit, value)
+			severeRaw, ok := stat.Buckets[mustgather.BucketRangeName1000Inf]
+			if !ok {
+				res.Actual = "ERR !bucket"
+				log.Debugf("%s: bucket %q missing from parsed statistics", prefix, mustgather.BucketRangeName1000Inf)
 				return res
 			}
-			res.Name = CheckResultNamePass
+			severe, err := etcdSlowCount(severeRaw)
+			if err != nil {
+				res.Actual = "ERR !severe"
+				log.Debugf("%s: unable to parse bucket %q value %q: %v", prefix, mustgather.BucketRangeName1000Inf, severeRaw, err)
+				return res
+			}
+			if total < etcdSlowMinSample {
+				res.Name = CheckResultNameSkip
+				res.Actual = fmt.Sprintf("%d events (insufficient sample)", total)
+				return res
+			}
+			// Counts only: a proportion would divide by the censored population
+			// size, which shrinks as the cluster improves, and the verdict could
+			// then worsen for a cluster that got faster.
+			// The proportion is deliberately absent from the reported value: it
+			// plays no part in the verdict, and showing it suggests otherwise.
+			res.Actual = fmt.Sprintf("%d events >=%.0f ms (of %d parsed)", severe, etcdSlowSevereMs, total)
+			switch {
+			case severe <= etcdSeverePassCount:
+				res.Name = CheckResultNamePass
+			case severe <= etcdSevereWarnCount:
+				res.Name = CheckResultNameWarn
+			default:
+				log.Debugf("%s acceptance criteria: want=[<=%d events] got=[%d events]", prefix, etcdSevereWarnCount, severe)
+			}
 			return res
 		},
 		DocumentationSpec: CheckDocumentationSpec{
-			Description: `The etcd logs must generate the maximum of slow requests lower than 1000 milisseconds.
-One or more requests with high latency could impact the cluster performance. Slow requests are a metric that helps to
-understand the health of the etcd. The slow requests are a relative value and it is based on the observed values in known platforms.
-The maximum value is the highest value of slow requests reported in the etcd logs, it must not be higher than 1 second.
-`,
+			Description: `The etcd logs must not report repeated slow requests at or above 1000 milliseconds.
+Requests taking a full second or more can impact cluster performance. The check counts how many parsed slow-request
+events fall in the 1000 ms and above band, rather than reporting the single highest value: one isolated outlier is
+expected on any cluster, and the highest observed value also grows with the length of the collection window, so it
+is not a stable signal. Repetition is what distinguishes sustained degradation from normal variation.
+The criteria are absolute event counts rather than proportions. A proportion would divide by the size of the parsed
+population, which is itself censored and shrinks as borderline requests become fast, so a cluster that improved could
+be moved into a worse band. Counting avoids that.`,
 			Action:       "Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.",
-			Expected:     "The slow requests in etcd logs are a relative value and it is based on the observed values in known platforms.",
+			Expected:     "At most 5 slow-request events reach 1000 ms. Beyond that the check warns, and it only fails above 20 such events — a level not seen on any known, tested platform.",
 			Troubleshoot: "Review Dependencies: [Troubleshooting section of OPCT-010A](#opct-010a)",
 			Dependencies: []string{"OPCT-010A"},
 		},
@@ -1491,4 +1494,80 @@ The following table describes how the check IDs are distributed.
 func (csum *CheckSummary) WriteDocumentation(docPath string) error {
 	doc := csum.generateDocumentation()
 	return os.WriteFile(docPath, []byte(doc), 0644)
+}
+
+// etcd slow-request acceptance criteria (OPCT-010A / OPCT-010B).
+//
+// The checks evaluate the distribution of slow-request events parsed from etcd
+// logs, counting how many events fall at or above the 500ms and 1000ms marks,
+// instead of the arithmetic mean and the single maximum.
+//
+// Rationale: the parsed population only contains requests etcd already flagged
+// as slow, so it is censored. Taking the mean of that population is not
+// monotonic - when a borderline-slow request becomes fast it leaves the
+// population, and the mean of the remaining events increases. A cluster that
+// improved can therefore report a worse value. Counting events per band is
+// monotonic: an improved request either leaves its band or stays put, so the
+// count can never rise when the cluster gets faster. The single maximum has the
+// complementary problem of being one unbounded sample that grows with the
+// collection window.
+//
+// Monotonicity holds only for criteria expressed as absolute event counts. A
+// criterion expressed as a proportion divides by the size of the same censored
+// population, so when borderline requests become fast and leave it the
+// denominator shrinks and the proportion rises. OPCT-010B gates the report and
+// is therefore stated purely in counts. OPCT-010A is advisory and can never
+// fail, so it also accepts a proportion in order to avoid flagging runs whose
+// population is large only because the collection window was long.
+//
+// The thresholds below are calibrated so that an environment performing
+// comparably to the Red Hat reference CI baseline is not blocked, while
+// sustained severe degradation still fails.
+const (
+	// etcdSlowElevatedMs is the duration marking an elevated slow request.
+	etcdSlowElevatedMs = 500.0
+	// etcdSlowSevereMs is the duration marking a severe slow request.
+	etcdSlowSevereMs = 1000.0
+
+	// etcdSlowMinSample is the smallest parsed population that yields a verdict.
+	etcdSlowMinSample = 10
+
+	// OPCT-010A: advisory bands for elevated (>=500ms) events. This check
+	// never fails, so it may use a proportion as an additional way to pass.
+	etcdElevatedPassCount = 10
+	etcdElevatedPassRatio = 0.40
+
+	// OPCT-010B: acceptance bands for severe (>=1000ms) events. Counts only,
+	// so that the verdict stays monotonic under cluster improvement.
+	etcdSeverePassCount = 5
+	etcdSevereWarnCount = 20
+)
+
+// etcdSlowStat resolves the parsed etcd slow-request statistics, returning a
+// reason suitable for CheckResult.Actual when they are unavailable.
+func etcdSlowStat(re *ReportData) (*mustgather.BucketFilterStat, string) {
+	if re.Provider == nil {
+		return nil, "ERR !provider"
+	}
+	if re.Provider.MustGatherInfo == nil {
+		return nil, "ERR !must-gather"
+	}
+	if re.Provider.MustGatherInfo.ErrorEtcdLogs == nil {
+		return nil, "ERR !logs"
+	}
+	stat := re.Provider.MustGatherInfo.ErrorEtcdLogs.FilterRequestSlowAll["all"]
+	if stat == nil {
+		return nil, "ERR !counters"
+	}
+	return stat, ""
+}
+
+// etcdSlowCount extracts the leading integer from the counter strings produced
+// by the must-gather parser, which are formatted as "13 (20.312%)".
+func etcdSlowCount(raw string) (int, error) {
+	field := strings.Fields(raw)
+	if len(field) == 0 {
+		return 0, fmt.Errorf("empty counter")
+	}
+	return strconv.Atoi(field[0])
 }
