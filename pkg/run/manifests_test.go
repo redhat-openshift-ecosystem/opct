@@ -78,7 +78,7 @@ func TestLoadPluginManifests(t *testing.T) {
 		}
 	})
 
-	t.Run("default mode loads all plugins", func(t *testing.T) {
+	t.Run("default mode skips upgrade plugin", func(t *testing.T) {
 		opts := baseOpts()
 		// mode is empty (default, non-upgrade)
 
@@ -90,14 +90,21 @@ func TestLoadPluginManifests(t *testing.T) {
 			names = append(names, m.SonobuoyConfig.PluginName)
 		}
 
-		// All 5 plugins should be loaded in the default mode.
-		assert.Contains(t, names, plugin.PluginNameOpenShiftUpgrade)
-		assert.Contains(t, names, plugin.PluginNameKubernetesConformance)
-		assert.Contains(t, names, plugin.PluginNameOpenShiftConformance)
-		assert.Contains(t, names, plugin.PluginNameConformanceReplay)
-		assert.Contains(t, names, plugin.PluginNameArtifactsCollector)
+		// In default (non-upgrade) mode, conformance plugins should be loaded.
+		assert.Contains(t, names, plugin.PluginNameKubernetesConformance,
+			"kube-conformance plugin must be present in default mode")
+		assert.Contains(t, names, plugin.PluginNameOpenShiftConformance,
+			"openshift-conformance plugin must be present in default mode")
+		assert.Contains(t, names, plugin.PluginNameConformanceReplay,
+			"conformance-replay plugin must be present in default mode")
+		assert.Contains(t, names, plugin.PluginNameArtifactsCollector,
+			"artifacts-collector plugin must be present in default mode")
 
-		assert.Len(t, manifests, 5,
-			"default mode should load all 5 plugins")
+		// Upgrade plugin must NOT be present in default mode.
+		assert.NotContains(t, names, plugin.PluginNameOpenShiftUpgrade,
+			"upgrade plugin must be skipped in default mode")
+
+		assert.Len(t, manifests, 4,
+			"default mode should load exactly 4 plugins (10, 20, 80, 99)")
 	})
 }
