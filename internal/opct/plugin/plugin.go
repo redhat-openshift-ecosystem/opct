@@ -18,6 +18,10 @@ const (
 	// WorkflowUpgrade is the run mode/workflow name for the upgrade path.
 	// Used by both the run-path (pkg/run) and report-path (internal/report).
 	WorkflowUpgrade = "upgrade"
+
+	// WorkflowRegular is the run mode/workflow name for the default
+	// conformance path, where the upgrade plugin (05) is not loaded.
+	WorkflowRegular = "regular"
 )
 
 type PluginDefinition struct {
