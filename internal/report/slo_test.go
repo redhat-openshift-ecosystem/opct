@@ -301,6 +301,7 @@ func TestCheckOPCT010BMaximumThresholds(t *testing.T) {
 		assert.Equal(t, tc.want, res.Name, "max=%v", tc.max)
 	}
 }
+
 // TestCheckOPCT002UpgradePluginAbsent asserts the upgrade plugin check (OPCT-002)
 // reacts to an absent plugin 05 based on the workflow. The plugin manifest is not
 // loaded in regular mode, so its absence must not be reported as a failure.
