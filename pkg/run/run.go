@@ -75,7 +75,7 @@ type RunOptions struct {
 
 const (
 	defaultRunTimeoutSeconds              = 21600
-	defaultRunMode                        = "regular"
+	defaultRunMode                        = plugin.WorkflowRegular
 	defaultUpgradeImage                   = ""
 	defaultDedicatedFlag                  = true
 	defaultRunWatchFlag                   = false

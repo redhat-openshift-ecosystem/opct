@@ -623,7 +623,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
 
         let plugin = this.report.provider.plugins[pluginName]
         if (!plugin) {
-          this.menuBody += "<p><i>Plugin not loaded (skipped in upgrade mode)</i></p>"
+          this.menuBody += "<p><i>Plugin not loaded (not applicable to this execution mode)</i></p>"
           return;
         }
 
