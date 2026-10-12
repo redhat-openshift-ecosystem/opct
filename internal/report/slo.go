@@ -459,10 +459,10 @@ Check the test logs for OpenShift conformance suite, Priority section, to isolat
 				return res
 			}
 			cnt := *re.Provider.ErrorCounters
+			// An absent total means the suite feeding the budget produced no
+			// processed results. A total of zero is a measured value: the suite
+			// ran and none of the error patterns matched.
 			if _, ok := cnt["total"]; !ok {
-				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowUpgrade {
-					return CheckResult{Name: CheckResultNameSkip, Actual: "upgrade mode"}
-				}
 				res.Message = "Unable to load Total Counter"
 				res.Name = CheckResultNameFail
 				res.Actual = "ERR !total"
@@ -479,12 +479,6 @@ Check the test logs for OpenShift conformance suite, Priority section, to isolat
 			}
 			// Warn
 			if total > thWarn {
-				return res
-			}
-			// 0? really? something went wrong!
-			if total == 0 {
-				res.Name = CheckResultNameFail
-				res.Actual = "WARN missing counters"
 				return res
 			}
 			res.Name = CheckResultNamePass
