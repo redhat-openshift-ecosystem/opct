@@ -548,11 +548,15 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 	}
 	// The workflow is read from this source's own configuration: populateSource
 	// also runs for the baseline, which must not inherit the provider's mode.
+	// The shared metadata describes the provider, so a baseline running another
+	// mode must not overwrite it either.
 	workflow := ""
 	for i := range reResult.Runtime.OpctConfig {
 		if reResult.Runtime.OpctConfig[i].Name == "run-mode" {
 			workflow = reResult.Runtime.OpctConfig[i].Value
-			re.Setup.API.Workflow = workflow
+			if rs.Name == summary.ResultSourceNameProvider {
+				re.Setup.API.Workflow = workflow
+			}
 		}
 	}
 	reResult.ErrorCounters = aggregateErrorCounters(reResult, workflow)
