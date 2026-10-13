@@ -197,7 +197,9 @@ func (cs *ConsolidatedSummary) applyFilterSuiteForPlugin(pluginName string) erro
 
 	case plugin.PluginNameOpenShiftUpgrade:
 		ps = cs.GetProvider().GetOpenShift().GetResultConformanceUpgrade()
-		pluginSuite = cs.GetProvider().GetSuites().UpgradeConformance
+		// Upgrade plugin runs its own curated test set; any failure is in-scope,
+		// so bypass the suite filter by using an empty suite (emptySuite=true path).
+		pluginSuite = &OpenshiftTestsSuite{}
 
 	case plugin.PluginNameConformanceReplay:
 		ps = cs.GetProvider().GetOpenShift().GetResultConformanceReplay()
@@ -400,14 +402,17 @@ func (cs *ConsolidatedSummary) applyFilterFlakeForPlugin(pluginName string, filt
 			}
 			// Applying flake filter by moving only non-flakes to the pipeline.
 			// The tests reporing lower than 5% of CurrentFlakePerc by Sippy are selected as non-flake.
+			// Only the first Sippy result is used; break after classifying to avoid duplicates
+			// when Sippy returns multiple records for the same test name.
 			// TODO: Review flake severity
 			if ps.Tests[name].Flake.CurrentFlakePerc <= 5.0 {
 				ps.Tests[name].State = "filter3Priority"
 				ps.FailedFilter3 = append(ps.FailedFilter3, name)
-				continue
+			} else {
+				ps.Tests[name].State = "filter3Flake"
+				ps.FailedExcludedFilter3 = append(ps.FailedExcludedFilter3, name)
 			}
-			ps.Tests[name].State = "filter3Flake"
-			ps.FailedExcludedFilter3 = append(ps.FailedExcludedFilter3, name)
+			break
 		}
 	}
 	sort.Strings(ps.FailedFilter3)

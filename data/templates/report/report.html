@@ -657,14 +657,18 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         this.menuBody += this.createTableHTML(table=tbTests);
         this.menuBody += "<i>*Prio.Failures: Priority failures after filters</i><p>";
 
-        let tbTestResults = {
-          header: "Test results (" + Object.keys(plugin.tests || {}).length + ")",
-          data: this.getPluginTestResults(pluginName, plugin),
-          headline: "",
-          fields: ["Status", "Test Name", "Failure Details"],
-          fieldMap: {}
+        // Show the full test results table only for the upgrade plugin (small set).
+        // K8S/OCP conformance plugins have thousands of tests which would crash the browser.
+        if (pluginName === "05-openshift-cluster-upgrade") {
+          let tbTestResults = {
+            header: "Test results (" + Object.keys(plugin.tests || {}).length + ")",
+            data: this.getPluginTestResults(pluginName, plugin),
+            headline: "",
+            fields: ["Status", "Test Name", "Failure Details"],
+            fieldMap: {}
+          }
+          this.menuBody += this.createTableHTML(table=tbTestResults);
         }
-        this.menuBody += this.createTableHTML(table=tbTestResults);
 
         this.menuBody += "<p><b>Failures filtered by OPCT report pipeline:</b></p>";
         // Create table with counters by filter
