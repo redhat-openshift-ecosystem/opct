@@ -627,6 +627,13 @@ $ grep -B 5 'Creating failed JUnit' \
 			prefix := "Check OPCT-002 Failed"
 			res := CheckResult{Name: CheckResultNameFail, Target: "passed"}
 			if _, ok := re.Provider.Plugins[plugin.PluginNameOpenShiftUpgrade]; !ok {
+				// The upgrade plugin is not loaded in regular mode, so there is
+				// nothing to evaluate. Only an explicitly known regular run is
+				// skipped: an unset workflow keeps the failure to avoid hiding a
+				// genuinely missing plugin in upgrade executions.
+				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowRegular {
+					return CheckResult{Name: CheckResultNameSkip, Target: "passed", Actual: "regular mode"}
+				}
 				return res
 			}
 			res.Actual = re.Provider.Plugins[plugin.PluginNameOpenShiftUpgrade].Stat.Status

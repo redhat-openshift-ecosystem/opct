@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -182,5 +183,56 @@ func TestWriteDocumentation(t *testing.T) {
 		// Validate file exists
 		_, statErr := os.Stat(docPath)
 		assert.NoError(t, statErr)
+	})
+}
+
+// TestCheckOPCT002UpgradePluginAbsent asserts the upgrade plugin check (OPCT-002)
+// reacts to an absent plugin 05 based on the workflow. The plugin manifest is not
+// loaded in regular mode, so its absence must not be reported as a failure.
+func TestCheckOPCT002UpgradePluginAbsent(t *testing.T) {
+	runOPCT002 := func(re *ReportData) CheckResult {
+		for _, check := range NewCheckSummary(re).Checks {
+			if check.ID == "OPCT-002" {
+				return check.Test()
+			}
+		}
+		t.Fatal("check OPCT-002 not found")
+		return CheckResult{}
+	}
+
+	newReport := func(workflow string) *ReportData {
+		return &ReportData{
+			Provider: &ReportResult{Plugins: map[string]*ReportPlugin{}},
+			Setup:    &ReportSetup{API: &ReportSetupAPI{Workflow: workflow}},
+		}
+	}
+
+	t.Run("regular mode skips when plugin 05 is absent", func(t *testing.T) {
+		res := runOPCT002(newReport(plugin.WorkflowRegular))
+		assert.Equal(t, CheckResultNameSkip, res.Name,
+			"absent upgrade plugin must not fail the check in regular mode")
+	})
+
+	t.Run("upgrade mode fails when plugin 05 is absent", func(t *testing.T) {
+		res := runOPCT002(newReport(plugin.WorkflowUpgrade))
+		assert.Equal(t, CheckResultNameFail, res.Name,
+			"absent upgrade plugin must fail the check in upgrade mode")
+	})
+
+	t.Run("unknown workflow fails when plugin 05 is absent", func(t *testing.T) {
+		res := runOPCT002(newReport(""))
+		assert.Equal(t, CheckResultNameFail, res.Name,
+			"an unset workflow must not hide a missing upgrade plugin")
+	})
+
+	t.Run("regular mode passes when plugin 05 is present and passed", func(t *testing.T) {
+		re := newReport(plugin.WorkflowRegular)
+		re.Provider.Plugins[plugin.PluginNameOpenShiftUpgrade] = &ReportPlugin{
+			ID:   plugin.PluginNameOpenShiftUpgrade,
+			Stat: &ReportPluginStat{Status: "passed"},
+		}
+		res := runOPCT002(re)
+		assert.Equal(t, CheckResultNamePass, res.Name,
+			"a present and passing upgrade plugin must still pass")
 	})
 }

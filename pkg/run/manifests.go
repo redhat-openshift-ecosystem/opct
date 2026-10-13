@@ -75,6 +75,16 @@ func loadPluginManifests(r *RunOptions) ([]*manifest.Manifest, error) {
 			}
 		}
 
+		// Skip upgrade plugin (05) in non-upgrade modes (regular conformance, disconnected).
+		// The upgrade plugin is only relevant when running upgrade validation workflow.
+		if r.mode != plugin.WorkflowUpgrade {
+			pluginName := asset.SonobuoyConfig.PluginName
+			if pluginName == plugin.PluginNameOpenShiftUpgrade {
+				log.Infof("Skipping plugin %s in non-upgrade mode", pluginName)
+				continue
+			}
+		}
+
 		manifests = append(manifests, &asset)
 	}
 
