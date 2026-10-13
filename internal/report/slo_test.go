@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
 )
 
 func TestNewCheckSummary(t *testing.T) {
@@ -182,5 +184,51 @@ func TestWriteDocumentation(t *testing.T) {
 		// Validate file exists
 		_, statErr := os.Stat(docPath)
 		assert.NoError(t, statErr)
+	})
+}
+
+func TestCheckOPCT011ErrorBudget(t *testing.T) {
+	runOPCT011 := func(ec *archive.ErrorCounter) CheckResult {
+		re := &ReportData{Provider: &ReportResult{ErrorCounters: ec}}
+		for _, check := range NewCheckSummary(re).Checks {
+			if check.ID == "OPCT-011" {
+				return check.Test()
+			}
+		}
+		t.Fatal("check OPCT-011 not found")
+		return CheckResult{}
+	}
+	counters := func(kv map[string]int) *archive.ErrorCounter {
+		ec := archive.ErrorCounter(kv)
+		return &ec
+	}
+
+	t.Run("a measured zero passes", func(t *testing.T) {
+		res := runOPCT011(counters(map[string]int{"total": 0}))
+		assert.Equal(t, CheckResultNamePass, res.Name,
+			"a suite that ran without matching any error pattern must pass")
+		assert.Equal(t, "0", res.Actual)
+	})
+
+	t.Run("an absent total fails", func(t *testing.T) {
+		res := runOPCT011(counters(map[string]int{}))
+		assert.Equal(t, CheckResultNameFail, res.Name,
+			"unprocessed results must not be reported as zero errors")
+		assert.Equal(t, "ERR !total", res.Actual)
+	})
+
+	t.Run("thresholds", func(t *testing.T) {
+		for _, tc := range []struct {
+			total int
+			want  CheckResultName
+		}{
+			{total: 150, want: CheckResultNamePass},
+			{total: 151, want: CheckResultNameWarn},
+			{total: 300, want: CheckResultNameWarn},
+			{total: 301, want: CheckResultNameFail},
+		} {
+			res := runOPCT011(counters(map[string]int{"total": tc.total}))
+			assert.Equal(t, tc.want, res.Name, "total=%d", tc.total)
+		}
 	})
 }

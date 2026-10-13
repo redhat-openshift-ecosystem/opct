@@ -488,16 +488,6 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 		}
 	}
 
-	// Aggregate Plugin errors
-	var ecK8s, ecOCP *archive.ErrorCounter
-	if p, ok := reResult.Plugins[plugin.PluginNameKubernetesConformance]; ok {
-		ecK8s = p.ErrorCounters
-	}
-	if p, ok := reResult.Plugins[plugin.PluginNameOpenShiftConformance]; ok {
-		ecOCP = p.ErrorCounters
-	}
-	reResult.ErrorCounters = archive.MergeErrorCounters(ecK8s, ecOCP)
-
 	// Runtime
 	if reResult.Runtime == nil {
 		reResult.Runtime = &ReportRuntime{}
@@ -556,12 +546,60 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 			re.Setup.API.UUID = reResult.Runtime.ServerConfig[i].Value
 		}
 	}
+	// The workflow is read from this source's own configuration: populateSource
+	// also runs for the baseline, which must not inherit the provider's mode.
+	// The shared metadata describes the provider, so a baseline running another
+	// mode must not overwrite it either.
+	workflow := ""
 	for i := range reResult.Runtime.OpctConfig {
 		if reResult.Runtime.OpctConfig[i].Name == "run-mode" {
-			re.Setup.API.Workflow = reResult.Runtime.OpctConfig[i].Value
+			workflow = reResult.Runtime.OpctConfig[i].Value
+			if rs.Name == summary.ResultSourceNameProvider {
+				re.Setup.API.Workflow = workflow
+			}
 		}
 	}
+	reResult.ErrorCounters = aggregateErrorCounters(reResult, workflow)
+
 	return nil
+}
+
+// aggregateErrorCounters merges the error counters of the plugins feeding the
+// OPCT-011 error budget. Upgrade executions skip the conformance plugins, so
+// the budget is sourced from the upgrade plugin instead.
+//
+// Counter keys only exist once an error pattern matches, so a plugin that was
+// processed without any match yields an explicit zero total. That keeps "no
+// errors found" distinguishable from "no results processed", which leaves the
+// total absent.
+func aggregateErrorCounters(reResult *ReportResult, workflow string) *archive.ErrorCounter {
+	sources := []string{
+		plugin.PluginNameKubernetesConformance,
+		plugin.PluginNameOpenShiftConformance,
+	}
+	if workflow == plugin.WorkflowUpgrade {
+		sources = []string{plugin.PluginNameOpenShiftUpgrade}
+	}
+
+	merged := make(archive.ErrorCounter, len(archive.CommonErrorPatterns))
+	processed := false
+	for _, name := range sources {
+		p, ok := reResult.Plugins[name]
+		if !ok {
+			continue
+		}
+		processed = true
+		if p.ErrorCounters == nil {
+			continue
+		}
+		for pattern, count := range *p.ErrorCounters {
+			merged[pattern] += count
+		}
+	}
+	if _, ok := merged["total"]; !ok && processed {
+		merged["total"] = 0
+	}
+	return &merged
 }
 
 // populatePluginConformance reads the plugin data, processing and creating the report data.
@@ -615,6 +653,7 @@ func (re *ReportData) populatePluginConformance(rs *summary.ResultSummary, reRes
 		Suite: suite,
 		Tests: pluginSum.Tests,
 	}
+	reResult.Plugins[pluginID].ErrorCounters = pluginSum.GetErrorCounters()
 
 	// No more advanced fields to create for non-Conformance
 	switch pluginID {
@@ -649,7 +688,6 @@ func (re *ReportData) populatePluginConformance(rs *summary.ResultSummary, reRes
 
 	// Filter Failures (result)
 	reResult.Plugins[pluginID].Stat.FilterFailures = int64(len(pluginSum.FailedFiltered))
-	reResult.Plugins[pluginID].ErrorCounters = pluginSum.GetErrorCounters()
 
 	// Will consider passed when all conformance tests have passed (removing monitor)
 	hasRuntimeError := (reResult.Plugins[pluginID].Stat.Total == 1) && (reResult.Plugins[pluginID].Stat.Failed == 1)
