@@ -626,7 +626,7 @@ func showErrorDetails(re *report.ReportData, verbose bool) error {
 // showErrorDetailPlugin Show failed e2e tests by filter, when verbose each filter will be shown.
 func showErrorDetailPlugin(pluginName string, p *report.ReportPlugin, verbose bool) {
 	if p == nil {
-		log.Errorf("unable to get plugin %s", pluginName)
+		log.Debugf("skipping plugin %s details: plugin absent in this archive type", pluginName)
 		return
 	}
 	fmt.Printf("==> %s - test failures:\n", p.Name)
