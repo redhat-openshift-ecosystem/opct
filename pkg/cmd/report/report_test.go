@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/summary"
 	"github.com/redhat-openshift-ecosystem/opct/internal/report"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -257,4 +258,50 @@ func TestPluginSummaryRows(t *testing.T) {
 		assert.NotNil(t, provRow)
 		assert.NotNil(t, basRow)
 	})
+}
+
+// newRenderableReport builds the minimum ReportData that
+// showReportAggregatedSummary dereferences, so the summary table can be
+// rendered end to end in a test.
+func newRenderableResult(plugins map[string]*report.ReportPlugin) *report.ReportResult {
+	return &report.ReportResult{
+		Version: &report.ReportVersion{
+			OpenShift:  &summary.SummaryClusterVersionOutput{Desired: "4.20.1"},
+			Kubernetes: "v1.33.1",
+		},
+		Infra:            &report.ReportInfra{Name: "test-infra", PlatformType: "AWS"},
+		ClusterOperators: &report.ReportClusterOperators{CountAvailable: 30},
+		ClusterHealth:    &report.ReportClusterHealth{NodeHealthTotal: 1, NodeHealthy: 1, PodHealthTotal: 1, PodHealthy: 1},
+		Plugins:          plugins,
+	}
+}
+
+// TestShowReportAggregatedSummaryBaselineMismatchKeepsProviderRow is the
+// rendered-output regression test for the baseline-mismatch path. The
+// helper-level test alone could not catch it: when a baseline is processed
+// the CLI renders only the provider+baseline table, so returning no baseline
+// row dropped the provider's plugin result from the visible report entirely.
+func TestShowReportAggregatedSummaryBaselineMismatchKeepsProviderRow(t *testing.T) {
+	// Provider ran upgrade (05 present); baseline came from a regular run
+	// (10 present, 05 absent) — a provider/baseline workflow mismatch.
+	re := &report.ReportData{
+		Summary: &report.ReportSummary{
+			Tests: &report.ReportSummaryTests{Archive: "provider.tar.gz", ArchiveDiff: "baseline.tar.gz"},
+		},
+		Provider: newRenderableResult(map[string]*report.ReportPlugin{
+			plugin.PluginNameOpenShiftUpgrade: newPlugin(plugin.PluginNameOpenShiftUpgrade, "passed", 40, 30, 0),
+		}),
+		Baseline: newRenderableResult(map[string]*report.ReportPlugin{
+			plugin.PluginNameKubernetesConformance: newPlugin(plugin.PluginNameKubernetesConformance, "passed", 10, 10, 0),
+		}),
+	}
+
+	stdout := captureStdout(t, func() {
+		require.NoError(t, showReportAggregatedSummary(re))
+	})
+
+	assert.Contains(t, stdout, plugin.PluginNameOpenShiftUpgrade,
+		"the provider's plugin must stay visible in the rendered table even though the baseline lacks it")
+	assert.Contains(t, stdout, "passed [40/30/0/0]",
+		"the provider's counters must be rendered, not dropped or fabricated")
 }
