@@ -347,7 +347,7 @@ func showReportAggregatedSummary(re *report.ReportData) error {
 			return
 		}
 		rowsProv = append(rowsProv, provRow)
-		if baselineProcessed && basRow != nil {
+		if baselineProcessed {
 			rowsPBas = append(rowsPBas, basRow)
 		}
 	}
@@ -494,10 +494,12 @@ func showReportAggregatedSummary(re *report.ReportData) error {
 // results — a normal, workflow-dependent absence (e.g. 10/20 in upgrade
 // mode, 05 in regular/disconnected mode), not an error.
 //
-// The baseline row is only populated when baselineProcessed is true AND the
-// plugin is also present in baselinePlugins: the provider and baseline
-// archives can come from different workflows, so a plugin present in one is
-// not guaranteed to be present in the other.
+// When baselineProcessed is true, basRow is always non-nil: the caller only
+// renders rowsPBas in that mode (rowsProv is not shown), so a plugin that
+// ran in the provider must still appear even when the plugin is absent from
+// the baseline (provider and baseline archives can come from different
+// workflows, so that is not guaranteed) — with an empty baseline cell
+// instead of a fabricated result.
 func pluginSummaryRows(providerPlugins, baselinePlugins map[string]*report.ReportPlugin, pluginName string, baselineProcessed bool) (provRow, basRow table.Row, ok bool) {
 	p, ok := providerPlugins[pluginName]
 	if !ok {
@@ -513,7 +515,7 @@ func pluginSummaryRows(providerPlugins, baselinePlugins map[string]*report.Repor
 	bp, bok := baselinePlugins[pluginName]
 	if !bok {
 		log.Debugf("Skipping baseline summary for absent plugin %s", pluginName)
-		return provRow, nil, true
+		return provRow, table.Row{name, provRow[1], ""}, true
 	}
 	bstat := bp.Stat
 	basRow = table.Row{name, provRow[1], fmt.Sprintf("%s [%d/%d/%d/%d] (%d)", bstat.Status, bstat.Total, bstat.Passed, bstat.Failed, bstat.Skipped, bstat.Timeout)}

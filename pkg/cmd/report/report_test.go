@@ -239,7 +239,12 @@ func TestPluginSummaryRows(t *testing.T) {
 			provRow, basRow, ok := pluginSummaryRows(provider, baseline, plugin.PluginNameOpenShiftUpgrade, true)
 			assert.True(t, ok, "provider row must still be produced")
 			assert.NotNil(t, provRow)
-			assert.Nil(t, basRow, "baseline row must be omitted, not fabricated")
+			// When baselineProcessed is true, only rowsPBas is rendered by the
+			// caller (rowsProv is built but never shown) — so basRow must still
+			// be produced, with an empty baseline cell, or the provider's
+			// plugin result silently disappears from the actual output.
+			require.NotNil(t, basRow, "baseline row must still be produced so the provider result is not dropped from the rendered table")
+			assert.Equal(t, "", basRow[2], "baseline cell must be empty, not fabricated")
 		})
 	})
 
