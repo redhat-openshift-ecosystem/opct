@@ -1,6 +1,8 @@
 package summary
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
@@ -265,4 +267,28 @@ func TestKnownFailuresListContainsExpectedEntries(t *testing.T) {
 
 	assert.Equal(t, expectedEntries, cs.Provider.TestSuiteKnownFailures,
 		"known failures list should contain all expected entries")
+}
+
+// TestExtractFailuresDetailsByPluginAbsentPlugin covers OPCT-434: in upgrade
+// mode the conformance plugins (10/20) are never executed, so the saved
+// report must not be left with an empty failures-<plugin> directory for
+// them. Reproduced against the real CI archive from job
+// 2109072457313816576, which produced both directories empty.
+func TestExtractFailuresDetailsByPluginAbsentPlugin(t *testing.T) {
+	cs := NewConsolidatedSummary(&ConsolidatedSummaryInput{})
+	// Upgrade-mode archive: only 05 and 99 produced results.
+	cs.Provider.OpenShift.PluginResultConformanceUpgrade = &plugin.OPCTPluginSummary{
+		Name: plugin.PluginNameOpenShiftUpgrade,
+	}
+
+	dir := t.TempDir()
+	for _, pluginName := range []string{
+		plugin.PluginNameKubernetesConformance,
+		plugin.PluginNameOpenShiftConformance,
+	} {
+		require.NoError(t, cs.extractFailuresDetailsByPlugin(dir, pluginName))
+		_, err := os.Stat(filepath.Join(dir, "failures-"+pluginName))
+		assert.True(t, os.IsNotExist(err),
+			"no failures directory must be created for plugin %s, which this workflow did not run", pluginName)
+	}
 }

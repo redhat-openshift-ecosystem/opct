@@ -923,6 +923,16 @@ func (cs *ConsolidatedSummary) extractFailuresDetailsByPlugin(path, pluginName s
 		resultsProvider = cs.GetProvider().GetOpenShift().GetResultOCPValidated()
 	}
 
+	// A plugin not executed by the current workflow (10/20 in upgrade mode)
+	// has no results to extract. Return before creating the directory,
+	// otherwise the saved report is left with an empty failures-<plugin>
+	// directory for a plugin that never ran. Mirrors the guard in
+	// saveResultsPlugin.
+	if resultsProvider == nil || resultsProvider.Name == "" {
+		log.Debugf("Skipping failures extraction for absent plugin %s", pluginName)
+		return nil
+	}
+
 	// extract all failed by plugins
 	currentDirectory := fmt.Sprintf("failures-%s", pluginName)
 	subdir := fmt.Sprintf("%s/%s/", path, currentDirectory)
