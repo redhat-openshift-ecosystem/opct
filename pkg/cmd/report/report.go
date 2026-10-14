@@ -649,20 +649,6 @@ func presentConformanceDetailPlugins(re *report.ReportResult) []*report.ReportPl
 	return present
 }
 
-// showErrorDetails show details of failres for each plugin.
-func showErrorDetails(re *report.ReportData, verbose bool) error {
-	plugins := presentConformanceDetailPlugins(re.Provider)
-	if len(plugins) == 0 {
-		return nil
-	}
-	fmt.Printf("\n==> Result details by conformance plugins: \n")
-	for _, p := range plugins {
-		showErrorDetailPlugin(p, verbose)
-	}
-
-	return nil
-}
-
 // collectRawFailedTests returns, sorted, the names of tests with a "failed"
 // status. It is used for plugins that are not part of the priority-filter
 // pipeline (e.g. the upgrade plugin), whose FailedFiltered/FailedFilterN
@@ -678,12 +664,52 @@ func collectRawFailedTests(tests map[string]*plugin.TestItem) []string {
 	return failed
 }
 
-// showErrorDetailPlugin Show failed e2e tests by filter, when verbose each filter will be shown.
-func showErrorDetailPlugin(p *report.ReportPlugin, verbose bool) {
+// hasRenderableDetail reports whether showErrorDetailPlugin would print
+// anything for p. It must stay in sync with the conditions that gate each
+// table in showErrorDetailPlugin: a passing plugin (nothing to review) must
+// not produce an empty "test failures" header, which would otherwise look
+// like a misleading status entry for an intentionally skipped plugin.
+func hasRenderableDetail(p *report.ReportPlugin, verbose bool) bool {
 	if p == nil {
-		// Callers are expected to only pass present plugins; keep this as a
-		// silent defensive guard rather than logging an error for what is a
-		// normal, workflow-dependent absence.
+		return false
+	}
+	if p.ID == plugin.PluginNameOpenShiftUpgrade && len(p.FailedFiltered) == 0 {
+		return len(collectRawFailedTests(p.Tests)) > 0
+	}
+	if len(p.FailedFiltered) > 0 || len(p.FailedFilter3) > 0 {
+		return true
+	}
+	if !verbose {
+		return false
+	}
+	return len(p.FailedFilter6) > 0 || len(p.FailedFilter5) > 0 || len(p.FailedFilter2) > 0 || len(p.FailedFilter1) > 0
+}
+
+// showErrorDetails show details of failres for each plugin.
+func showErrorDetails(re *report.ReportData, verbose bool) error {
+	toRender := []*report.ReportPlugin{}
+	for _, p := range presentConformanceDetailPlugins(re.Provider) {
+		if hasRenderableDetail(p, verbose) {
+			toRender = append(toRender, p)
+		}
+	}
+	if len(toRender) == 0 {
+		return nil
+	}
+	fmt.Printf("\n==> Result details by conformance plugins: \n")
+	for _, p := range toRender {
+		showErrorDetailPlugin(p, verbose)
+	}
+
+	return nil
+}
+
+// showErrorDetailPlugin Show failed e2e tests by filter, when verbose each filter will be shown.
+// Callers are expected to only pass plugins for which hasRenderableDetail
+// returns true; a nil or detail-less plugin is a silent no-op rather than an
+// error, since a plugin passing cleanly is a normal outcome, not a bug.
+func showErrorDetailPlugin(p *report.ReportPlugin, verbose bool) {
+	if !hasRenderableDetail(p, verbose) {
 		return
 	}
 	fmt.Printf("==> %s - test failures:\n", p.Name)
@@ -693,9 +719,6 @@ func showErrorDetailPlugin(p *report.ReportPlugin, verbose bool) {
 	// raw failed-test listing so this section is not silently empty.
 	if p.ID == plugin.PluginNameOpenShiftUpgrade && len(p.FailedFiltered) == 0 {
 		failedTests := collectRawFailedTests(p.Tests)
-		if len(failedTests) == 0 {
-			return
-		}
 		tb := table.NewWriter()
 		tb.SetOutputMirror(os.Stdout)
 		tb.SetStyle(table.StyleLight)

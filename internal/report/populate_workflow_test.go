@@ -26,7 +26,12 @@ import (
 // infra.Status.PlatformStatus, Sonobuoy cluster health). Only the plugins
 // relevant to the workflow are populated, mirroring what a real archive
 // collected under a streamlined workflow would contain.
-func newWorkflowFixture(t *testing.T, workflow string) *summary.ConsolidatedSummary {
+//
+// withReplay additionally populates the replay plugin (80), which the
+// reference CI job (2109072457313816576) omitted — so replay aggregation
+// itself is only exercised through this synthetic fixture, not a real
+// archive.
+func newWorkflowFixture(t *testing.T, workflow string, withReplay bool) *summary.ConsolidatedSummary {
 	t.Helper()
 
 	cs := summary.NewConsolidatedSummary(&summary.ConsolidatedSummaryInput{
@@ -77,6 +82,13 @@ func newWorkflowFixture(t *testing.T, workflow string) *summary.ConsolidatedSumm
 		}
 	}
 
+	if withReplay {
+		cs.Provider.OpenShift.PluginResultConformanceReplay = &plugin.OPCTPluginSummary{
+			Name: plugin.PluginNameConformanceReplay, Status: "passed",
+			Total: 5, Passed: 5,
+		}
+	}
+
 	return cs
 }
 
@@ -114,7 +126,7 @@ func TestPopulateReportPerWorkflowMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cs := newWorkflowFixture(t, tt.workflow)
+			cs := newWorkflowFixture(t, tt.workflow, false)
 
 			re := NewReportData(false)
 			var popErr error
@@ -143,7 +155,7 @@ func TestPopulateReportPerWorkflowMode(t *testing.T) {
 // surfaced the "unable to get plugin" symptom, so a regression in the
 // aggregation path (not just the CLI rendering) is caught.
 func TestPopulateReportUpgradeAggregationAccuracy(t *testing.T) {
-	cs := newWorkflowFixture(t, plugin.WorkflowUpgrade)
+	cs := newWorkflowFixture(t, plugin.WorkflowUpgrade, false)
 
 	re := NewReportData(false)
 	require.NoError(t, re.Populate(cs))
@@ -158,4 +170,24 @@ func TestPopulateReportUpgradeAggregationAccuracy(t *testing.T) {
 	collector, ok := re.Provider.Plugins[plugin.PluginNameArtifactsCollector]
 	require.True(t, ok)
 	assert.Equal(t, int64(13), collector.Stat.Passed)
+}
+
+// TestPopulateReportWithReplayPresent covers replay *aggregation*, not just
+// absence: both the upgrade and regular workflows are expected to run replay
+// (per OPCT-429), but the reference CI archive happened to omit it, so this
+// is exercised only through the synthetic fixture.
+func TestPopulateReportWithReplayPresent(t *testing.T) {
+	for _, workflow := range []string{plugin.WorkflowUpgrade, "regular"} {
+		t.Run(workflow, func(t *testing.T) {
+			cs := newWorkflowFixture(t, workflow, true)
+
+			re := NewReportData(false)
+			require.NoError(t, re.Populate(cs))
+
+			replay, ok := re.Provider.Plugins[plugin.PluginNameConformanceReplay]
+			require.True(t, ok, "replay plugin must be aggregated when present in the archive")
+			assert.Equal(t, int64(5), replay.Stat.Total)
+			assert.Equal(t, int64(5), replay.Stat.Passed)
+		})
+	}
 }
