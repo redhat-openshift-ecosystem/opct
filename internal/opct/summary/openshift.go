@@ -172,14 +172,22 @@ func (os *OpenShiftSummary) GetClusterVersion() (*SummaryClusterVersionOutput, e
 			continue
 		}
 	}
-	// Get the oldest completionTime as string
-	oldestTime := time.Now()
+	// Get the oldest completionTime as string. History entries without a
+	// completion time (updates still in progress, state Partial) are
+	// skipped: dereferencing a nil CompletionTime panics the report.
+	var oldestTime *time.Time
 	for _, hist := range os.ClusterVersion.Status.History {
-		if hist.CompletionTime.Compare(oldestTime) == -1 {
-			oldestTime = hist.CompletionTime.Time
+		if hist.CompletionTime == nil {
+			continue
+		}
+		completed := hist.CompletionTime.Time
+		if oldestTime == nil || completed.Before(*oldestTime) {
+			oldestTime = &completed
 		}
 	}
-	resp.HistoryCompletionTime = oldestTime.String()
+	if oldestTime != nil {
+		resp.HistoryCompletionTime = oldestTime.String()
+	}
 
 	resp.Previous = "TODO"
 	return &resp, nil
