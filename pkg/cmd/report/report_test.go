@@ -258,6 +258,18 @@ func TestPluginSummaryRows(t *testing.T) {
 		assert.NotNil(t, provRow)
 		assert.NotNil(t, basRow)
 	})
+
+	t.Run("baseline processed but plugin absent from provider (workflow mismatch)", func(t *testing.T) {
+		baseline := map[string]*report.ReportPlugin{
+			plugin.PluginNameKubernetesConformance: newPlugin(plugin.PluginNameKubernetesConformance, "passed", 10, 10, 0),
+		}
+		provRow, basRow, ok := pluginSummaryRows(provider, baseline, plugin.PluginNameKubernetesConformance, true)
+		assert.True(t, ok, "baseline row must still be produced")
+		assert.Nil(t, provRow, "no provider cell to show")
+		require.NotNil(t, basRow, "baseline's real result must not be dropped just because the provider workflow omits this plugin")
+		assert.Equal(t, "", basRow[1], "provider cell must be empty, not fabricated")
+		assert.Contains(t, basRow[2], "10/10", "baseline's actual result must be shown")
+	})
 }
 
 // newRenderableReport builds the minimum ReportData that

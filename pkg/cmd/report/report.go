@@ -346,7 +346,9 @@ func showReportAggregatedSummary(re *report.ReportData) error {
 		if !ok {
 			return
 		}
-		rowsProv = append(rowsProv, provRow)
+		if provRow != nil {
+			rowsProv = append(rowsProv, provRow)
+		}
 		if baselineProcessed {
 			rowsPBas = append(rowsPBas, basRow)
 		}
@@ -490,21 +492,33 @@ func showReportAggregatedSummary(re *report.ReportData) error {
 }
 
 // pluginSummaryRows builds the provider/baseline row pair for a plugin's
-// summary line. ok is false when the plugin is absent from the provider
-// results — a normal, workflow-dependent absence (e.g. 10/20 in upgrade
-// mode, 05 in regular/disconnected mode), not an error.
+// summary line. ok is false when the plugin is absent from both the
+// provider and baseline results — a normal, workflow-dependent absence
+// (e.g. 10/20 in upgrade mode, 05 in regular/disconnected mode), not an
+// error.
 //
-// When baselineProcessed is true, basRow is always non-nil: the caller only
-// renders rowsPBas in that mode (rowsProv is not shown), so a plugin that
-// ran in the provider must still appear even when the plugin is absent from
-// the baseline (provider and baseline archives can come from different
-// workflows, so that is not guaranteed) — with an empty baseline cell
+// Provider and baseline archives can come from different workflows, so
+// presence in one does not guarantee presence in the other. provRow is nil
+// when the plugin is absent from the provider but present in the baseline;
+// basRow is nil when absent from the baseline but present in the provider
+// (or when no baseline was processed). Either side gets an empty cell
 // instead of a fabricated result.
 func pluginSummaryRows(providerPlugins, baselinePlugins map[string]*report.ReportPlugin, pluginName string, baselineProcessed bool) (provRow, basRow table.Row, ok bool) {
-	p, ok := providerPlugins[pluginName]
-	if !ok {
-		log.Debugf("Skipping summary for absent plugin %s", pluginName)
-		return nil, nil, false
+	p, pok := providerPlugins[pluginName]
+	if !pok {
+		if !baselineProcessed {
+			log.Debugf("Skipping summary for absent plugin %s", pluginName)
+			return nil, nil, false
+		}
+		bp, bok := baselinePlugins[pluginName]
+		if !bok {
+			log.Debugf("Skipping summary for absent plugin %s", pluginName)
+			return nil, nil, false
+		}
+		name := fmt.Sprintf(" %s", bp.Name)
+		bstat := bp.Stat
+		basRow = table.Row{name, "", fmt.Sprintf("%s [%d/%d/%d/%d] (%d)", bstat.Status, bstat.Total, bstat.Passed, bstat.Failed, bstat.Skipped, bstat.Timeout)}
+		return nil, basRow, true
 	}
 	name := fmt.Sprintf(" %s", p.Name)
 	stat := p.Stat
