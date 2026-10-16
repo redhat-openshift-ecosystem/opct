@@ -337,28 +337,26 @@ func showReportAggregatedSummary(re *report.ReportData) error {
 		rowsPBas = []table.Row{{"Plugin summary:", "Status [Total/Passed/Failed/Skipped] (timeout)", ""}}
 	}
 
-	showPluginSummary := func(w *tabwriter.Writer, pluginName string) {
-		if _, ok := re.Provider.Plugins[pluginName]; !ok {
-			log.Debugf("Skipping summary for absent plugin %s", pluginName)
+	var baselinePlugins map[string]*report.ReportPlugin
+	if baselineProcessed {
+		baselinePlugins = re.Baseline.Plugins
+	}
+	showPluginSummary := func(pluginName string) {
+		provRow, basRow, ok := pluginSummaryRows(re.Provider.Plugins, baselinePlugins, pluginName, baselineProcessed)
+		if !ok {
 			return
 		}
-		plK8S := re.Provider.Plugins[pluginName]
-		name := fmt.Sprintf(" %s", plK8S.Name)
-		stat := plK8S.Stat
-		pOCPPluginRes := fmt.Sprintf("%s [%d/%d/%d/%d] (%d)", stat.Status, stat.Total, stat.Passed, stat.Failed, stat.Skipped, stat.Timeout)
-		rowsProv = append(rowsProv, table.Row{name, pOCPPluginRes})
+		if provRow != nil {
+			rowsProv = append(rowsProv, provRow)
+		}
 		if baselineProcessed {
-			plK8S = re.Baseline.Plugins[pluginName]
-			stat := plK8S.Stat
-			bOCPPluginRes := fmt.Sprintf("%s [%d/%d/%d/%d] (%d)", stat.Status, stat.Total, stat.Passed, stat.Failed, stat.Skipped, stat.Timeout)
-			// fmt.Fprintf(tbWriter, " - %s\t: %s\t: %s\n", name, pOCPPluginRes, bOCPPluginRes)
-			rowsPBas = append(rowsPBas, table.Row{name, pOCPPluginRes, bOCPPluginRes})
+			rowsPBas = append(rowsPBas, basRow)
 		}
 	}
 
-	showPluginSummary(nil, plugin.PluginNameKubernetesConformance)
-	showPluginSummary(nil, plugin.PluginNameOpenShiftConformance)
-	showPluginSummary(nil, plugin.PluginNameOpenShiftUpgrade)
+	showPluginSummary(plugin.PluginNameKubernetesConformance)
+	showPluginSummary(plugin.PluginNameOpenShiftConformance)
+	showPluginSummary(plugin.PluginNameOpenShiftUpgrade)
 
 	tbProv.AppendRows(rowsProv)
 	tbProv.AppendSeparator()
@@ -493,6 +491,51 @@ func showReportAggregatedSummary(re *report.ReportData) error {
 	return nil
 }
 
+// pluginSummaryRows builds the provider/baseline row pair for a plugin's
+// summary line. ok is false when the plugin is absent from both the
+// provider and baseline results — a normal, workflow-dependent absence
+// (e.g. 10/20 in upgrade mode, 05 in regular/disconnected mode), not an
+// error.
+//
+// Provider and baseline archives can come from different workflows, so
+// presence in one does not guarantee presence in the other. provRow is nil
+// when the plugin is absent from the provider but present in the baseline;
+// basRow is nil when absent from the baseline but present in the provider
+// (or when no baseline was processed). Either side gets an empty cell
+// instead of a fabricated result.
+func pluginSummaryRows(providerPlugins, baselinePlugins map[string]*report.ReportPlugin, pluginName string, baselineProcessed bool) (provRow, basRow table.Row, ok bool) {
+	p, pok := providerPlugins[pluginName]
+	if !pok {
+		if !baselineProcessed {
+			log.Debugf("Skipping summary for absent plugin %s", pluginName)
+			return nil, nil, false
+		}
+		bp, bok := baselinePlugins[pluginName]
+		if !bok {
+			log.Debugf("Skipping summary for absent plugin %s", pluginName)
+			return nil, nil, false
+		}
+		name := fmt.Sprintf(" %s", bp.Name)
+		bstat := bp.Stat
+		basRow = table.Row{name, "", fmt.Sprintf("%s [%d/%d/%d/%d] (%d)", bstat.Status, bstat.Total, bstat.Passed, bstat.Failed, bstat.Skipped, bstat.Timeout)}
+		return nil, basRow, true
+	}
+	name := fmt.Sprintf(" %s", p.Name)
+	stat := p.Stat
+	provRow = table.Row{name, fmt.Sprintf("%s [%d/%d/%d/%d] (%d)", stat.Status, stat.Total, stat.Passed, stat.Failed, stat.Skipped, stat.Timeout)}
+	if !baselineProcessed {
+		return provRow, nil, true
+	}
+	bp, bok := baselinePlugins[pluginName]
+	if !bok {
+		log.Debugf("Skipping baseline summary for absent plugin %s", pluginName)
+		return provRow, table.Row{name, provRow[1], ""}, true
+	}
+	bstat := bp.Stat
+	basRow = table.Row{name, provRow[1], fmt.Sprintf("%s [%d/%d/%d/%d] (%d)", bstat.Status, bstat.Total, bstat.Passed, bstat.Failed, bstat.Skipped, bstat.Timeout)}
+	return provRow, basRow, true
+}
+
 func showProcessedSummary(re *report.ReportData) error {
 	fmt.Printf("\n=> Processed Summary <=\n")
 	fmt.Printf("==> Result Summary by test suite:\n")
@@ -595,23 +638,114 @@ func showSummaryPlugin(re *report.ReportResult, pluginName string, bProcessed bo
 	renderTable()
 }
 
+// conformanceDetailPluginNames lists, in display order, the plugins that
+// showErrorDetails knows how to render details for. A plugin intentionally
+// not executed by the current workflow (e.g. 10/20 in upgrade mode, 05 in
+// regular/disconnected mode) is simply absent from re.Provider.Plugins and
+// must not be treated as an error.
+var conformanceDetailPluginNames = []string{
+	plugin.PluginNameKubernetesConformance,
+	plugin.PluginNameOpenShiftConformance,
+	plugin.PluginNameOpenShiftUpgrade,
+}
+
+// presentConformanceDetailPlugins returns the plugins from
+// conformanceDetailPluginNames that actually have results in this report,
+// preserving display order.
+func presentConformanceDetailPlugins(re *report.ReportResult) []*report.ReportPlugin {
+	present := []*report.ReportPlugin{}
+	for _, name := range conformanceDetailPluginNames {
+		p, ok := re.Plugins[name]
+		if !ok {
+			log.Debugf("showErrorDetails: skipping absent plugin %s", name)
+			continue
+		}
+		present = append(present, p)
+	}
+	return present
+}
+
+// collectRawFailedTests returns, sorted, the names of tests with a "failed"
+// status. It is used for plugins that are not part of the priority-filter
+// pipeline (e.g. the upgrade plugin), whose FailedFiltered/FailedFilterN
+// fields are never populated by design (see populatePluginConformance).
+func collectRawFailedTests(tests map[string]*plugin.TestItem) []string {
+	failed := []string{}
+	for name, t := range tests {
+		if t != nil && t.Status == "failed" {
+			failed = append(failed, name)
+		}
+	}
+	sort.Strings(failed)
+	return failed
+}
+
+// hasRenderableDetail reports whether showErrorDetailPlugin would print
+// anything for p. It must stay in sync with the conditions that gate each
+// table in showErrorDetailPlugin: a passing plugin (nothing to review) must
+// not produce an empty "test failures" header, which would otherwise look
+// like a misleading status entry for an intentionally skipped plugin.
+func hasRenderableDetail(p *report.ReportPlugin, verbose bool) bool {
+	if p == nil {
+		return false
+	}
+	if p.ID == plugin.PluginNameOpenShiftUpgrade && len(p.FailedFiltered) == 0 {
+		return len(collectRawFailedTests(p.Tests)) > 0
+	}
+	if len(p.FailedFiltered) > 0 || len(p.FailedFilter3) > 0 {
+		return true
+	}
+	if !verbose {
+		return false
+	}
+	return len(p.FailedFilter6) > 0 || len(p.FailedFilter5) > 0 || len(p.FailedFilter2) > 0 || len(p.FailedFilter1) > 0
+}
+
 // showErrorDetails show details of failres for each plugin.
 func showErrorDetails(re *report.ReportData, verbose bool) error {
+	toRender := []*report.ReportPlugin{}
+	for _, p := range presentConformanceDetailPlugins(re.Provider) {
+		if hasRenderableDetail(p, verbose) {
+			toRender = append(toRender, p)
+		}
+	}
+	if len(toRender) == 0 {
+		return nil
+	}
 	fmt.Printf("\n==> Result details by conformance plugins: \n")
-
-	showErrorDetailPlugin(re.Provider.Plugins[plugin.PluginNameKubernetesConformance], verbose)
-	showErrorDetailPlugin(re.Provider.Plugins[plugin.PluginNameOpenShiftConformance], verbose)
+	for _, p := range toRender {
+		showErrorDetailPlugin(p, verbose)
+	}
 
 	return nil
 }
 
 // showErrorDetailPlugin Show failed e2e tests by filter, when verbose each filter will be shown.
+// Callers are expected to only pass plugins for which hasRenderableDetail
+// returns true; a nil or detail-less plugin is a silent no-op rather than an
+// error, since a plugin passing cleanly is a normal outcome, not a bug.
 func showErrorDetailPlugin(p *report.ReportPlugin, verbose bool) {
-	if p == nil {
-		errlog.LogError(fmt.Errorf("unable to get plugin"))
+	if !hasRenderableDetail(p, verbose) {
 		return
 	}
 	fmt.Printf("==> %s - test failures:\n", p.Name)
+
+	// The upgrade plugin (05) is not part of the priority-filter pipeline, so
+	// FailedFiltered/FailedFilterN are never populated for it. Fall back to a
+	// raw failed-test listing so this section is not silently empty.
+	if p.ID == plugin.PluginNameOpenShiftUpgrade && len(p.FailedFiltered) == 0 {
+		failedTests := collectRawFailedTests(p.Tests)
+		tb := table.NewWriter()
+		tb.SetOutputMirror(os.Stdout)
+		tb.SetStyle(table.StyleLight)
+		tb.AppendHeader(table.Row{"Test Name"})
+		tb.SetTitle(fmt.Sprintf("==> %s \n%s ACTION REQUIRED: Failed tests to review", p.Name, iconsCollor["alert"]))
+		for _, name := range failedTests {
+			tb.AppendRow(table.Row{name})
+		}
+		tb.Render()
+		return
+	}
 
 	// Plugin failures table - setup
 	st := table.StyleLight
