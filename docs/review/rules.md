@@ -157,13 +157,17 @@ omc logs -n openshift-etcd etcd-control-plane-0 -c etcd
 
 ### OPCT-010A
 
-- **Name**: etcd logs: slow requests: average should be under 500ms
-- **Description**: The etcd logs must generate the average of slow requests lower than 500 milliseconds.
-The slow requests are a metric that helps to understand the health of the etcd. The slow requests are a relative value
-and they are based on the observed values in known, and tested, cloud providers/platforms.
+- **Name**: etcd logs: slow requests: events at or above 500ms should be limited
+- **Description**: The etcd logs must not report a large share of slow requests at or above 500 milliseconds.
+The check counts how many of the parsed slow-request events reached 500 ms, rather than averaging their durations.
+The population parsed from the logs only contains requests etcd already considered slow, so its average is a
+conditional one: making a borderline request faster removes it from the sample and raises the average. Counting
+events per latency band does not have that defect, because an improved request either leaves its band or stays put.
+This check is advisory and never fails, so it also passes on a proportion of the parsed population; the gating check,
+OPCT-010B, is stated purely in event counts.
 - **Action**: Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.
 - **Expected**:
-The slow requests in etcd logs are a relative value and it is based on the observed values in known platforms.
+The number of slow-request events reaching 500 ms stays within the limits observed on known, tested platforms: at most 10 events, or at most 40% of the parsed slow-request population. This check is advisory and never fails on its own; sustained severe degradation is gated by OPCT-010B.
 - **Troubleshoot**:
 
 1) Review the documentation for the required storage for etcd:
@@ -187,8 +191,8 @@ The slow requests in etcd logs are a relative value and it is based on the obser
 Run the report with debug flag <code>--loglevel=debug</code>:
 ~~~text
 (...)
-DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010 Failed Acceptance criteria: want=[<500] got=[690.412]
-DEBU[2023-09-25T12:52:05-03:00] Check OPCT-011 Failed Acceptance criteria: want=[<1000] got=[3091.49]
+DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010A acceptance criteria: want=[<=10 events or <=0.40] got=[39 events, 0.6094]
+DEBU[2023-09-25T12:52:05-03:00] Check OPCT-010B acceptance criteria: want=[<=20 events] got=[32 events]
 ~~~
 
 Extract the information from the logs using parser utility:
@@ -214,15 +218,18 @@ References:
 
 ### OPCT-010B
 
-- **Name**: etcd logs: slow requests: maximum should be under 1000ms
-- **Description**: The etcd logs must generate the maximum of slow requests lower than 1000 milisseconds.
-One or more requests with high latency could impact the cluster performance. Slow requests are a metric that helps to
-understand the health of the etcd. The slow requests are a relative value and it is based on the observed values in known platforms.
-The maximum value is the highest value of slow requests reported in the etcd logs, it must not be higher than 1 second.
-
+- **Name**: etcd logs: slow requests: events at or above 1000ms should be limited
+- **Description**: The etcd logs must not report repeated slow requests at or above 1000 milliseconds.
+Requests taking a full second or more can impact cluster performance. The check counts how many parsed slow-request
+events fall in the 1000 ms and above band, rather than reporting the single highest value: one isolated outlier is
+expected on any cluster, and the highest observed value also grows with the length of the collection window, so it
+is not a stable signal. Repetition is what distinguishes sustained degradation from normal variation.
+The criteria are absolute event counts rather than proportions. A proportion would divide by the size of the parsed
+population, which is itself censored and shrinks as borderline requests become fast, so a cluster that improved could
+be moved into a worse band. Counting avoids that.
 - **Action**: Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.
 - **Expected**:
-The slow requests in etcd logs are a relative value and it is based on the observed values in known platforms.
+At most 5 slow-request events reach 1000 ms. Beyond that the check warns, and it only fails above 20 such events — a level not seen on any known, tested platform.
 - **Troubleshoot**:
 Review Dependencies: [Troubleshooting section of OPCT-010A](#opct-010a)
 - **Dependencies**: [OPCT-010A](#opct-010a)
