@@ -1,6 +1,7 @@
 package report
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
+	"github.com/redhat-openshift-ecosystem/opct/internal/openshift/mustgather"
 )
 
 func TestNewCheckSummary(t *testing.T) {
@@ -231,4 +233,70 @@ func TestCheckOPCT011ErrorBudget(t *testing.T) {
 			assert.Equal(t, tc.want, res.Name, "total=%d", tc.total)
 		}
 	})
+}
+
+func etcdSlowReportData(statMean, statMax string) *ReportData {
+	return &ReportData{
+		Provider: &ReportResult{
+			MustGatherInfo: &mustgather.MustGather{
+				ErrorEtcdLogs: &mustgather.ErrorEtcdLogs{
+					FilterRequestSlowAll: map[string]*mustgather.BucketFilterStat{
+						"all": {StatMean: statMean, StatMax: statMax},
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestCheckOPCT010AAverageThresholds(t *testing.T) {
+	runOPCT010A := func(statMean string) CheckResult {
+		re := etcdSlowReportData(statMean, "0.000 (ms)")
+		for _, check := range NewCheckSummary(re).Checks {
+			if check.ID == "OPCT-010A" {
+				return check.Test()
+			}
+		}
+		t.Fatal("check OPCT-010A not found")
+		return CheckResult{}
+	}
+
+	for _, tc := range []struct {
+		mean float64
+		want CheckResultName
+	}{
+		{mean: 499.999, want: CheckResultNamePass},
+		{mean: 500.0, want: CheckResultNameWarn},
+		{mean: 1000.0, want: CheckResultNameWarn},
+		{mean: 1000.001, want: CheckResultNameFail},
+	} {
+		res := runOPCT010A(fmt.Sprintf("%.3f (ms)", tc.mean))
+		assert.Equal(t, tc.want, res.Name, "mean=%v", tc.mean)
+	}
+}
+
+func TestCheckOPCT010BMaximumThresholds(t *testing.T) {
+	runOPCT010B := func(statMax string) CheckResult {
+		re := etcdSlowReportData("0.000 (ms)", statMax)
+		for _, check := range NewCheckSummary(re).Checks {
+			if check.ID == "OPCT-010B" {
+				return check.Test()
+			}
+		}
+		t.Fatal("check OPCT-010B not found")
+		return CheckResult{}
+	}
+
+	for _, tc := range []struct {
+		max  float64
+		want CheckResultName
+	}{
+		{max: 1499.999, want: CheckResultNamePass},
+		{max: 1500.0, want: CheckResultNameWarn},
+		{max: 2000.0, want: CheckResultNameWarn},
+		{max: 2000.001, want: CheckResultNameFail},
+	} {
+		res := runOPCT010B(fmt.Sprintf("%.3f (ms)", tc.max))
+		assert.Equal(t, tc.want, res.Name, "max=%v", tc.max)
+	}
 }
