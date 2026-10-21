@@ -215,7 +215,7 @@ References:
 
 ### OPCT-010B
 
-- **Name**: etcd logs: slow requests: maximum should be under 1000ms
+- **Name**: etcd logs: slow requests: maximum should be under 1500ms
 - **Description**: The etcd logs must generate the maximum of slow requests lower than 1500 milliseconds.
 One or more requests with high latency could impact the cluster performance. Slow requests are a metric that helps to
 understand the health of the etcd. The slow requests are a relative value and it is based on the observed values in known platforms.

@@ -760,7 +760,7 @@ References:
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   "OPCT-010B",
-		Name: "etcd logs: slow requests: maximum should be under 1000ms",
+		Name: "etcd logs: slow requests: maximum should be under 1500ms",
 		Test: func() CheckResult {
 			prefix := "Check OPCT-010B Failed"
 			thWarn := 1500.0
