@@ -161,9 +161,10 @@ omc logs -n openshift-etcd etcd-control-plane-0 -c etcd
 - **Description**: The etcd logs must generate the average of slow requests lower than 500 milliseconds.
 The slow requests are a metric that helps to understand the health of the etcd. The slow requests are a relative value
 and they are based on the observed values in known, and tested, cloud providers/platforms.
+An average at or above 500ms and up to 1000ms warns without blocking; above 1000ms fails.
 - **Action**: Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.
 - **Expected**:
-The slow requests in etcd logs are a relative value and it is based on the observed values in known platforms.
+Average below 500ms passes, 500-1000ms warns, above 1000ms fails.
 - **Troubleshoot**:
 
 1) Review the documentation for the required storage for etcd:
@@ -214,15 +215,15 @@ References:
 
 ### OPCT-010B
 
-- **Name**: etcd logs: slow requests: maximum should be under 1000ms
-- **Description**: The etcd logs must generate the maximum of slow requests lower than 1000 milisseconds.
+- **Name**: etcd logs: slow requests: maximum should be under 1500ms
+- **Description**: The etcd logs must generate the maximum of slow requests lower than 1500 milliseconds.
 One or more requests with high latency could impact the cluster performance. Slow requests are a metric that helps to
 understand the health of the etcd. The slow requests are a relative value and it is based on the observed values in known platforms.
-The maximum value is the highest value of slow requests reported in the etcd logs, it must not be higher than 1 second.
+A maximum at or above 1500ms and up to 2000ms warns without blocking; above 2000ms fails.
 
 - **Action**: Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.
 - **Expected**:
-The slow requests in etcd logs are a relative value and it is based on the observed values in known platforms.
+Maximum below 1500ms passes, 1500-2000ms warns, above 2000ms fails.
 - **Troubleshoot**:
 Review Dependencies: [Troubleshooting section of OPCT-010A](#opct-010a)
 - **Dependencies**: [OPCT-010A](#opct-010a)

@@ -177,8 +177,8 @@ time="2025-02-26T14:00:32-03:00" level=info msg="Processing results..."
 │ OPCT-011  │ ✔ │  pass  │ The test suite generates accepted error budget                                         │ Pass<=150(W>150,F>300)       │ 128             │
 │ OPCT-003  │ ✔ │  pass  │ Plugin Collector [99-openshift-artifacts-collector] must pass                          │ passed                       │ passed          │
 │ OPCT-002  │ ✔ │  pass  │ Plugin Conformance Upgrade [05-openshift-cluster-upgrade] must pass                    │ passed                       │ passed          │
-│ OPCT-010A │ ✔ │  pass  │ etcd logs: slow requests: average should be under 500ms                                │ <=500.00 ms                  │ 414.493         │
-│ OPCT-010B │ ✔ │  pass  │ etcd logs: slow requests: maximum should be under 1000ms                               │ <=1000.00 ms                 │ 638.876         │
+│ OPCT-010A │ ✔ │  pass  │ etcd logs: slow requests: average should be under 500ms                                │ <500 ms (W>=500,F>1000)      │ 414.493         │
+│ OPCT-010B │ ✔ │  pass  │ etcd logs: slow requests: maximum should be under 1500ms                               │ <1500 ms (W>=1500,F>2000)    │ 638.876         │
 │ OPCT-022  │ ✔ │  pass  │ Detected one or more plugin(s) with potential invalid result                           │ passed                       │ passed          │
 │ OPCT-023A │ ✔ │  pass  │ Sanity [10-openshift-kube-conformance]: potential missing tests in suite               │ F:<300                       │ Total==402      │
 │ OPCT-023B │ ✔ │  pass  │ Sanity [20-openshift-conformance-validated]: potential missing tests in suite          │ F:<3000                      │ Total==3871     │

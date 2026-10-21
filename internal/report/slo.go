@@ -650,10 +650,11 @@ $ grep -B 5 'Creating failed JUnit' \
 		Name: "etcd logs: slow requests: average should be under 500ms",
 		Test: func() CheckResult {
 			prefix := "Check OPCT-010A Failed"
-			wantLimit := 500.0
+			thWarn := 500.0
+			thFail := 1000.0
 			res := CheckResult{
 				Name:   CheckResultNameFail,
-				Target: fmt.Sprintf("<=%.2f ms", wantLimit),
+				Target: fmt.Sprintf("<%.0f ms (W>=%.0f,F>%.0f)", thWarn, thWarn, thFail),
 				Actual: "N/A",
 			}
 			if re.Provider == nil {
@@ -691,8 +692,12 @@ $ grep -B 5 'Creating failed JUnit' \
 				return res
 			}
 			res.Actual = fmt.Sprintf("%.3f", value)
-			if value >= wantLimit {
-				log.Debugf("%s acceptance criteria: want=[<%.0f] got=[%v]", prefix, wantLimit, value)
+			switch {
+			case value > thFail:
+				log.Debugf("%s acceptance criteria: want=[<=%.0f] got=[%v]", prefix, thFail, value)
+				return res
+			case value >= thWarn:
+				res.Name = CheckResultNameWarn
 				return res
 			}
 			res.Name = CheckResultNamePass
@@ -701,9 +706,10 @@ $ grep -B 5 'Creating failed JUnit' \
 		DocumentationSpec: CheckDocumentationSpec{
 			Description: `The etcd logs must generate the average of slow requests lower than 500 milliseconds.
 The slow requests are a metric that helps to understand the health of the etcd. The slow requests are a relative value
-and they are based on the observed values in known, and tested, cloud providers/platforms.`,
+and they are based on the observed values in known, and tested, cloud providers/platforms.
+An average at or above 500ms and up to 1000ms warns without blocking; above 1000ms fails.`,
 			Action:   `Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.`,
-			Expected: `The slow requests in etcd logs are a relative value and it is based on the observed values in known platforms.`,
+			Expected: `Average below 500ms passes, 500-1000ms warns, above 1000ms fails.`,
 			Troubleshoot: `
 1) Review the documentation for the required storage for etcd:
 
@@ -754,13 +760,14 @@ References:
 	})
 	checkSum.Checks = append(checkSum.Checks, &Check{
 		ID:   "OPCT-010B",
-		Name: "etcd logs: slow requests: maximum should be under 1000ms",
+		Name: "etcd logs: slow requests: maximum should be under 1500ms",
 		Test: func() CheckResult {
 			prefix := "Check OPCT-010B Failed"
-			wantLimit := 1000.0
+			thWarn := 1500.0
+			thFail := 2000.0
 			res := CheckResult{
 				Name:   CheckResultNameFail,
-				Target: fmt.Sprintf("<=%.2f ms", wantLimit),
+				Target: fmt.Sprintf("<%.0f ms (W>=%.0f,F>%.0f)", thWarn, thWarn, thFail),
 				Actual: "N/A",
 			}
 			if re.Provider.MustGatherInfo == nil {
@@ -796,21 +803,25 @@ References:
 				return res
 			}
 			res.Actual = fmt.Sprintf("%.3f", value)
-			if value >= wantLimit {
-				log.Debugf("%s acceptance criteria: want=[<%.0f] got=[%v]", prefix, wantLimit, value)
+			switch {
+			case value > thFail:
+				log.Debugf("%s acceptance criteria: want=[<=%.0f] got=[%v]", prefix, thFail, value)
+				return res
+			case value >= thWarn:
+				res.Name = CheckResultNameWarn
 				return res
 			}
 			res.Name = CheckResultNamePass
 			return res
 		},
 		DocumentationSpec: CheckDocumentationSpec{
-			Description: `The etcd logs must generate the maximum of slow requests lower than 1000 milisseconds.
+			Description: `The etcd logs must generate the maximum of slow requests lower than 1500 milliseconds.
 One or more requests with high latency could impact the cluster performance. Slow requests are a metric that helps to
 understand the health of the etcd. The slow requests are a relative value and it is based on the observed values in known platforms.
-The maximum value is the highest value of slow requests reported in the etcd logs, it must not be higher than 1 second.
+A maximum at or above 1500ms and up to 2000ms warns without blocking; above 2000ms fails.
 `,
 			Action:       "Review if the storage volume for control plane nodes, or dedicated volume for etcd, has the required performance to run etcd in production environment.",
-			Expected:     "The slow requests in etcd logs are a relative value and it is based on the observed values in known platforms.",
+			Expected:     "Maximum below 1500ms passes, 1500-2000ms warns, above 2000ms fails.",
 			Troubleshoot: "Review Dependencies: [Troubleshooting section of OPCT-010A](#opct-010a)",
 			Dependencies: []string{"OPCT-010A"},
 		},
