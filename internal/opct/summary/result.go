@@ -239,11 +239,15 @@ func (rs *ResultSummary) processPluginResult(obj *results.Item) error {
 
 	testItems := make(map[string]*plugin.TestItem, len(tests))
 	for idx, item := range tests {
+		// Sonobuoy result files can contain the same test name more than once.
+		// Once a failing occurrence is recorded it is never replaced: it owns the
+		// ID referenced by the extracted failure artifacts and the single entry
+		// this name contributes to FailedList. Replacing it would drop its
+		// failure details, and re-entering the failed branch below would append
+		// the name to FailedList twice, duplicating the content of the
+		// -failure.txt/-systemOut.txt files (they are opened with O_APPEND).
 		if existing, ok := testItems[item.Name]; ok &&
-			(existing.Status == results.StatusFailed || existing.Status == results.StatusTimeout) &&
-			item.Status != results.StatusFailed && item.Status != results.StatusTimeout {
-			// Sonobuoy result files can contain the same test name more than once.
-			// Keep the failing occurrence so the report retains its failure details.
+			(existing.Status == results.StatusFailed || existing.Status == results.StatusTimeout) {
 			continue
 		}
 		testItems[item.Name] = &plugin.TestItem{

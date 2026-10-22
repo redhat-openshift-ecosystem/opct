@@ -620,8 +620,9 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
         return data;
       },
       getPluginTestResults(pluginName, plugin) {
-        const tests = Object.values(plugin.tests || {});
-        const rows = tests.map(test => {
+        // The test name is the map key: TestItem.Name is tagged json:"-", so it
+        // is absent from opct-report.json and must not be read from the value.
+        const rows = Object.entries(plugin.tests || {}).map(([testName, test]) => {
           let details = "";
           if (test.status === "failed" || test.status === "timeout") {
             details = "<a href=\"./failures-" + pluginName + "/" + test.id + "-failure.txt\" target=\"_blank\">failure</a><br>" +
@@ -629,7 +630,7 @@ tar xfJ results/</span>plugins<span class="hljs-regexp">/99-openshift-artifacts-
           }
           return {
             "Status": test.status || "-",
-            "Test Name": test.name,
+            "Test Name": testName,
             "Failure Details": details,
           };
         });
