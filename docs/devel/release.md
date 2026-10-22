@@ -19,15 +19,15 @@ To build images individually, you can use, for example for a single arch:
 PLATFORMS=linux/amd64 make build-plugin-tests
 ```
 
-Take a look into individual targets for each program in the [Makefile](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/Makefile).
+Take a look into individual targets for each program in the [Makefile](https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/Makefile).
 
-The script responsible to build images locally is [`build.sh`](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/build.sh).
+The script responsible to build images locally is [`build.sh`](https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/build.sh).
 Get started there if you want to explore more about the build pipeline.
 
 #### Production builds
 
 Images for production are automatically created by the build
-pipeline [ci.yaml](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/.github/workflows/ci.yaml)
+pipeline [ci.yaml](https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/.github/workflows/ci.yaml)
 when:
 
 - a push in the `main` branch, the `latest` image will be published in the image registry

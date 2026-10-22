@@ -32,7 +32,7 @@ Release process checklist:
     - Build a "dev tag" for Plugin image: `cd plugin-openshift-tests && make build-dev`
     - Check the Security Scan results on https://quay.io/repository/opct/opct?tab=tags
         - if there is security scan needed to fix on the base image, you must build the base image and tools image with the following steps:
-        - 1. bump the version with fixes on the base image. Example: [provider-certification-plugins#41](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/pull/41)
+        - 1. bump the version with fixes on the base image. Example: [opct-plugins#41](https://github.com/redhat-openshift-ecosystem/opct-plugins/pull/41)
         - 2. build the tools image: `./hack/build-image.sh build-tools`
         - 3. push the tools image:  `podman push quay.io/opct/tools:v0.0.0-<the version>`
         - 4. check security scan results
@@ -50,7 +50,7 @@ Release process checklist:
         - plugins finished
         - artifacts collected
         - results are under regular [CI executions](https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html)
-- Create a tag on [Plugins repository](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins) based on the `main` branch (or the commit for the release);
+- Create a tag on [Plugins repository](https://github.com/redhat-openshift-ecosystem/opct-plugins) based on the `main` branch (or the commit for the release);
 ~~~bash
 # Example
 git tag v0.4.0 -m "Release for OPCT v0.4 related to features on OPCT-XXX"
@@ -175,7 +175,7 @@ BUILD_PLATFORMS+=( ["windows-amd64"]="windows/amd64" )
 
 OPCT is extended by Sonobuoy Plugins.
 
-The Plugins source code is available on the project [provider-certification-plugins](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins).
+The Plugins source code is available on the project [opct-plugins](https://github.com/redhat-openshift-ecosystem/opct-plugins).
 
 ## Diagrams <a name="diagrams"></a>
 

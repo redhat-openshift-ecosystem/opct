@@ -141,7 +141,7 @@ jobs:
 
           if [ "$FAILED" = "1" ]; then
             echo ""
-            echo "::error::One or more plugin images are missing on quay.io. Ensure provider-certification-plugins CI has completed successfully before bumping versions in pkg/types.go."
+            echo "::error::One or more plugin images are missing on quay.io. Ensure opct-plugins CI has completed successfully before bumping versions in pkg/types.go."
             exit 1
           fi
 
