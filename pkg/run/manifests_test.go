@@ -78,9 +78,9 @@ func TestLoadPluginManifests(t *testing.T) {
 		}
 	})
 
-	t.Run("default mode loads all plugins", func(t *testing.T) {
+	t.Run("regular mode skips upgrade plugin", func(t *testing.T) {
 		opts := baseOpts()
-		// mode is empty (default, non-upgrade)
+		opts.mode = defaultRunMode
 
 		manifests, err := loadPluginManifests(opts)
 		require.NoError(t, err)
@@ -90,14 +90,14 @@ func TestLoadPluginManifests(t *testing.T) {
 			names = append(names, m.SonobuoyConfig.PluginName)
 		}
 
-		// All 5 plugins should be loaded in the default mode.
-		assert.Contains(t, names, plugin.PluginNameOpenShiftUpgrade)
+		assert.NotContains(t, names, plugin.PluginNameOpenShiftUpgrade,
+			"upgrade plugin must be skipped outside upgrade mode")
 		assert.Contains(t, names, plugin.PluginNameKubernetesConformance)
 		assert.Contains(t, names, plugin.PluginNameOpenShiftConformance)
 		assert.Contains(t, names, plugin.PluginNameConformanceReplay)
 		assert.Contains(t, names, plugin.PluginNameArtifactsCollector)
 
-		assert.Len(t, manifests, 5,
-			"default mode should load all 5 plugins")
+		assert.Len(t, manifests, 4,
+			"regular mode should load the four non-upgrade plugins")
 	})
 }
