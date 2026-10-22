@@ -126,14 +126,14 @@ See the release steps for more details how to mirror [Sonobuoy images](./release
 
 #### Building Plugin openshift-tests
 
-See the [build script][build-sh], and the [Containerfile][containerfile-plugin-otests].
+See the [build script][build-sh], and the [Containerfile][containerfile-otests].
 
-See the [introduced multi-arch PR #51](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/pull/51) for reference.
+See the [introduced multi-arch PR #51](https://github.com/redhat-openshift-ecosystem/opct-plugins/pull/51) for reference.
 
 #### Building Must-Gather Monitoring
 
 See the [build script][build-sh], and the [Containerfile][containerfile-mgm].
 
-[build-sh]: https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/build.sh
-[containerfile-otests]: https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/openshift-tests-provider-cert/Containerfile
-[containerfile-mgm]: https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/must-gather-monitoring/Containerfile
+[build-sh]: https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/build.sh
+[containerfile-otests]: https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/openshift-tests-plugin/Containerfile
+[containerfile-mgm]: https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/must-gather-monitoring/Containerfile
