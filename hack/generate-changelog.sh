@@ -135,7 +135,7 @@ cat > "$chagelog_file" << EOF
 Changelog by release for [CLI (OPCT)][project-cli] project.
 
 [project-cli]: https://github.com/redhat-openshift-ecosystem/opct
-[project-plugins]: https://github.com/redhat-openshift-ecosystem/provider-certification-plugins
+[project-plugins]: https://github.com/redhat-openshift-ecosystem/opct-plugins
 
 EOF
 

@@ -543,7 +543,7 @@ OPCT project consists of two main repositories that need to be released independ
    - Delivered as binary and container image
    - Repository: `quay.io/opct/opct`
 
-2. **OPCT Plugins** ([github.com/redhat-openshift-ecosystem/provider-certification-plugins](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins))
+2. **OPCT Plugins** ([github.com/redhat-openshift-ecosystem/opct-plugins](https://github.com/redhat-openshift-ecosystem/opct-plugins))
    - Container-based workflow steps
    - Plugin images: openshift-tests, artifacts-collector, must-gather-monitoring, tools
    - Repository: `quay.io/opct/plugin-*`
@@ -706,7 +706,7 @@ skopeo list-tags docker://quay.io/opct/opct | grep v0.6.1
 
 **Goal**: Release new plugin container images (e.g., `v0.6.1`).
 
-**Repository**: [github.com/redhat-openshift-ecosystem/provider-certification-plugins](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins)
+**Repository**: [github.com/redhat-openshift-ecosystem/opct-plugins](https://github.com/redhat-openshift-ecosystem/opct-plugins)
 
 #### Release Process
 
@@ -801,7 +801,7 @@ skopeo list-tags docker://quay.io/opct/must-gather-monitoring | grep v0.6.1
 
 ```bash
 # 1. Release plugins
-cd provider-certification-plugins
+cd opct-plugins
 git checkout main && git pull
 git checkout release-v0.6 && git rebase main && git push
 git tag -a v0.6.1 -m "Release v0.6.1" && git push origin v0.6.1
@@ -840,7 +840,7 @@ git commit -m "chore: bump version to v0.6.1"
 
 ```bash
 # 1. Create new release branches
-cd provider-certification-plugins
+cd opct-plugins
 git checkout main
 git checkout -b release-v0.7
 git push origin release-v0.7

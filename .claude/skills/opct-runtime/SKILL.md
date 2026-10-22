@@ -91,7 +91,7 @@ Delta times computed as `finish[current] - finish[predecessor]`. If predecessor 
 | `pkg/status/printer.go` | `opct status` output formatting |
 | `data/templates/plugins/*.yaml` | Plugin manifest templates |
 
-### Plugins repo (`provider-certification-plugins`)
+### Plugins repo (`opct-plugins`)
 
 | File | Purpose |
 |------|---------|

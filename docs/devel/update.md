@@ -24,10 +24,10 @@ The table below summarizes the components:
 [opct-src]: https://github.com/redhat-openshift-ecosystem/opct
 [opct-repo]: https://quay.io/repository/opct/opct?tab=tags
 [sb-mirror]: https://redhat-openshift-ecosystem.github.io/opct/dev/#sonobuoy-image-mirroring
-[pl-ot]: https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/tree/main/openshift-tests-plugin
-[pl-ac]: https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/tree/main/artifacts-collector
-[pl-mgm]: https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/tree/main/must-gather-monitoring
-[tools]: https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/build.sh#L60
+[pl-ot]: https://github.com/redhat-openshift-ecosystem/opct-plugins/tree/main/openshift-tests-plugin
+[pl-ac]: https://github.com/redhat-openshift-ecosystem/opct-plugins/tree/main/artifacts-collector
+[pl-mgm]: https://github.com/redhat-openshift-ecosystem/opct-plugins/tree/main/must-gather-monitoring
+[tools]: https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/build.sh#L60
 
 The following sections describe the steps of how to release each component.
 
@@ -46,10 +46,10 @@ When the `${MAJOR}` needs to be changed, it's a practice to be changed across th
 
 - [OPCT cli](https://github.com/redhat-openshift-ecosystem/opct/blob/main/hack/Containerfile)
 - Plugins monorepo:
-    - [Tools tools/Containerfile](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/tools/Containerfile)
-    - [openshift-tests-plugin openshift-tests-plugin/Containerfile](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/openshift-tests-plugin/Containerfile)
-    - [must-gather-monitoring/Containerfile](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/must-gather-monitoring/Containerfile)
-    - [artifacts collector artifacts-collector/Containerfile](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/artifacts-collector/Containerfile)
+    - [Tools tools/Containerfile](https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/tools/Containerfile)
+    - [openshift-tests-plugin openshift-tests-plugin/Containerfile](https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/openshift-tests-plugin/Containerfile)
+    - [must-gather-monitoring/Containerfile](https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/must-gather-monitoring/Containerfile)
+    - [artifacts collector artifacts-collector/Containerfile](https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/artifacts-collector/Containerfile)
 
 
 ## Golang version update
@@ -62,9 +62,9 @@ Version update on CLI:
 
 Version update on Plugin `openshift-tests`:
 
-- Update the [go.mod](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/openshift-tests-plugin/go.mod)
-- Update the Go version on all [CI workflows](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/tree/main/.github/workflows)
-- Update the Go version in the plugin's [Container image](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/openshift-tests-plugin/Containerfile)
+- Update the [go.mod](https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/openshift-tests-plugin/go.mod)
+- Update the Go version on all [CI workflows](https://github.com/redhat-openshift-ecosystem/opct-plugins/tree/main/.github/workflows)
+- Update the Go version in the plugin's [Container image](https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/openshift-tests-plugin/Containerfile)
 
 
 ## Container image `tools` - utilities update (layered image)
@@ -78,8 +78,8 @@ currently there are three main dependencies:
 
 Those plugins are used by the images:
 
-- [artifacts-collector](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/artifacts-collector/Containerfile#L8)
-- [must-gather-monitoring](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/must-gather-monitoring/Containerfile#L5)
+- [artifacts-collector](https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/artifacts-collector/Containerfile#L8)
+- [must-gather-monitoring](https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/must-gather-monitoring/Containerfile#L5)
 
 Steps to build the `tools` image:
 
@@ -114,7 +114,7 @@ The Sonobuoy is used as a library in the OPCT CLI (client-side), plugin `openshi
 
 Steps to update the Sonobuoy librar in the `openshift-tests` plugin:
 
-- Edit the [go.mod](https://github.com/redhat-openshift-ecosystem/provider-certification-plugins/blob/main/openshift-tests-plugin/go.mod)
+- Edit the [go.mod](https://github.com/redhat-openshift-ecosystem/opct-plugins/blob/main/openshift-tests-plugin/go.mod)
 - Update the library `github.com/vmware-tanzu/sonobuoy` version to [supported one][sb-version]
 - Open a PR with your changes
 - Merge it
