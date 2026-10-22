@@ -317,3 +317,26 @@ func TestShowReportAggregatedSummaryBaselineMismatchKeepsProviderRow(t *testing.
 	assert.Contains(t, stdout, "passed [40/30/0/0]",
 		"the provider's counters must be rendered, not dropped or fabricated")
 }
+
+// TestShowErrorDetailsSkipsSkippedPlugin covers a plugin that is present in
+// the results but was reported as "skipped": it has no failures to review, so
+// it must not render a details section.
+func TestShowErrorDetailsSkipsSkippedPlugin(t *testing.T) {
+	var buf bytes.Buffer
+	orig := log.StandardLogger().Out
+	log.SetOutput(&buf)
+	defer log.SetOutput(orig)
+
+	re := &report.ReportData{
+		Provider: &report.ReportResult{Plugins: map[string]*report.ReportPlugin{
+			plugin.PluginNameKubernetesConformance: newPlugin(plugin.PluginNameKubernetesConformance, "skipped", 0, 0, 0),
+		}},
+	}
+
+	stdout := captureStdout(t, func() {
+		require.NoError(t, showErrorDetails(re, false))
+	})
+
+	assert.NotContains(t, stdout, "10-openshift-kube-conformance - test failures")
+	assert.NotContains(t, buf.String(), "unable to get plugin")
+}

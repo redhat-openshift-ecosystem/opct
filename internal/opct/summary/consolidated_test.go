@@ -292,3 +292,54 @@ func TestExtractFailuresDetailsByPluginAbsentPlugin(t *testing.T) {
 			"no failures directory must be created for plugin %s, which this workflow did not run", pluginName)
 	}
 }
+
+func TestSaveUpgradeFailureDetails(t *testing.T) {
+	const failedUpgradeTest = "[sig-arch] Cluster should remain functional during upgrade"
+	const failure = "upgrade failure output"
+	const systemOut = "upgrade system output"
+
+	cs := NewConsolidatedSummary(&ConsolidatedSummaryInput{})
+	cs.Verbose = true
+	cs.Provider.OpenShift.PluginResultConformanceUpgrade = &plugin.OPCTPluginSummary{
+		Name:       plugin.PluginNameOpenShiftUpgrade,
+		FailedList: []string{failedUpgradeTest},
+		Tests: plugin.Tests{
+			failedUpgradeTest: {
+				ID:        "05-openshift-cluster-upgrade-0",
+				Name:      failedUpgradeTest,
+				Failure:   failure,
+				SystemOut: systemOut,
+			},
+			"passed upgrade test": {
+				ID:     "05-openshift-cluster-upgrade-1",
+				Name:   "passed upgrade test",
+				Status: "passed",
+			},
+		},
+	}
+	cs.Provider.Suites.UpgradeConformance.Tests = []string{failedUpgradeTest}
+
+	outputDir := t.TempDir()
+	require.NoError(t, cs.saveResultsPlugin(outputDir, plugin.PluginNameOpenShiftUpgrade))
+	require.FileExists(t, filepath.Join(outputDir,
+		"tests_05-openshift-cluster-upgrade_suite_full.txt"))
+
+	require.NoError(t, cs.extractFailuresDetailsByPlugin(outputDir, plugin.PluginNameOpenShiftUpgrade))
+	failurePath := filepath.Join(outputDir, "failures-05-openshift-cluster-upgrade",
+		"05-openshift-cluster-upgrade-0-failure.txt")
+	systemOutPath := filepath.Join(outputDir, "failures-05-openshift-cluster-upgrade",
+		"05-openshift-cluster-upgrade-0-systemOut.txt")
+
+	gotFailure, err := os.ReadFile(failurePath)
+	require.NoError(t, err)
+	assert.Equal(t, failure, string(gotFailure))
+	gotSystemOut, err := os.ReadFile(systemOutPath)
+	require.NoError(t, err)
+	assert.Equal(t, systemOut, string(gotSystemOut))
+
+	entries, err := os.ReadDir(filepath.Join(outputDir, "failures-05-openshift-cluster-upgrade"))
+	require.NoError(t, err)
+	require.Len(t, entries, 2)
+	assert.Equal(t, "05-openshift-cluster-upgrade-0-failure.txt", entries[0].Name())
+	assert.Equal(t, "05-openshift-cluster-upgrade-0-systemOut.txt", entries[1].Name())
+}
