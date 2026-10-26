@@ -52,8 +52,7 @@ pip3 install o-must-gather --user
 ### Download Baseline CI results <a name="setup-download-baseline"></a>
 
 The OPCT run periodically ([source code](https://github.com/openshift/release/blob/master/ci-operator/jobs/redhat-openshift-ecosystem/opct/redhat-openshift-ecosystem-provider-certification-tool-main-periodics.yaml)) in OpenShift CI using the latest stable release of OpenShift.
-These baseline results are stored long-term in an AWS S3 bucket (`s3://openshift-provider-certification/baseline-results`). An HTML listing can be found [here](https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html).
-These baseline results should be used as a reference when reviewing a partner's conformance results.
+These baseline results should be used as a reference when reviewing a partner's conformance results. `opct report` fetches and applies the matching baseline automatically through the backend API when the environment has internet access, so no manual download is required (the `--baseline`/`-b` flag is deprecated).
 
 1. Identify cluster version in the partner's must gather:
 ```bash
@@ -61,12 +60,9 @@ $ omg get clusterversion
 NAME     VERSION  AVAILABLE  PROGRESSING  SINCE  STATUS
 version  4.11.13   True       False        11h    Cluster version is 4.11.13
 ```
-2. Navigate to the [CI results](https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html) and find the latest results (by date) for the matching OpenShift version
-3. Download the *latest* test results for the version (bottom of list). Copy the results archive link from the webpage in previous step. 
+2. List available baseline results, to confirm one exists for the matching OpenShift version and platform:
 ```bash
-$ curl --output 4.11.13-20221125.tar.gz https://openshift-provider-certification.s3.us-west-2.amazonaws.com/baseline-results/4.11.13-20221125.tar.gz
-$ file 4.11.13-20221125.tar.gz 
-4.11.13-20221125.tar.gz: gzip compressed data, original size modulo 2^32 430269440
+$ opct adm baseline list
 ```
 
 ### Download Partner Results <a name="setup-download-results"></a>
@@ -84,21 +80,20 @@ Required to use this section:
 
 - OPCT CLI downloaded to the current directory
 - OpenShift e2e test suite exported to the current directory
-- Baseline results exported to the current directory
 - The conformance result is in the current directory
+- Internet access, so the baseline can be fetched automatically (or a local baseline archive if running offline with the deprecated `--baseline` flag)
 
 
 ### Exploring the failures <a name="review-process-exploring"></a>
 
-Compare the provider results with the baseline:
-
-> `--baseline` is optional. You must use a trusted baseline results to apply the filters. Otherwise leave it unset.
+Compare the provider results with the baseline. The baseline is fetched and applied automatically via the backend API, so `--baseline` does not need to be set:
 
 ```bash
 ./opct report \
-    --baseline ./opct_baseline-ocp_4.11.4-platform_none-provider-date_uuid.tar.gz \
     ./<timestamp>_sonobuoy_<uuid>.tar.gz
 ```
+
+> `--baseline`/`-b` is deprecated. Only set it to override the automatic baseline with a local archive.
 
 ### Extracting the failures to a local directory <a name="review-process-extracting"></a>
 
@@ -106,7 +101,6 @@ Compare the results and extract the files (option `--save-to`) to the local dire
 
 ```bash
 ./opct report \
-    --baseline ./opct_baseline-ocp_4.11.4-platform_none-provider-date_uuid.tar.gz \
     --save-to ./results-provider-processed \
     ./<timestamp>_sonobuoy_<uuid>.tar.gz
 ```

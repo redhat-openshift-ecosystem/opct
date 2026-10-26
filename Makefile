@@ -57,19 +57,6 @@ build-darwin-arm64: build
 linux-amd64-container: build-linux-amd64
 	podman build -t $(IMG):latest -f hack/Containerfile --build-arg=RELEASE_TAG=$(RELEASE_TAG) .
 
-# Publish devel binaries (non-official). Must be used only for troubleshooting in development/support.
-.PHONY: publish-amd64-devel
-publish-amd64-devel: build-linux-amd64
-	aws s3 cp $(BUILD_DIR)/opct-linux-amd64 s3://openshift-provider-certification/bin/opct-linux-amd64-devel
-
-.PHONY: publish-darwin-arm64-devel
-publish-darwin-arm64-devel: build-darwin-arm64
-	aws s3 cp $(BUILD_DIR)/opct-darwin-arm64 s3://openshift-provider-certification/bin/opct-darwin-arm64-devel
-
-.PHONY: publish-devel
-publish-devel: publish-amd64-devel
-publish-devel: publish-darwin-arm64-devel
-
 #
 # Test
 #
