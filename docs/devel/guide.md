@@ -49,7 +49,7 @@ Release process checklist:
     - review if the execution finished correctly
         - plugins finished
         - artifacts collected
-        - results are under regular [CI executions](https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html)
+        - results are under regular CI executions, listed via `opct adm baseline list`
 - Create a tag on [Plugins repository](https://github.com/redhat-openshift-ecosystem/opct-plugins) based on the `main` branch (or the commit for the release);
 ~~~bash
 # Example
@@ -76,7 +76,7 @@ ansible-playbook hack/opct-runner/opct-run-tool-preflight.yaml  -e cluster_name=
 ```bash
 ./opct-linux-amd64 run -w --plugins-image=plugin-openshift-tests:latest
 ```
-- Collect the results and compare with old releases. Baseline CI artifacts is available [here](https://openshift-provider-certification.s3.us-west-2.amazonaws.com/index.html).
+- Collect the results and compare with old releases. Baseline CI artifacts are available via `opct adm baseline list`/`get`.
 
 ## Development Notes <a name="dev-notes"></a>
 
