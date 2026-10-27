@@ -53,6 +53,7 @@ func NewConsolidatedSummary(in *ConsolidatedSummaryInput) *ConsolidatedSummary {
 			OpenShift: &OpenShiftSummary{},
 			Sonobuoy:  NewSonobuoySummary(),
 			Suites: &OpenshiftTestsSuites{
+				UpgradeConformance:    &OpenshiftTestsSuite{Name: "openshiftUpgradeConformance"},
 				OpenshiftConformance:  &OpenshiftTestsSuite{Name: "openshiftConformance"},
 				KubernetesConformance: &OpenshiftTestsSuite{Name: "kubernetesConformance"},
 			},
@@ -64,6 +65,7 @@ func NewConsolidatedSummary(in *ConsolidatedSummaryInput) *ConsolidatedSummary {
 			OpenShift: &OpenShiftSummary{},
 			Sonobuoy:  NewSonobuoySummary(),
 			Suites: &OpenshiftTestsSuites{
+				UpgradeConformance:    &OpenshiftTestsSuite{Name: "openshiftUpgradeConformance"},
 				OpenshiftConformance:  &OpenshiftTestsSuite{Name: "openshiftConformance"},
 				KubernetesConformance: &OpenshiftTestsSuite{Name: "kubernetesConformance"},
 			},
@@ -195,6 +197,8 @@ func (cs *ConsolidatedSummary) applyFilterSuiteForPlugin(pluginName string) erro
 
 	case plugin.PluginNameOpenShiftUpgrade:
 		ps = cs.GetProvider().GetOpenShift().GetResultConformanceUpgrade()
+		// Upgrade plugin runs its own curated test set; any failure is in-scope,
+		// so bypass the suite filter by using an empty suite (emptySuite=true path).
 		pluginSuite = &OpenshiftTestsSuite{}
 
 	case plugin.PluginNameConformanceReplay:
@@ -327,6 +331,9 @@ func (cs *ConsolidatedSummary) applyFilterBaselineForPlugin(pluginName string, f
 // applyFilterFlaky process the FailedFilterSuite for each plugin, **excluding** failures from
 // baseline test.
 func (cs *ConsolidatedSummary) applyFilterFlaky(filterID string) error {
+	if err := cs.applyFilterFlakeForPlugin(plugin.PluginNameOpenShiftUpgrade, filterID); err != nil {
+		return err
+	}
 	if err := cs.applyFilterFlakeForPlugin(plugin.PluginNameKubernetesConformance, filterID); err != nil {
 		return err
 	}
@@ -395,14 +402,17 @@ func (cs *ConsolidatedSummary) applyFilterFlakeForPlugin(pluginName string, filt
 			}
 			// Applying flake filter by moving only non-flakes to the pipeline.
 			// The tests reporing lower than 5% of CurrentFlakePerc by Sippy are selected as non-flake.
+			// Only the first Sippy result is used; break after classifying to avoid duplicates
+			// when Sippy returns multiple records for the same test name.
 			// TODO: Review flake severity
 			if ps.Tests[name].Flake.CurrentFlakePerc <= 5.0 {
 				ps.Tests[name].State = "filter3Priority"
 				ps.FailedFilter3 = append(ps.FailedFilter3, name)
-				continue
+			} else {
+				ps.Tests[name].State = "filter3Flake"
+				ps.FailedExcludedFilter3 = append(ps.FailedExcludedFilter3, name)
 			}
-			ps.Tests[name].State = "filter3Flake"
-			ps.FailedExcludedFilter3 = append(ps.FailedExcludedFilter3, name)
+			break
 		}
 	}
 	sort.Strings(ps.FailedFilter3)
@@ -692,6 +702,7 @@ func (cs *ConsolidatedSummary) applyFilterKnownFailuresForPlugin(pluginName stri
 // to check if the test is passing in a second shot.
 func (cs *ConsolidatedSummary) applyFilterReplay(filterID string) error {
 	for _, pluginName := range []string{
+		plugin.PluginNameOpenShiftUpgrade,
 		plugin.PluginNameKubernetesConformance,
 		plugin.PluginNameOpenShiftConformance,
 	} {
@@ -709,14 +720,13 @@ func (cs *ConsolidatedSummary) applyFilterReplay(filterID string) error {
 func (cs *ConsolidatedSummary) applyFilterReplayForPlugin(pluginName string, filterID string) error {
 	var ps *plugin.OPCTPluginSummary
 	switch pluginName {
+	case plugin.PluginNameOpenShiftUpgrade:
+		ps = cs.GetProvider().GetOpenShift().GetResultConformanceUpgrade()
 	case plugin.PluginNameKubernetesConformance:
 		ps = cs.GetProvider().GetOpenShift().GetResultK8SValidated()
 
 	case plugin.PluginNameOpenShiftConformance:
 		ps = cs.GetProvider().GetOpenShift().GetResultOCPValidated()
-
-	case plugin.PluginNameOpenShiftUpgrade:
-		ps = cs.GetProvider().GetOpenShift().GetResultConformanceUpgrade()
 
 	default:
 		return fmt.Errorf("plugin not found: %s", pluginName)
@@ -791,14 +801,13 @@ func (cs *ConsolidatedSummary) applyFilterCopyPipelineForPlugin(pluginName strin
 
 	// Get the list of the last filter in the pipeline
 	switch pluginName {
+	case plugin.PluginNameOpenShiftUpgrade:
+		ps = cs.GetProvider().GetOpenShift().GetResultConformanceUpgrade()
 	case plugin.PluginNameKubernetesConformance:
 		ps = cs.GetProvider().GetOpenShift().GetResultK8SValidated()
 
 	case plugin.PluginNameOpenShiftConformance:
 		ps = cs.GetProvider().GetOpenShift().GetResultOCPValidated()
-
-	case plugin.PluginNameOpenShiftUpgrade:
-		ps = cs.GetProvider().GetOpenShift().GetResultConformanceUpgrade()
 
 	case plugin.PluginNameConformanceReplay:
 		ps = cs.GetProvider().GetOpenShift().GetResultConformanceReplay()
@@ -833,6 +842,12 @@ func (cs *ConsolidatedSummary) saveResultsPlugin(path, pluginName string) error 
 	bProcessed := cs.GetBaseline().HasValidResults()
 
 	switch pluginName {
+	case plugin.PluginNameOpenShiftUpgrade:
+		resultsProvider = cs.GetProvider().GetOpenShift().GetResultConformanceUpgrade()
+		if bProcessed {
+			resultsBaseline = cs.GetBaseline().GetOpenShift().GetResultConformanceUpgrade()
+		}
+		suite = cs.GetProvider().GetSuites().UpgradeConformance
 	case plugin.PluginNameKubernetesConformance:
 		resultsProvider = cs.GetProvider().GetOpenShift().GetResultK8SValidated()
 		if bProcessed {
@@ -917,6 +932,8 @@ func (cs *ConsolidatedSummary) extractFailuresDetailsByPlugin(path, pluginName s
 	ignoreExistingDir := true
 
 	switch pluginName {
+	case plugin.PluginNameOpenShiftUpgrade:
+		resultsProvider = cs.GetProvider().GetOpenShift().GetResultConformanceUpgrade()
 	case plugin.PluginNameKubernetesConformance:
 		resultsProvider = cs.GetProvider().GetOpenShift().GetResultK8SValidated()
 	case plugin.PluginNameOpenShiftConformance:
@@ -939,11 +956,7 @@ func (cs *ConsolidatedSummary) extractFailuresDetailsByPlugin(path, pluginName s
 	if err := createDir(subdir, ignoreExistingDir); err != nil {
 		return err
 	}
-	errFailures := make([]string, len(resultsProvider.Tests))
-	for k := range resultsProvider.Tests {
-		errFailures = append(errFailures, k)
-	}
-	if err := extractSaveTestErrors(subdir, resultsProvider.Tests, errFailures); err != nil {
+	if err := extractSaveTestErrors(subdir, resultsProvider.Tests, resultsProvider.FailedList); err != nil {
 		return err
 	}
 
@@ -960,6 +973,9 @@ func (cs *ConsolidatedSummary) SaveResults(path string) error {
 	}
 
 	// Save the list of failures into individual files by Plugin
+	if err := cs.saveResultsPlugin(path, plugin.PluginNameOpenShiftUpgrade); err != nil {
+		return err
+	}
 	if err := cs.saveResultsPlugin(path, plugin.PluginNameKubernetesConformance); err != nil {
 		return err
 	}
@@ -968,6 +984,9 @@ func (cs *ConsolidatedSummary) SaveResults(path string) error {
 	}
 
 	// Extract errors details to sub directories
+	if err := cs.extractFailuresDetailsByPlugin(path, plugin.PluginNameOpenShiftUpgrade); err != nil {
+		return err
+	}
 	if err := cs.extractFailuresDetailsByPlugin(path, plugin.PluginNameKubernetesConformance); err != nil {
 		return err
 	}
@@ -1063,7 +1082,11 @@ func createDir(path string, ignoreexisting bool) error {
 // applyFilterFlaky process the FailedFilterSuite for each plugin, **excluding** failures from
 // baseline test.
 func (cs *ConsolidatedSummary) buildDocumentation() error {
-	err := cs.buildDocumentationForPlugin(plugin.PluginNameKubernetesConformance)
+	err := cs.buildDocumentationForPlugin(plugin.PluginNameOpenShiftUpgrade)
+	if err != nil {
+		return err
+	}
+	err = cs.buildDocumentationForPlugin(plugin.PluginNameKubernetesConformance)
 	if err != nil {
 		return err
 	}
@@ -1086,6 +1109,12 @@ func (cs *ConsolidatedSummary) buildDocumentationForPlugin(pluginName string) er
 	)
 
 	switch pluginName {
+	case plugin.PluginNameOpenShiftUpgrade:
+		ps = cs.GetProvider().GetOpenShift().GetResultConformanceUpgrade()
+		// Upgrade conformance tests use the same OpenShift test documentation as
+		// the regular OpenShift conformance suite.
+		docUserBaseURL = "https://github.com/openshift/origin/blob/master/test/extended/README.md"
+		docSourceBaseURL = docUserBaseURL
 	case plugin.PluginNameKubernetesConformance:
 		ps = cs.GetProvider().GetOpenShift().GetResultK8SValidated()
 		versionFull := cs.GetProvider().GetSonobuoyCluster().APIVersion
