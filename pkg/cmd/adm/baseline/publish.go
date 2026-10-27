@@ -103,34 +103,15 @@ func baselinePublishCmdRun(cmd *cobra.Command, args []string) {
 		log.Errorf("error saving report results: %v", err)
 	}
 
+	// CI guardian ensuring baseline results are passing minimaly.
 	// TODO: move to config, or allow to add skips.
-	// Reject publish when those checks are failing:
-	// OPCT-001 : kube conformance failing
-	// OPCT-004 : too many tests failed on openshift conformance
-	// OPCT-003 : collector must be able to collect the results
-	// OPCT-007 (ERR missing must-gather): must-gather is missing
-	// OPCT-022: potential runtime failure
+	// Reject publish when any of those checks failed:
+	// https://redhat-openshift-ecosystem.github.io/opct/review/rules/
 	// TODO/Validate if need:
-	// OPCT-023*: Test sanity. Enable it when CI pipeline (periodic) is validated
+	// - OPCT-023*: Test sanity. Enable it when CI pipeline (periodic) is validated
 	// - etcd very slow
-	rejected := false
-	for _, check := range re.Checks.Fail {
-		if check.ID == report.CheckID001 ||
-			check.ID == report.CheckID004 ||
-			check.ID == report.CheckID005 ||
-			check.ID == report.CheckID022 {
-			errMessage := fmt.Sprintf("%q: want=%q, got=%q", check.SLO, check.SLITarget, check.SLIActual)
-			if check.Message != "" {
-				errMessage = fmt.Sprintf("%s: message=%q", errMessage, check.Message)
-			}
-			log.Errorf("rejecting the baseline, check id %s is in failed state: %s", check.ID, errMessage)
-			rejected = true
-			continue
-		}
-	}
-	if rejected {
+	if !baselineArchiveHasrequiredChecks(re) {
 		log.Fatal("baseline rejected, see the logs for more details.")
-		return
 	}
 
 	checksStatus := fmt.Sprintf("pass(%d), fail(%d), warn(%d) skip(%d)", len(re.Checks.Pass), len(re.Checks.Fail), len(re.Checks.Warn), len(re.Checks.Skip))
@@ -162,4 +143,37 @@ func baselinePublishCmdRun(cmd *cobra.Command, args []string) {
 
 	log.Infof("Success! Baseline result processed from archive: %v", filepath.Base(re.Summary.Tests.Archive))
 	log.Infof("You must re-index the storage to serve in the result API. See 'opct adm baseline (indexer|list)'")
+}
+
+// baselineArchiveHasrequiredChecks reports whether the processed report is
+// eligible to be published as a baseline. A baseline must not carry failures
+// of the checks the review process relies on, so OPCT-004, OPCT-005 and
+// OPCT-022 in a failed state reject the publication.
+//
+// It fails closed: a report without evaluated checks cannot be verified, and
+// publishing it would seed the review process with an unvetted baseline.
+// Every offending check is logged before returning, so a single run reports
+// all the reasons a baseline was rejected.
+func baselineArchiveHasrequiredChecks(re *report.ReportData) bool {
+	if re == nil || re.Checks == nil {
+		log.Error("rejecting the baseline: report checks were not evaluated")
+		return false
+	}
+	matchRequiredChecks := true
+	for _, check := range re.Checks.Fail {
+		if check == nil {
+			continue
+		}
+		if check.ID == report.CheckID004 ||
+			check.ID == report.CheckID005 ||
+			check.ID == report.CheckID022 {
+			errMessage := fmt.Sprintf("%q: want=%q, got=%q", check.SLO, check.SLITarget, check.SLIActual)
+			if len(check.Message) > 0 {
+				errMessage = fmt.Sprintf("%s: message=%q", errMessage, check.Message)
+			}
+			log.Errorf("rejecting the baseline, check id %s is in failed state: %s", check.ID, errMessage)
+			matchRequiredChecks = false
+		}
+	}
+	return matchRequiredChecks
 }
