@@ -26,40 +26,36 @@ chagelog_sum_file="$(dirname $0)"/../docs/CHANGELOG_summary.md
 chagelog_dir="/tmp/opct-changelogs"
 mkdir -p $chagelog_dir
 
-# extract_pr_id extracts the Pull Request ID from commmit name.
-function extract_pr_id() {
-    line="$1"
-    # Extracts PR ID from the commit. The main branch has squashed
-    # commits with PR ID in the name with formatt:
-    # OPCT-ID: description (#PR_ID)
-    pr_id=$(echo "${line}" | grep -Po '\(#\d+' | tr -d '\(' || true)
-    if [ -n "${pr_id-}" ] ; then
-        echo "$pr_id"
-        return
-    fi
-}
-
-# extract_jira_id attempt to extract the Issue ID (Jira) from commmit name.
-function extract_jira_id() {
-    line="$1"
-    # tries to extract OPCT from name
-    jira_card=$(echo "${line}" | grep -Po '(OPCT-\d+)' || true)
-    if [ -n "${jira_card-}" ] ; then
-        echo "$jira_card"
-        return
-    fi
-    # tries to extract OPCT project
-    jira_card=$(echo "${line}" | grep -Po '(SPLAT-\d+)' || true)
-    if [ -n "${jira_card-}" ] ; then
-        echo "$jira_card"
-        return
-    fi
-    # tries to extract OPCT project
-    jira_card=$(echo "${line}" | grep -Po '(OCPBUGS-\d+)' || true)
-    if [ -n "${jira_card-}" ] ; then
-        echo "$jira_card"
-        return
-    fi
+# link_refs converts all Jira cards and PR references in a commit title
+# into markdown links. It scans the original title once per reference
+# type with awk, matching complete references only, so a card number is
+# never treated as a prefix of a longer one (OPCT-1 vs OPCT-10),
+# repeated references are linked in a single pass, and generated links
+# are never re-processed. Never build sed expressions from interpolated
+# variables: a title with two cards (OPCT-495) made grep emit a
+# multi-line value that broke the sed expression ("unterminated `s'
+# command").
+function link_refs() {
+    echo "$1" | awk '
+    {
+        line = $0
+        # Jira cards: OPCT-123, SPLAT-123, OCPBUGS-123
+        out = ""
+        while (match(line, /(OPCT|SPLAT|OCPBUGS)-[0-9]+/)) {
+            card = substr(line, RSTART, RLENGTH)
+            out = out substr(line, 1, RSTART-1) "[" card "](https://issues.redhat.com/browse/" card ")"
+            line = substr(line, RSTART+RLENGTH)
+        }
+        line = out line
+        # PR references: (#123)
+        out = ""
+        while (match(line, /\(#[0-9]+\)/)) {
+            num = substr(line, RSTART+2, RLENGTH-3)
+            out = out substr(line, 1, RSTART-1) "[#" num "](https://github.com/redhat-openshift-ecosystem/opct/pull/" num ")"
+            line = substr(line, RSTART+RLENGTH)
+        }
+        print out line
+    }'
 }
 
 # Phase 0: prepare the environment
@@ -86,16 +82,7 @@ for rel in "${releases[@]}"; do
         commit="$(echo "$line" | awk '{print$1}')"
         commit_url="[$commit](https://github.com/redhat-openshift-ecosystem/opct/commit/$commit)"
         line="${line#"$commit"}"
-        jira_card=$(extract_jira_id "${line}" || true)
-        if [ -n "${jira_card-}" ] ; then
-            line=$(echo "$line" | sed "s/$jira_card/\[$jira_card\]\(https\:\/\/issues.redhat.com\/browse\/$jira_card\)/")
-        fi
-
-        # lookup for PR number (#{\d+}) in the commit name
-	    pr_id=$(extract_pr_id "${line}" || true)
-        if [ -n "${pr_id-}" ] ; then
-            line=$(echo "$line" | sed "s/$pr_id/\[$pr_id\]\(https\:\/\/github.com\/redhat-openshift-ecosystem\/opct\/pull\/${pr_id#\#}\)/")
-        fi
+        line=$(link_refs "${line}")
         echo "- $commit_url - ${line}" >> "$ch_file"
     done
     init_release=$rel
@@ -115,14 +102,7 @@ do
     commit="$(echo $line | awk '{print$1}')"
     commit_url="[$commit](https://github.com/redhat-openshift-ecosystem/opct/commit/$commit)"
     line="${line#"$commit"}"
-    jira_card=$(extract_jira_id "${line}" || true)
-    if [ -n "${jira_card-}" ] ; then
-        line=$(echo $line | sed "s/$jira_card/\[$jira_card\]\(https\:\/\/issues.redhat.com\/browse\/$jira_card\)/")
-    fi
-    pr_id=$(extract_pr_id "${line}" || true)
-    if [ -n "${pr_id-}" ] ; then
-        line=$(echo $line | sed "s/$pr_id/\[$pr_id\]\(https\:\/\/github.com\/redhat-openshift-ecosystem\/opct\/pull\/${pr_id#\#}\)/")
-    fi
+    line=$(link_refs "${line}")
     echo -e "- $commit_url - ${line}" >> "$ch_file"
 done
 
@@ -151,7 +131,7 @@ echo -e "\n## Releases Changes" > "$chagelog_commits_file"
 cat $chagelog_dir/devel.md >> "$chagelog_commits_file"
 
 # then append the releases by reverse order (newest version/file first)
-for rev_releases in $(ls -r $chagelog_dir --ignore=devel.md); do
+for rev_releases in $(ls -r $chagelog_dir | grep -v '^devel\.md$'); do
     echo -e "\n" >> "$chagelog_commits_file"
     cat $chagelog_dir/"$rev_releases" >> "$chagelog_commits_file"
 done

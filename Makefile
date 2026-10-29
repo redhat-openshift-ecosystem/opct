@@ -93,6 +93,10 @@ clean:
 build-changelog-commits:
 	./hack/generate-changelog.sh "commits-only"
 
+.PHONY: test-changelog
+test-changelog:
+	./hack/test-generate-changelog.sh
+
 .PHONY: build-changelog
 build-changelog:
 	./hack/generate-changelog.sh
