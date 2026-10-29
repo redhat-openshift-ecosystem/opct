@@ -26,34 +26,36 @@ chagelog_sum_file="$(dirname $0)"/../docs/CHANGELOG_summary.md
 chagelog_dir="/tmp/opct-changelogs"
 mkdir -p $chagelog_dir
 
-# extract_jira_ids extracts all Issue IDs (Jira) from commmit name,
-# one per line. A title may reference several cards
-# (e.g. "OPCT-462: Re-enable SLO OPCT-011 error budget").
-function extract_jira_ids() {
-    echo "$1" | grep -oE '(OPCT|SPLAT|OCPBUGS)-[0-9]+' || true
-}
-
-# extract_pr_ids extracts all Pull Request IDs from commmit name,
-# one per line, with the leading '#' (e.g. '#254').
-function extract_pr_ids() {
-    echo "$1" | grep -oE '\(#[0-9]+' | tr -d '(' || true
-}
-
-# link_refs converts all Jira cards and PR references in a commit
-# title into markdown links, using bash parameter expansion.
-# Never build sed expressions from interpolated variables: a title with
-# two cards (OPCT-495) made grep emit a multi-line value that broke the
-# sed expression ("unterminated `s' command").
+# link_refs converts all Jira cards and PR references in a commit title
+# into markdown links. It scans the original title once per reference
+# type with awk, matching complete references only, so a card number is
+# never treated as a prefix of a longer one (OPCT-1 vs OPCT-10),
+# repeated references are linked in a single pass, and generated links
+# are never re-processed. Never build sed expressions from interpolated
+# variables: a title with two cards (OPCT-495) made grep emit a
+# multi-line value that broke the sed expression ("unterminated `s'
+# command").
 function link_refs() {
-    line="$1"
-    for jira_card in $(extract_jira_ids "${line}"); do
-        line="${line//"$jira_card"/[$jira_card](https:\/\/issues.redhat.com\/browse\/$jira_card)}"
-    done
-    for pr_id in $(extract_pr_ids "${line}"); do
-        pr_num=${pr_id#\#}
-        line="${line//"$pr_id"/[$pr_id](https:\/\/github.com\/redhat-openshift-ecosystem\/opct\/pull\/$pr_num)}"
-    done
-    echo "$line"
+    echo "$1" | awk '
+    {
+        line = $0
+        # Jira cards: OPCT-123, SPLAT-123, OCPBUGS-123
+        out = ""
+        while (match(line, /(OPCT|SPLAT|OCPBUGS)-[0-9]+/)) {
+            card = substr(line, RSTART, RLENGTH)
+            out = out substr(line, 1, RSTART-1) "[" card "](https://issues.redhat.com/browse/" card ")"
+            line = substr(line, RSTART+RLENGTH)
+        }
+        line = out line
+        # PR references: (#123)
+        out = ""
+        while (match(line, /\(#[0-9]+\)/)) {
+            num = substr(line, RSTART+2, RLENGTH-3)
+            out = out substr(line, 1, RSTART-1) "[#" num "](https://github.com/redhat-openshift-ecosystem/opct/pull/" num ")"
+            line = substr(line, RSTART+RLENGTH)
+        }
+        print out line
+    }'
 }
 
 # Phase 0: prepare the environment

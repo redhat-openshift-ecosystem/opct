@@ -37,6 +37,10 @@ git -C "$repo_dir" commit -q --allow-empty \
 # title with characters that used to be unsafe in sed expressions
 git -C "$repo_dir" commit -q --allow-empty \
     -m 'weird title with /slashes/ and $dollar and "quotes"'
+# overlapping reference numbers (OPCT-1 vs OPCT-10, #1 vs #10)
+# and repeated references in the same title
+git -C "$repo_dir" commit -q --allow-empty \
+    -m "OPCT-1: touch OPCT-10 and repeat OPCT-1 again (#1) (#10)"
 git -C "$repo_dir" tag v0.2.0
 
 # the generator runs git commands in the current directory, not relative
@@ -60,6 +64,15 @@ check() {
     fi
 }
 
+check_not() {
+    if grep -qF "$1" "$changelog"; then
+        echo "FAIL: $1 unexpectedly found in $changelog"
+        fail=1
+    else
+        echo "PASS: absent $1"
+    fi
+}
+
 check '[OPCT-462](https://issues.redhat.com/browse/OPCT-462)'
 check '[OPCT-011](https://issues.redhat.com/browse/OPCT-011)'
 check '[OPCT-999](https://issues.redhat.com/browse/OPCT-999)'
@@ -69,6 +82,14 @@ check '[OCPBUGS-996](https://issues.redhat.com/browse/OCPBUGS-996)'
 check '[#254](https://github.com/redhat-openshift-ecosystem/opct/pull/254)'
 check '[#1](https://github.com/redhat-openshift-ecosystem/opct/pull/1)'
 check '[#2](https://github.com/redhat-openshift-ecosystem/opct/pull/2)'
+check '[OPCT-1](https://issues.redhat.com/browse/OPCT-1)'
+check '[OPCT-10](https://issues.redhat.com/browse/OPCT-10)'
+check '[#10](https://github.com/redhat-openshift-ecosystem/opct/pull/10)'
+
+# mangled-output guards: prefix substitution (OPCT-1 eating OPCT-10)
+# and re-processing of generated links must never appear
+check_not 'OPCT-1)0'
+check_not 'browse/['
 
 if [ "$fail" -ne 0 ]; then
     echo "Regression test FAILED"
