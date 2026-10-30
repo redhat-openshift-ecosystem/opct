@@ -561,10 +561,10 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 	// between different workflows (e.g. conformance vs upgrade runs on
 	// the same cluster at the same time).
 	if serverFinishedTime != "" {
-		ts := strings.Replace(serverFinishedTime, "-", "", -1)
-		ts = strings.Replace(ts, ":", "", -1)
-		ts = strings.Replace(ts, "T", "", -1)
-		ts = strings.Replace(ts, "Z", "", -1)
+		ts := strings.ReplaceAll(serverFinishedTime, "-", "")
+		ts = strings.ReplaceAll(ts, ":", "")
+		ts = strings.ReplaceAll(ts, "T", "")
+		ts = strings.ReplaceAll(ts, "Z", "")
 		if re.Setup.API.Workflow != "" {
 			re.Setup.API.SummaryName = fmt.Sprintf("%s_%s_%s_%s.json", re.Setup.API.OpenShiftRelease, re.Setup.API.PlatformType, ts, re.Setup.API.Workflow)
 		} else {
