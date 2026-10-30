@@ -75,3 +75,28 @@ func (bd *BaselineData) GetSetupTags() (map[string]interface{}, error) {
 	tags = obj["setup"].(map[string]interface{})["api"].(map[string]interface{})
 	return tags, nil
 }
+
+// GetWorkflow extracts the workflow field from the baseline summary payload.
+// Returns the workflow string and true if the field was present (even if empty),
+// or ("", false) when the payload predates the workflow field.
+func (bd *BaselineData) GetWorkflow() (string, bool) {
+	var obj map[string]interface{}
+	if err := json.Unmarshal(bd.raw, &obj); err != nil {
+		return "", false
+	}
+	setup, ok := obj["setup"].(map[string]interface{})
+	if !ok {
+		return "", false
+	}
+	api, ok := setup["api"].(map[string]interface{})
+	if !ok {
+		return "", false
+	}
+	wf, ok := api["workflow"]
+	if !ok {
+		// Legacy payload: field absent entirely.
+		return "", false
+	}
+	s, _ := wf.(string)
+	return s, true
+}
