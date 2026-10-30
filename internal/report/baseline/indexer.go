@@ -33,6 +33,7 @@ type baselineIndexItem struct {
 	OpenShiftRelease string                 `json:"openshift_version"`
 	Provider         string                 `json:"provider"`
 	PlatformType     string                 `json:"platform_type"`
+	Workflow         string                 `json:"workflow,omitempty"`
 	Status           string                 `json:"status"`
 	Size             string                 `json:"size"`
 	IsLatest         bool                   `json:"is_latest"`
@@ -115,10 +116,12 @@ func (brs *BaselineConfig) CreateBaselineIndex(ctx context.Context) error {
 
 	log.Infof("Index update: %d existing, %d new, %d total", len(knownPaths), newCount, len(index.Results))
 
-	// Recalculate latest for all results.
+	// Recalculate latest for all results. The latest key includes the
+	// workflow dimension so that conformance and upgrade baselines maintain
+	// independent "latest" entries per release and platform.
 	for _, res := range index.Results {
 		res.IsLatest = false
-		latestIndexKey := fmt.Sprintf("%s_%s", res.OpenShiftRelease, res.PlatformType)
+		latestIndexKey := latestKey(res.OpenShiftRelease, res.PlatformType, res.Workflow)
 		existing, ok := index.Latest[latestIndexKey]
 		if !ok {
 			res.IsLatest = true
@@ -285,6 +288,11 @@ func (brs *BaselineConfig) fetchObjectMetadata(ctx context.Context, svc s3API, o
 		log.Warnf("missing executionDate tag in metadata, extracting from name: %v", executionDate)
 	}
 
+	workflow := ""
+	if v, ok := tags["workflow"].(string); ok && v != "" {
+		workflow = v
+	}
+
 	return &baselineIndexItem{
 		Date:             executionDate,
 		Name:             strings.Split(name, ".json")[0],
@@ -292,8 +300,21 @@ func (brs *BaselineConfig) fetchObjectMetadata(ctx context.Context, svc s3API, o
 		Size:             fmt.Sprintf("%d", aws.ToInt64(obj.Size)),
 		OpenShiftRelease: openShiftRelease,
 		PlatformType:     platformType,
+		Workflow:         workflow,
 		Tags:             tags,
 	}, nil
+}
+
+// latestKey returns the index key used to track the latest baseline per
+// combination of release, platform and workflow. Legacy entries without a
+// workflow keep the old two-part key so that existing indexes remain
+// compatible — the report processor falls back to the workflow-less key
+// when no workflow-specific entry is found.
+func latestKey(release, platform, workflow string) string {
+	if workflow == "" {
+		return fmt.Sprintf("%s_%s", release, platform)
+	}
+	return fmt.Sprintf("%s_%s_%s", release, platform, workflow)
 }
 
 // ListObjects lists all objects in the bucket, paginating through all results.

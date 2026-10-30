@@ -467,8 +467,14 @@ func (cs *ConsolidatedSummary) loadBaselineFromAPI() error {
 	}
 	platformType := cs.Provider.OpenShift.GetInfrastructurePlatformType()
 
+	// Discover the workflow from the provider's OPCT runtime config so the
+	// baseline lookup matches the target archive's workflow. This prevents
+	// an upgrade execution from consuming a conformance baseline (or the
+	// reverse), which would produce misleading known-failure filtering.
+	workflow := cs.Provider.OpenShift.GetWorkflow()
+
 	cs.BaselineAPI = baseline.NewBaselineReportSummary()
-	if err := cs.BaselineAPI.GetLatestRawSummaryFromPlatformWithFallback(ocpRelease, platformType); err != nil {
+	if err := cs.BaselineAPI.GetLatestRawSummaryFromPlatformWithFallback(ocpRelease, platformType, workflow); err != nil {
 		return fmt.Errorf("failed to get baseline from API: %w", err)
 	}
 	return nil

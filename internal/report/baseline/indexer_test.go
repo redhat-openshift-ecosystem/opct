@@ -71,14 +71,24 @@ func (m *mockS3Client) CopyObject(_ context.Context, input *s3.CopyObjectInput, 
 
 // makeSummaryJSON builds a minimal summary object with setup.api tags.
 func makeSummaryJSON(release, platform, date string) []byte {
+	return makeSummaryJSONWithWorkflow(release, platform, date, "")
+}
+
+// makeSummaryJSONWithWorkflow builds a minimal summary object with setup.api tags
+// including an optional workflow field.
+func makeSummaryJSONWithWorkflow(release, platform, date, workflow string) []byte {
+	api := map[string]interface{}{
+		"openshiftRelease": release,
+		"platformType":     platform,
+		"executionDate":    date,
+		"dataPath":         fmt.Sprintf("%s_%s_%s.json", release, platform, strings.ReplaceAll(date, ":", "")),
+	}
+	if workflow != "" {
+		api["workflow"] = workflow
+	}
 	obj := map[string]interface{}{
 		"setup": map[string]interface{}{
-			"api": map[string]interface{}{
-				"openshiftRelease": release,
-				"platformType":     platform,
-				"executionDate":    date,
-				"dataPath":         fmt.Sprintf("%s_%s_%s.json", release, platform, strings.ReplaceAll(date, ":", "")),
-			},
+			"api": api,
 		},
 	}
 	b, _ := json.Marshal(obj)
@@ -437,5 +447,179 @@ func TestFilterSpecialObjects(t *testing.T) {
 		if included != tc.expected {
 			t.Errorf("object %q: expected included=%v, got %v", tc.name, tc.expected, included)
 		}
+	}
+}
+
+// --- Workflow-scoped baseline tests ---
+
+func TestLatestKey(t *testing.T) {
+	tests := []struct {
+		release  string
+		platform string
+		workflow string
+		want     string
+	}{
+		{"4.17", "None", "", "4.17_None"},
+		{"4.17", "None", "upgrade", "4.17_None_upgrade"},
+		{"4.18", "External", "regular", "4.18_External_regular"},
+		{"4.19", "AWS", "", "4.19_AWS"},
+	}
+	for _, tc := range tests {
+		got := latestKey(tc.release, tc.platform, tc.workflow)
+		if got != tc.want {
+			t.Errorf("latestKey(%q, %q, %q) = %q, want %q", tc.release, tc.platform, tc.workflow, got, tc.want)
+		}
+	}
+}
+
+func TestFetchObjectMetadata_ExtractsWorkflow(t *testing.T) {
+	body := makeSummaryJSONWithWorkflow("4.20", "External", "2026-03-01T00:00:00Z", "upgrade")
+	key := "api/v0/result/summary/4.20_External_20260301.json"
+	objects := map[string][]byte{key: body}
+	mock := newMockS3(objects)
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+
+	size := int64(len(body))
+	obj := s3types.Object{Key: aws.String(key), Size: &size}
+
+	item, err := brs.fetchObjectMetadata(context.Background(), mock, key, "4.20_External_20260301.json", obj)
+	if err != nil {
+		t.Fatalf("fetchObjectMetadata failed: %v", err)
+	}
+	if item.Workflow != "upgrade" {
+		t.Errorf("expected workflow 'upgrade', got %q", item.Workflow)
+	}
+}
+
+func TestFetchObjectMetadata_LegacyNoWorkflow(t *testing.T) {
+	body := makeSummaryJSON("4.17", "None", "2025-01-01T00:00:00Z")
+	key := "api/v0/result/summary/4.17_None_20250101.json"
+	objects := map[string][]byte{key: body}
+	mock := newMockS3(objects)
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+
+	size := int64(len(body))
+	obj := s3types.Object{Key: aws.String(key), Size: &size}
+
+	item, err := brs.fetchObjectMetadata(context.Background(), mock, key, "4.17_None_20250101.json", obj)
+	if err != nil {
+		t.Fatalf("fetchObjectMetadata failed: %v", err)
+	}
+	if item.Workflow != "" {
+		t.Errorf("legacy archive should have empty workflow, got %q", item.Workflow)
+	}
+}
+
+// TestLatestCalculationWorkflowScoped verifies that conformance and upgrade
+// baselines with the same version and platform maintain independent "latest"
+// entries rather than overwriting each other.
+func TestLatestCalculationWorkflowScoped(t *testing.T) {
+	items := []*baselineIndexItem{
+		{Name: "4.20_None_20260101_conformance", OpenShiftRelease: "4.20", PlatformType: "None", Workflow: "", Date: "2026-01-01T00:00:00Z"},
+		{Name: "4.20_None_20260201_conformance", OpenShiftRelease: "4.20", PlatformType: "None", Workflow: "", Date: "2026-02-01T00:00:00Z"},
+		{Name: "4.20_None_20260101_upgrade", OpenShiftRelease: "4.20", PlatformType: "None", Workflow: "upgrade", Date: "2026-01-01T00:00:00Z"},
+		{Name: "4.20_None_20260301_upgrade", OpenShiftRelease: "4.20", PlatformType: "None", Workflow: "upgrade", Date: "2026-03-01T00:00:00Z"},
+	}
+
+	latest := make(map[string]*baselineIndexItem)
+	for _, res := range items {
+		res.IsLatest = false
+		key := latestKey(res.OpenShiftRelease, res.PlatformType, res.Workflow)
+		existing, ok := latest[key]
+		if !ok {
+			res.IsLatest = true
+			latest[key] = res
+		} else if existing.Date < res.Date {
+			existing.IsLatest = false
+			res.IsLatest = true
+			latest[key] = res
+		}
+	}
+
+	if len(latest) != 2 {
+		t.Fatalf("expected 2 latest entries (one per workflow), got %d", len(latest))
+	}
+
+	// Legacy (empty workflow) latest
+	legacyLatest := latest["4.20_None"]
+	if legacyLatest == nil {
+		t.Fatal("expected 4.20_None latest entry")
+	}
+	if legacyLatest.Name != "4.20_None_20260201_conformance" {
+		t.Errorf("expected legacy latest to be 20260201, got %s", legacyLatest.Name)
+	}
+
+	// Upgrade workflow latest
+	upgradeLatest := latest["4.20_None_upgrade"]
+	if upgradeLatest == nil {
+		t.Fatal("expected 4.20_None_upgrade latest entry")
+	}
+	if upgradeLatest.Name != "4.20_None_20260301_upgrade" {
+		t.Errorf("expected upgrade latest to be 20260301, got %s", upgradeLatest.Name)
+	}
+}
+
+// TestLatestCalculationUpgradeDoesNotOverwriteConformance verifies that
+// publishing a newer upgrade baseline does not displace the conformance
+// baseline's "latest" entry (the core regression this change prevents).
+func TestLatestCalculationUpgradeDoesNotOverwriteConformance(t *testing.T) {
+	// Conformance baseline published first.
+	conformance := &baselineIndexItem{
+		Name: "4.20_External_20260101", OpenShiftRelease: "4.20",
+		PlatformType: "External", Workflow: "", Date: "2026-01-01T00:00:00Z",
+	}
+	// Upgrade baseline published later, same dimensions.
+	upgrade := &baselineIndexItem{
+		Name: "4.20_External_20260301_upgrade", OpenShiftRelease: "4.20",
+		PlatformType: "External", Workflow: "upgrade", Date: "2026-03-01T00:00:00Z",
+	}
+
+	latest := make(map[string]*baselineIndexItem)
+	for _, res := range []*baselineIndexItem{conformance, upgrade} {
+		res.IsLatest = false
+		key := latestKey(res.OpenShiftRelease, res.PlatformType, res.Workflow)
+		existing, ok := latest[key]
+		if !ok {
+			res.IsLatest = true
+			latest[key] = res
+		} else if existing.Date < res.Date {
+			existing.IsLatest = false
+			res.IsLatest = true
+			latest[key] = res
+		}
+	}
+
+	// The conformance entry must still be present as latest.
+	if _, ok := latest["4.20_External"]; !ok {
+		t.Error("conformance baseline was displaced by upgrade publication")
+	}
+	// And the upgrade entry must exist independently.
+	if _, ok := latest["4.20_External_upgrade"]; !ok {
+		t.Error("upgrade baseline was not tracked")
+	}
+}
+
+// TestWorkflowFieldJSONRoundTrip verifies the Workflow field survives
+// serialization and deserialization of the index, preserving backward
+// compatibility (old indexes have no workflow field, omitempty keeps it clean).
+func TestWorkflowFieldJSONRoundTrip(t *testing.T) {
+	items := []*baselineIndexItem{
+		{Name: "legacy", OpenShiftRelease: "4.17", PlatformType: "None", Workflow: ""},
+		{Name: "scoped", OpenShiftRelease: "4.20", PlatformType: "External", Workflow: "upgrade"},
+	}
+	indexJSON := makeIndexJSON(items)
+
+	var idx baselineIndex
+	if err := json.Unmarshal(indexJSON, &idx); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	if len(idx.Results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(idx.Results))
+	}
+	if idx.Results[0].Workflow != "" {
+		t.Errorf("legacy entry should have empty workflow, got %q", idx.Results[0].Workflow)
+	}
+	if idx.Results[1].Workflow != "upgrade" {
+		t.Errorf("scoped entry should have workflow 'upgrade', got %q", idx.Results[1].Workflow)
 	}
 }
