@@ -521,6 +521,16 @@ func (rs *ResultSummary) extractAndLoadData() error {
 	rs.GetSonobuoy().ParseMetaConfig(&metaConfig)
 	rs.GetSonobuoy().ParseOpctConfigMap(&opctConfigMapList)
 
+	// Extract the workflow (run-mode) from the parsed OPCT runtime config
+	// so that downstream consumers (baseline lookup, report setup API) can
+	// scope their behavior to the correct workflow.
+	for _, item := range rs.GetSonobuoy().OpctConfig {
+		if item.Name == "run-mode" {
+			rs.OpenShift.Workflow = item.Value
+			break
+		}
+	}
+
 	// TODO the must-gather parser is consuming more resource than expected, need to be
 	// reviewed, and parsers and queue handlers refactored.
 	log.Debugf("Processing results/Populating/Populating Summary/Processing/MustGather")

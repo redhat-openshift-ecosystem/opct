@@ -71,7 +71,86 @@ func (bd *BaselineData) GetSetupTags() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to unmarshal baseline data: %w", err)
 	}
 
-	fmt.Println(obj["setup"].(map[string]interface{}))
 	tags = obj["setup"].(map[string]interface{})["api"].(map[string]interface{})
 	return tags, nil
+}
+
+// GetWorkflow extracts the workflow field from the baseline summary payload.
+// Returns the workflow string and true if the field was present (even if empty),
+// or ("", false) when the payload predates the workflow field.
+func (bd *BaselineData) GetWorkflow() (string, bool) {
+	var obj map[string]interface{}
+	if err := json.Unmarshal(bd.raw, &obj); err != nil {
+		return "", false
+	}
+	setup, ok := obj["setup"].(map[string]interface{})
+	if !ok {
+		return "", false
+	}
+	api, ok := setup["api"].(map[string]interface{})
+	if !ok {
+		return "", false
+	}
+	wf, ok := api["workflow"]
+	if !ok {
+		// Legacy payload: field absent entirely.
+		return "", false
+	}
+	s, _ := wf.(string)
+	return s, true
+}
+
+// InferWorkflow attempts to positively determine the workflow from all
+// available metadata in the baseline summary payload. It checks, in order:
+//
+//  1. setup.api.workflow — the explicit field added with workflow-scoped baselines.
+//  2. provider.runtime.opctConfig run-mode — the original run-mode config
+//     written by the OPCT runner (positive evidence from older payloads).
+//  3. provider.isUpgradeWorkflow — a boolean set to true for upgrade runs;
+//     only usable as positive evidence for "upgrade" (false is omitted by omitempty).
+//
+// Returns (workflow, true) when the workflow can be positively identified, or
+// ("", false) when no metadata establishes it. Callers MUST NOT accept a
+// payload whose workflow cannot be established when a specific workflow filter
+// is active — doing so risks cross-workflow contamination.
+func (bd *BaselineData) InferWorkflow() (string, bool) {
+	// 1. Explicit workflow field — most authoritative.
+	if wf, ok := bd.GetWorkflow(); ok {
+		return wf, true
+	}
+
+	var obj map[string]interface{}
+	if err := json.Unmarshal(bd.raw, &obj); err != nil {
+		return "", false
+	}
+
+	provider, _ := obj["provider"].(map[string]interface{})
+	if provider == nil {
+		return "", false
+	}
+
+	// 2. Check provider.runtime.opctConfig for run-mode entry.
+	if runtime, ok := provider["runtime"].(map[string]interface{}); ok {
+		if opctConfig, ok := runtime["opctConfig"].([]interface{}); ok {
+			for _, item := range opctConfig {
+				cfg, ok := item.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if name, _ := cfg["name"].(string); name == "run-mode" {
+					if v, _ := cfg["value"].(string); v != "" {
+						return v, true
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Check provider.isUpgradeWorkflow — only true is informative
+	//    (false is omitted by omitempty in Go serialization).
+	if isUpgrade, ok := provider["isUpgradeWorkflow"].(bool); ok && isUpgrade {
+		return "upgrade", true
+	}
+
+	return "", false
 }
