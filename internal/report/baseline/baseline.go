@@ -91,6 +91,7 @@ func NewBaselineReportSummary() *BaselineConfig {
 
 // createS3Clients creates the S3 client and uploader to interact with the S3 storage, checking if
 // bucket exists.
+//
 //nolint:staticcheck
 //lint:ignore SA1019 manager kept until transfermanager reaches v1, see createS3Client.
 func (brs *BaselineConfig) createS3Clients(ctx context.Context) (*s3.Client, *manager.Uploader, error) {
@@ -174,11 +175,13 @@ func (brs *BaselineConfig) ReadReportSummaryFromAPI(path string) ([]byte, error)
 // and "AWS", when available.
 //
 // The workflow parameter scopes the lookup to the matching workflow (e.g.
-// "upgrade"). When a workflow is specified every fetched payload is validated:
-//   - A payload whose workflow matches is accepted.
-//   - A payload carrying a different workflow is rejected (prevents cross-workflow filtering).
-//   - A legacy payload without a workflow field is accepted only as a last resort,
-//     with a warning that it may not match the target workflow.
+// "upgrade"). When a workflow is specified every fetched payload is validated
+// using InferWorkflow, which checks all available metadata (explicit workflow
+// field, provider.runtime.opctConfig run-mode, provider.isUpgradeWorkflow):
+//   - A payload whose inferred workflow matches is accepted.
+//   - A payload whose inferred workflow differs is rejected.
+//   - A payload with no verifiable workflow metadata is skipped — a warning
+//     alone does not make an unverifiable workflow match safe.
 //
 // An empty workflow value accepts the first reachable payload (legacy behavior).
 func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpRelease, platformType, workflow string) error {
@@ -196,13 +199,6 @@ func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpReleas
 		evaluatePaths = append(evaluatePaths,
 			fmt.Sprintf("/result/summary/%s_%s_latest.json", ocpRelease, p))
 	}
-
-	// Track the best legacy fallback (no workflow field) in case no exact
-	// match is found. We do NOT use it if a payload with a conflicting
-	// workflow was already seen — only if every payload either failed to
-	// load or was truly legacy (pre-workflow).
-	var legacyFallback *BaselineData
-	var legacyPath string
 
 	for _, path := range evaluatePaths {
 		if errCount > (len(evaluatePaths) * 2) {
@@ -225,30 +221,24 @@ func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpReleas
 			return nil
 		}
 
-		// Validate the payload's workflow against the requested one.
-		if payloadWF, hasField := bd.GetWorkflow(); hasField {
-			if payloadWF == workflow {
+		// Validate the payload's workflow against the requested one using
+		// all available metadata (explicit field, run-mode config,
+		// isUpgradeWorkflow flag).
+		inferredWF, hasEvidence := bd.InferWorkflow()
+		if hasEvidence {
+			if inferredWF == workflow {
 				brs.buffer = bd
 				return nil
 			}
 			// Payload carries a different workflow — reject it.
-			log.Debugf("Baseline payload %s has workflow %q, need %q — skipping", path, payloadWF, workflow)
+			log.Debugf("Baseline payload %s has workflow %q, need %q — skipping", path, inferredWF, workflow)
 			continue
 		}
 
-		// Legacy payload: no workflow field. Keep as fallback but don't
-		// accept immediately — a workflow-scoped path might still succeed.
-		if legacyFallback == nil {
-			legacyFallback = bd
-			legacyPath = path
-		}
-	}
-
-	// Accept legacy fallback only when no exact match was found.
-	if legacyFallback != nil {
-		log.Warnf("No workflow-scoped baseline found for workflow %q; using legacy baseline from %s (no workflow field in payload)", workflow, legacyPath)
-		brs.buffer = legacyFallback
-		return nil
+		// No verifiable workflow metadata — skip this payload entirely.
+		// Accepting an unverifiable payload risks cross-workflow
+		// contamination (e.g. using a conformance baseline for upgrade).
+		log.Debugf("Baseline payload %s has no verifiable workflow metadata — skipping (need %q)", path, workflow)
 	}
 
 	if len(errors) > 0 {
@@ -261,9 +251,10 @@ func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpReleas
 // GetLatestSummaryByPlatform reads the latest summary report from the OPCT report service, trying to
 // retrieve from release and platform. When workflow is non-empty the
 // workflow-scoped path is tried first. The legacy (workflow-less) path is
-// only used when the payload it returns carries no workflow field (truly
-// legacy) or no workflow filter was requested. A payload with a
-// conflicting workflow is rejected.
+// validated with InferWorkflow: a payload whose workflow can be positively
+// established and matches is accepted; a mismatch or unverifiable payload
+// is rejected. A payload with no verifiable workflow metadata is not
+// accepted — unknown provenance cannot safely authorize workflow selection.
 // ocpRelease is the OpenShift major version, like "4.7", "4.8", etc.
 func (brs *BaselineConfig) GetLatestSummaryByPlatform(ocpRelease, platformType, workflow string) error {
 	// Try workflow-scoped path first when a workflow is specified.
@@ -287,10 +278,16 @@ func (brs *BaselineConfig) GetLatestSummaryByPlatform(ocpRelease, platformType, 
 	bd := &BaselineData{}
 	bd.SetRawData(buf)
 
-	// If a workflow was requested, validate the fetched payload.
+	// If a workflow was requested, validate the fetched payload using
+	// all available metadata paths.
 	if workflow != "" {
-		if payloadWF, hasField := bd.GetWorkflow(); hasField && payloadWF != workflow {
-			log.Warnf("Legacy baseline at %s carries workflow %q, need %q — skipping baseline", path, payloadWF, workflow)
+		inferredWF, hasEvidence := bd.InferWorkflow()
+		if !hasEvidence {
+			log.Warnf("Legacy baseline at %s has no verifiable workflow metadata — skipping (need %q)", path, workflow)
+			return nil
+		}
+		if inferredWF != workflow {
+			log.Warnf("Baseline at %s carries workflow %q, need %q — skipping baseline", path, inferredWF, workflow)
 			return nil
 		}
 	}
