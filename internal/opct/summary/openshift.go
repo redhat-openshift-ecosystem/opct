@@ -417,4 +417,3 @@ func (os *OpenShiftSummary) GetResultConformanceReplay() *plugin.OPCTPluginSumma
 func (os *OpenShiftSummary) GetWorkflow() string {
 	return os.Workflow
 }
-

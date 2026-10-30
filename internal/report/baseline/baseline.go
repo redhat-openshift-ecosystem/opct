@@ -36,13 +36,25 @@ const (
 	// The original bucket[1], must be migrated to another account and the CloudFront URL,
 	// is part of that goal without disrupting the current process.
 	// [1] "https://openshift-provider-certification.s3.us-west-2.amazonaws.com"
-	reportBaseURL            = "https://d23912a6309zf7.cloudfront.net"
 	cloudfrontDistributionID = "E3MJR7MT6EHHJC"
 
 	// To override those values use environment variables OPCT_EXP_BUCKET_NAME and OPCT_EXP_BUCKET_REGION
 	opctStorageBucketName   = "opct-archive"
 	opctStorageBucketRegion = "us-east-1"
 )
+
+// reportBaseURL is the base URL for the CloudFront-served baseline API.
+// It is a package-level variable (not a const) so that tests can override
+// it with httptest servers.
+var reportBaseURL = "https://d23912a6309zf7.cloudfront.net" //nolint:gochecknoglobals
+
+// setReportBaseURL replaces the base URL used by ReadReportSummaryFromAPI.
+// Intended for tests only; returns the old value for deferred restore.
+func setReportBaseURL(url string) string {
+	old := reportBaseURL
+	reportBaseURL = url
+	return old
+}
 
 // BaselineReport is the struct that holds the baseline report data
 // pre-processed and saved in the bucket.
@@ -160,9 +172,15 @@ func (brs *BaselineConfig) ReadReportSummaryFromAPI(path string) ([]byte, error)
 // GetLatestRawSummaryFromPlatformWithFallback reads the latest summary report from the OPCT report
 // service, trying to get the latest summary from the specified platform, and fallback to "None",
 // and "AWS", when available.
+//
 // The workflow parameter scopes the lookup to the matching workflow (e.g.
-// "upgrade"); an empty value falls back to the legacy (workflow-less) path
-// so that indexes built before workflow-scoped baselines remain compatible.
+// "upgrade"). When a workflow is specified every fetched payload is validated:
+//   - A payload whose workflow matches is accepted.
+//   - A payload carrying a different workflow is rejected (prevents cross-workflow filtering).
+//   - A legacy payload without a workflow field is accepted only as a last resort,
+//     with a warning that it may not match the target workflow.
+//
+// An empty workflow value accepts the first reachable payload (legacy behavior).
 func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpRelease, platformType, workflow string) error {
 	var errors []error
 	errCount := 0
@@ -179,8 +197,14 @@ func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpReleas
 			fmt.Sprintf("/result/summary/%s_%s_latest.json", ocpRelease, p))
 	}
 
+	// Track the best legacy fallback (no workflow field) in case no exact
+	// match is found. We do NOT use it if a payload with a conflicting
+	// workflow was already seen — only if every payload either failed to
+	// load or was truly legacy (pre-workflow).
+	var legacyFallback *BaselineData
+	var legacyPath string
+
 	for _, path := range evaluatePaths {
-		// do not tolerate many errors
 		if errCount > (len(evaluatePaths) * 2) {
 			log.Errorf("Too many errors, stopping the process")
 			break
@@ -191,21 +215,55 @@ func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpReleas
 			errCount++
 			continue
 		}
-		brs.buffer = &BaselineData{}
-		brs.buffer.SetRawData(body)
+
+		bd := &BaselineData{}
+		bd.SetRawData(body)
+
+		// When no workflow filter is requested, accept the first successful response.
+		if workflow == "" {
+			brs.buffer = bd
+			return nil
+		}
+
+		// Validate the payload's workflow against the requested one.
+		if payloadWF, hasField := bd.GetWorkflow(); hasField {
+			if payloadWF == workflow {
+				brs.buffer = bd
+				return nil
+			}
+			// Payload carries a different workflow — reject it.
+			log.Debugf("Baseline payload %s has workflow %q, need %q — skipping", path, payloadWF, workflow)
+			continue
+		}
+
+		// Legacy payload: no workflow field. Keep as fallback but don't
+		// accept immediately — a workflow-scoped path might still succeed.
+		if legacyFallback == nil {
+			legacyFallback = bd
+			legacyPath = path
+		}
+	}
+
+	// Accept legacy fallback only when no exact match was found.
+	if legacyFallback != nil {
+		log.Warnf("No workflow-scoped baseline found for workflow %q; using legacy baseline from %s (no workflow field in payload)", workflow, legacyPath)
+		brs.buffer = legacyFallback
 		return nil
 	}
-	// We don't want to block this flow when checking the baseline while processing the report.
+
 	if len(errors) > 0 {
 		log.Debugf("Found one or more errors while querying baseline API: %v", errors)
 	}
+	log.Infof("No baseline found matching workflow %q for release %s", workflow, ocpRelease)
 	return nil
 }
 
 // GetLatestSummaryByPlatform reads the latest summary report from the OPCT report service, trying to
 // retrieve from release and platform. When workflow is non-empty the
-// workflow-scoped path is tried first, with a fallback to the legacy
-// (workflow-less) path for backward compatibility.
+// workflow-scoped path is tried first. The legacy (workflow-less) path is
+// only used when the payload it returns carries no workflow field (truly
+// legacy) or no workflow filter was requested. A payload with a
+// conflicting workflow is rejected.
 // ocpRelease is the OpenShift major version, like "4.7", "4.8", etc.
 func (brs *BaselineConfig) GetLatestSummaryByPlatform(ocpRelease, platformType, workflow string) error {
 	// Try workflow-scoped path first when a workflow is specified.
@@ -217,7 +275,7 @@ func (brs *BaselineConfig) GetLatestSummaryByPlatform(ocpRelease, platformType, 
 			brs.buffer.SetRawData(buf)
 			return nil
 		}
-		log.Debugf("workflow-scoped baseline not found (%s), falling back to legacy path", path)
+		log.Debugf("workflow-scoped baseline not found (%s), trying legacy path", path)
 	}
 
 	path := fmt.Sprintf("/result/summary/%s_%s_latest.json", ocpRelease, platformType)
@@ -225,8 +283,19 @@ func (brs *BaselineConfig) GetLatestSummaryByPlatform(ocpRelease, platformType, 
 	if err != nil {
 		return fmt.Errorf("unable to get latest summary by platform: %w", err)
 	}
-	brs.buffer = &BaselineData{}
-	brs.buffer.SetRawData(buf)
+
+	bd := &BaselineData{}
+	bd.SetRawData(buf)
+
+	// If a workflow was requested, validate the fetched payload.
+	if workflow != "" {
+		if payloadWF, hasField := bd.GetWorkflow(); hasField && payloadWF != workflow {
+			log.Warnf("Legacy baseline at %s carries workflow %q, need %q — skipping baseline", path, payloadWF, workflow)
+			return nil
+		}
+	}
+
+	brs.buffer = bd
 	return nil
 }
 

@@ -535,13 +535,6 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 
 	// Discover execution time
 	re.Setup.API.ExecutionDate = serverFinishedTime
-	if serverFinishedTime != "" {
-		ts := strings.Replace(serverFinishedTime, "-", "", -1)
-		ts = strings.Replace(ts, ":", "", -1)
-		ts = strings.Replace(ts, "T", "", -1)
-		ts = strings.Replace(ts, "Z", "", -1)
-		re.Setup.API.SummaryName = fmt.Sprintf("%s_%s_%s.json", re.Setup.API.OpenShiftRelease, re.Setup.API.PlatformType, ts)
-	}
 	for i := range reResult.Runtime.ServerConfig {
 		if reResult.Runtime.ServerConfig[i].Name == "UUID" {
 			re.Setup.API.UUID = reResult.Runtime.ServerConfig[i].Value
@@ -562,6 +555,22 @@ func (re *ReportData) populateSource(rs *summary.ResultSummary) error {
 		}
 	}
 	reResult.ErrorCounters = aggregateErrorCounters(reResult, workflow)
+
+	// Build the summary name used as the S3 object key during publication.
+	// Includes workflow when set to prevent same-timestamp collisions
+	// between different workflows (e.g. conformance vs upgrade runs on
+	// the same cluster at the same time).
+	if serverFinishedTime != "" {
+		ts := strings.Replace(serverFinishedTime, "-", "", -1)
+		ts = strings.Replace(ts, ":", "", -1)
+		ts = strings.Replace(ts, "T", "", -1)
+		ts = strings.Replace(ts, "Z", "", -1)
+		if re.Setup.API.Workflow != "" {
+			re.Setup.API.SummaryName = fmt.Sprintf("%s_%s_%s_%s.json", re.Setup.API.OpenShiftRelease, re.Setup.API.PlatformType, ts, re.Setup.API.Workflow)
+		} else {
+			re.Setup.API.SummaryName = fmt.Sprintf("%s_%s_%s.json", re.Setup.API.OpenShiftRelease, re.Setup.API.PlatformType, ts)
+		}
+	}
 
 	return nil
 }
