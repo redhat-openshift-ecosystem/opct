@@ -21,6 +21,7 @@ type OpenShiftSummary struct {
 	ClusterNetwork   *configv1.Network
 	Nodes            []*Node
 	InstallInvoker   string
+	Workflow         string
 
 	// Plugin Results
 	PluginResultK8sConformance     *plugin.OPCTPluginSummary
@@ -409,3 +410,11 @@ func (os *OpenShiftSummary) GetResultConformanceReplay() *plugin.OPCTPluginSumma
 	}
 	return os.PluginResultConformanceReplay
 }
+
+// GetWorkflow returns the run-mode (workflow) stored in the OPCT runtime
+// configuration. An empty string is returned when the configuration has
+// not been populated (e.g. legacy archives that predate the field).
+func (os *OpenShiftSummary) GetWorkflow() string {
+	return os.Workflow
+}
+

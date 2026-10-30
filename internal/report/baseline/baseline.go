@@ -160,14 +160,25 @@ func (brs *BaselineConfig) ReadReportSummaryFromAPI(path string) ([]byte, error)
 // GetLatestRawSummaryFromPlatformWithFallback reads the latest summary report from the OPCT report
 // service, trying to get the latest summary from the specified platform, and fallback to "None",
 // and "AWS", when available.
-func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpRelease, platformType string) error {
+// The workflow parameter scopes the lookup to the matching workflow (e.g.
+// "upgrade"); an empty value falls back to the legacy (workflow-less) path
+// so that indexes built before workflow-scoped baselines remain compatible.
+func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpRelease, platformType, workflow string) error {
 	var errors []error
 	errCount := 0
-	evaluatePaths := []string{
-		fmt.Sprintf("/result/summary/%s_%s_latest.json", ocpRelease, platformType),
-		fmt.Sprintf("/result/summary/%s_%s_latest.json", ocpRelease, "None"),
-		fmt.Sprintf("/result/summary/%s_%s_latest.json", ocpRelease, "AWS"),
+
+	// Build candidate paths: workflow-scoped first, then legacy fallback.
+	platforms := []string{platformType, "None", "AWS"}
+	var evaluatePaths []string
+	for _, p := range platforms {
+		if workflow != "" {
+			evaluatePaths = append(evaluatePaths,
+				fmt.Sprintf("/result/summary/%s_%s_%s_latest.json", ocpRelease, p, workflow))
+		}
+		evaluatePaths = append(evaluatePaths,
+			fmt.Sprintf("/result/summary/%s_%s_latest.json", ocpRelease, p))
 	}
+
 	for _, path := range evaluatePaths {
 		// do not tolerate many errors
 		if errCount > (len(evaluatePaths) * 2) {
@@ -192,9 +203,23 @@ func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpReleas
 }
 
 // GetLatestSummaryByPlatform reads the latest summary report from the OPCT report service, trying to
-// retrieve from release and platform.
+// retrieve from release and platform. When workflow is non-empty the
+// workflow-scoped path is tried first, with a fallback to the legacy
+// (workflow-less) path for backward compatibility.
 // ocpRelease is the OpenShift major version, like "4.7", "4.8", etc.
-func (brs *BaselineConfig) GetLatestSummaryByPlatform(ocpRelease, platformType string) error {
+func (brs *BaselineConfig) GetLatestSummaryByPlatform(ocpRelease, platformType, workflow string) error {
+	// Try workflow-scoped path first when a workflow is specified.
+	if workflow != "" {
+		path := fmt.Sprintf("/result/summary/%s_%s_%s_latest.json", ocpRelease, platformType, workflow)
+		buf, err := brs.ReadReportSummaryFromAPI(path)
+		if err == nil {
+			brs.buffer = &BaselineData{}
+			brs.buffer.SetRawData(buf)
+			return nil
+		}
+		log.Debugf("workflow-scoped baseline not found (%s), falling back to legacy path", path)
+	}
+
 	path := fmt.Sprintf("/result/summary/%s_%s_latest.json", ocpRelease, platformType)
 	buf, err := brs.ReadReportSummaryFromAPI(path)
 	if err != nil {
