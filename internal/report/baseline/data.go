@@ -71,7 +71,6 @@ func (bd *BaselineData) GetSetupTags() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to unmarshal baseline data: %w", err)
 	}
 
-	fmt.Println(obj["setup"].(map[string]interface{}))
 	tags = obj["setup"].(map[string]interface{})["api"].(map[string]interface{})
 	return tags, nil
 }
