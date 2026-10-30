@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"os"
@@ -72,26 +73,51 @@ type JUnitXMLParser struct {
 }
 
 func NewJUnitXMLParser(xmlFile string) (*JUnitXMLParser, error) {
-	p := &JUnitXMLParser{
-		XMLFile:  xmlFile,
-		Parsed:   &TestSuite{},
-		Counters: &JUnitCounter{},
-		Cases:    []*TestCase{},
-	}
 	xmlData, err := os.ReadFile(xmlFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading XML file: %w", err)
 	}
+	p, err := NewJUnitXMLParserFromBytes(xmlData)
+	if err != nil {
+		return nil, err
+	}
+	p.XMLFile = xmlFile
+	return p, nil
+}
+
+// NewJUnitXMLParserFromBytes parses JUnit XML data already loaded in memory,
+// for example from a results archive, and computes the test counters from the
+// test cases rather than the testsuite attributes.
+func NewJUnitXMLParserFromBytes(xmlData []byte) (*JUnitXMLParser, error) {
+	p := &JUnitXMLParser{
+		Parsed:   &TestSuite{},
+		Counters: &JUnitCounter{},
+		Cases:    []*TestCase{},
+	}
+	// Archives redacted by the OPCT cleaner replace secrets with a raw
+	// "<REDACTED_BY_OPCT>" marker which is not XML-escaped, making otherwise
+	// valid JUnit files (the sonobuoy results were post-processed before the
+	// redaction) unparsable. Escape the marker and retry before giving up.
 	if err := xml.Unmarshal(xmlData, p.Parsed); err != nil {
-		ts := &TestSuites{}
-		if err.Error() == "expected element type <testsuite> but have <testsuites>" {
-			log.Warnf("Found errors while processing default JUnit format, attempting new JUnit format for e2e...")
-			if err := xml.Unmarshal(xmlData, ts); err != nil {
-				return nil, fmt.Errorf("error parsing XML data with testsuites: %w", err)
+		if escaped := bytes.ReplaceAll(xmlData, []byte("<REDACTED_BY_OPCT>"), []byte("&lt;REDACTED_BY_OPCT&gt;")); !bytes.Equal(escaped, xmlData) {
+			log.Warnf("Found redaction markers while parsing JUnit XML, retrying with escaped markers...")
+			xmlData = escaped
+			// A failed Unmarshal may have appended test cases to the struct
+			// before the syntax error, so reset it before the retry.
+			p.Parsed = &TestSuite{}
+			err = xml.Unmarshal(xmlData, p.Parsed)
+		}
+		if err != nil {
+			ts := &TestSuites{}
+			if err.Error() == "expected element type <testsuite> but have <testsuites>" {
+				log.Warnf("Found errors while processing default JUnit format, attempting new JUnit format for e2e...")
+				if err := xml.Unmarshal(xmlData, ts); err != nil {
+					return nil, fmt.Errorf("error parsing XML data with testsuites: %w", err)
+				}
+				p.Parsed = &ts.TestSuite
+			} else {
+				return nil, fmt.Errorf("error parsing XML data: %w", err)
 			}
-			p.Parsed = &ts.TestSuite
-		} else {
-			return nil, fmt.Errorf("error parsing XML data: %w", err)
 		}
 	}
 	// Iterate over the test cases
