@@ -760,39 +760,118 @@ func TestIncrementalIndex_NonCanonicalWorkflowNotHydrated(t *testing.T) {
 	}
 }
 
-// TestIncrementalIndex_NoTagsNoHydration verifies carry-over with a record
-// that has no Tags at all (old pre-tag index format).
-func TestIncrementalIndex_NoTagsNoHydration(t *testing.T) {
+// TestIncrementalIndex_NilTagsFallsBackToS3Read verifies that a cached
+// record with nil Tags has its workflow hydrated from the original S3
+// summary payload via InferWorkflow when the payload has evidence.
+func TestIncrementalIndex_NilTagsFallsBackToS3Read(t *testing.T) {
+	// Summary in S3 has workflow="regular" in its setup.api — but the
+	// cached index record has nil Tags (old pre-tag index format).
+	summary := makeSummaryJSONWithWorkflow("4.17", "None", "2025-01-01T00:00:00Z", "regular")
 	existingItems := []*baselineIndexItem{
 		{
 			Name: "4.17_None_20250101", Path: "api/v0/result/summary/4.17_None_20250101.json",
 			OpenShiftRelease: "4.17", PlatformType: "None", Workflow: "", Date: "2025-01-01T00:00:00Z",
-			Size: "50",
+			Size: fmt.Sprintf("%d", len(summary)),
 			// Tags intentionally nil.
 		},
 	}
 	indexJSON := makeIndexJSON(existingItems)
 	objects := map[string][]byte{
 		"api/v0/result/summary/index.json":              indexJSON,
-		"api/v0/result/summary/4.17_None_20250101.json": makeSummaryJSON("4.17", "None", "2025-01-01T00:00:00Z"),
+		"api/v0/result/summary/4.17_None_20250101.json": summary,
+	}
+	mock := newMockS3(objects)
+
+	// Simulate the carry-over loop with S3 fallback (same as CreateBaselineIndex).
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+	idx, err := brs.loadIndexFromS3(context.Background(), mock)
+	if err != nil {
+		t.Fatalf("loadIndexFromS3 failed: %v", err)
+	}
+
+	currentPaths := make(map[string]struct{})
+	for key := range objects {
+		currentPaths[key] = struct{}{}
+	}
+
+	for _, item := range idx.Results {
+		if _, ok := currentPaths[item.Path]; !ok {
+			continue
+		}
+		if item.Workflow == "" {
+			migrated := false
+			if item.Tags != nil {
+				if v, ok := item.Tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
+					item.Workflow = v
+					migrated = true
+				}
+			}
+			if !migrated {
+				body, rerr := readS3Object(context.Background(), mock, "test-bucket", item.Path)
+				if rerr == nil {
+					bd := &BaselineData{}
+					bd.SetRawData(body)
+					if wf, ok := bd.InferWorkflow(); ok && IsCanonicalWorkflow(wf) {
+						item.Workflow = wf
+					}
+				}
+			}
+		}
+	}
+
+	if idx.Results[0].Workflow != "regular" {
+		t.Errorf("nil-Tags record should be hydrated from S3 summary to 'regular', got %q", idx.Results[0].Workflow)
+	}
+}
+
+// TestIncrementalIndex_NilTagsNoEvidenceStaysUnknown verifies that a
+// cached record with nil Tags and a summary payload that has NO workflow
+// evidence (truly legacy) keeps an empty workflow.
+func TestIncrementalIndex_NilTagsNoEvidenceStaysUnknown(t *testing.T) {
+	// Summary with no workflow field AND no run-mode or isUpgradeWorkflow.
+	summary := makeSummaryJSON("4.17", "None", "2025-01-01T00:00:00Z")
+	existingItems := []*baselineIndexItem{
+		{
+			Name: "4.17_None_20250101", Path: "api/v0/result/summary/4.17_None_20250101.json",
+			OpenShiftRelease: "4.17", PlatformType: "None", Workflow: "", Date: "2025-01-01T00:00:00Z",
+			Size: fmt.Sprintf("%d", len(summary)),
+		},
+	}
+	indexJSON := makeIndexJSON(existingItems)
+	objects := map[string][]byte{
+		"api/v0/result/summary/index.json":              indexJSON,
+		"api/v0/result/summary/4.17_None_20250101.json": summary,
 	}
 	mock := newMockS3(objects)
 	brs := &BaselineConfig{bucketName: "test-bucket"}
-
 	idx, err := brs.loadIndexFromS3(context.Background(), mock)
 	if err != nil {
 		t.Fatalf("loadIndexFromS3 failed: %v", err)
 	}
 
 	for _, item := range idx.Results {
-		if item.Workflow == "" && item.Tags != nil {
-			if v, ok := item.Tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
-				item.Workflow = v
+		if item.Workflow == "" {
+			migrated := false
+			if item.Tags != nil {
+				if v, ok := item.Tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
+					item.Workflow = v
+					migrated = true
+				}
+			}
+			if !migrated {
+				body, rerr := readS3Object(context.Background(), mock, "test-bucket", item.Path)
+				if rerr == nil {
+					bd := &BaselineData{}
+					bd.SetRawData(body)
+					if wf, ok := bd.InferWorkflow(); ok && IsCanonicalWorkflow(wf) {
+						item.Workflow = wf
+					}
+				}
 			}
 		}
 	}
 
 	if idx.Results[0].Workflow != "" {
-		t.Errorf("record with no tags should keep empty workflow, got %q", idx.Results[0].Workflow)
+		t.Errorf("truly-legacy record with no evidence should keep empty workflow, got %q", idx.Results[0].Workflow)
 	}
 }

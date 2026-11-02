@@ -81,21 +81,39 @@ func (brs *BaselineConfig) CreateBaselineIndex(ctx context.Context) error {
 	}
 
 	// Carry over existing results that still exist in S3, hydrating the
-	// top-level Workflow field from Tags when missing. This handles
-	// incremental migration of indexes created before workflow-scoped
-	// baselines were introduced: a cached record whose Tags carry a
-	// canonical workflow value gets its Workflow field populated without
-	// requiring a full S3 re-read.
+	// top-level Workflow field from Tags or the original summary when
+	// missing. This handles incremental migration of indexes created
+	// before workflow-scoped baselines were introduced.
 	if existingIndex != nil {
 		for _, item := range existingIndex.Results {
 			if _, ok := currentPaths[item.Path]; !ok {
 				continue
 			}
 			item.IsLatest = false
-			if item.Workflow == "" && item.Tags != nil {
-				if v, ok := item.Tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
-					item.Workflow = v
-					log.Debugf("Hydrated workflow %q from tags for cached record %s", v, item.Name)
+			if item.Workflow == "" {
+				migrated := false
+				// First: try Tags metadata (cheap, no S3 read).
+				if item.Tags != nil {
+					if v, ok := item.Tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
+						item.Workflow = v
+						migrated = true
+						log.Debugf("Hydrated workflow %q from tags for cached record %s", v, item.Name)
+					}
+				}
+				// Second: if tags didn't help, fetch the original summary
+				// from S3 and use InferWorkflow for reliable evidence.
+				if !migrated {
+					body, err := readS3Object(ctx, svcS3, brs.bucketName, item.Path)
+					if err == nil {
+						bd := &BaselineData{}
+						bd.SetRawData(body)
+						if wf, ok := bd.InferWorkflow(); ok && IsCanonicalWorkflow(wf) {
+							item.Workflow = wf
+							log.Debugf("Hydrated workflow %q from summary payload for cached record %s", wf, item.Name)
+						}
+					} else {
+						log.Debugf("Could not re-read %s for workflow inference: %v", item.Path, err)
+					}
 				}
 			}
 			index.Results = append(index.Results, item)
@@ -314,6 +332,23 @@ func (brs *BaselineConfig) fetchObjectMetadata(ctx context.Context, svc s3API, o
 		Workflow:         workflow,
 		Tags:             tags,
 	}, nil
+}
+
+// readS3Object reads a single object from S3 and returns its body bytes.
+func readS3Object(ctx context.Context, svc s3API, bucket, key string) ([]byte, error) {
+	resp, err := svc.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			log.Warnf("failed to close object body: %v", cerr)
+		}
+	}()
+	return io.ReadAll(resp.Body)
 }
 
 // latestKey returns the index key used to track the latest baseline per

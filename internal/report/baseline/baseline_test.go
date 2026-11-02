@@ -400,6 +400,56 @@ func TestGetLatestSummaryByPlatform_NoWorkflowAcceptsAny(t *testing.T) {
 	}
 }
 
+// TestGetLatestSummaryByPlatform_NonCanonicalWorkflowRejected verifies that
+// a non-canonical workflow value is rejected without making HTTP requests.
+func TestGetLatestSummaryByPlatform_NonCanonicalWorkflowRejected(t *testing.T) {
+	httpCalled := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		httpCalled = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(makePayloadWithLegacyMetadata("IfNotPresent", false))
+	}))
+	defer srv.Close()
+
+	origURL := reportBaseURL
+	setReportBaseURL(srv.URL)
+	defer setReportBaseURL(origURL)
+
+	brs := NewBaselineReportSummary()
+	_ = brs.GetLatestSummaryByPlatform("4.20", "External", "IfNotPresent")
+	if brs.GetBuffer() != nil {
+		t.Error("non-canonical workflow must never select a baseline")
+	}
+	if httpCalled {
+		t.Error("non-canonical workflow should be rejected before any HTTP request")
+	}
+}
+
+// TestGetLatestRawSummaryFromPlatformWithFallback_NonCanonicalRejected verifies
+// that the fallback path also rejects non-canonical workflow values.
+func TestGetLatestRawSummaryFromPlatformWithFallback_NonCanonicalRejected(t *testing.T) {
+	httpCalled := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		httpCalled = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(makePayloadWithLegacyMetadata("IfNotPresent", false))
+	}))
+	defer srv.Close()
+
+	origURL := reportBaseURL
+	setReportBaseURL(srv.URL)
+	defer setReportBaseURL(origURL)
+
+	brs := NewBaselineReportSummary()
+	_ = brs.GetLatestRawSummaryFromPlatformWithFallback("4.20", "External", "IfNotPresent")
+	if brs.GetBuffer() != nil {
+		t.Error("non-canonical workflow must never select a baseline")
+	}
+	if httpCalled {
+		t.Error("non-canonical workflow should be rejected before any HTTP request")
+	}
+}
+
 // TestSummaryNameIncludesWorkflow verifies that dataPath in metadata
 // includes workflow when present to prevent S3 key collisions.
 func TestSummaryNameIncludesWorkflow(t *testing.T) {

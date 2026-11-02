@@ -185,6 +185,13 @@ func (brs *BaselineConfig) ReadReportSummaryFromAPI(path string) ([]byte, error)
 //
 // An empty workflow value accepts the first reachable payload (legacy behavior).
 func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpRelease, platformType, workflow string) error {
+	// Reject non-canonical workflow values early — a non-empty value that
+	// is not "regular" or "upgrade" must never drive baseline selection.
+	if workflow != "" && !IsCanonicalWorkflow(workflow) {
+		log.Warnf("Refusing baseline lookup for non-canonical workflow %q", workflow)
+		return nil
+	}
+
 	var errors []error
 	errCount := 0
 
@@ -257,6 +264,12 @@ func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpReleas
 // accepted — unknown provenance cannot safely authorize workflow selection.
 // ocpRelease is the OpenShift major version, like "4.7", "4.8", etc.
 func (brs *BaselineConfig) GetLatestSummaryByPlatform(ocpRelease, platformType, workflow string) error {
+	// Reject non-canonical workflow values early.
+	if workflow != "" && !IsCanonicalWorkflow(workflow) {
+		log.Warnf("Refusing baseline lookup for non-canonical workflow %q", workflow)
+		return nil
+	}
+
 	// Try workflow-scoped path first when a workflow is specified.
 	// Even though the path itself encodes the workflow, the payload
 	// content is validated to guard against S3 copy errors, stale
