@@ -80,13 +80,24 @@ func (brs *BaselineConfig) CreateBaselineIndex(ctx context.Context) error {
 		Latest:     make(map[string]*baselineIndexItem),
 	}
 
-	// Carry over existing results that still exist in S3.
+	// Carry over existing results that still exist in S3, hydrating the
+	// top-level Workflow field from Tags when missing. This handles
+	// incremental migration of indexes created before workflow-scoped
+	// baselines were introduced: a cached record whose Tags carry a
+	// canonical workflow value gets its Workflow field populated without
+	// requiring a full S3 re-read.
 	if existingIndex != nil {
 		for _, item := range existingIndex.Results {
 			if _, ok := currentPaths[item.Path]; !ok {
 				continue
 			}
 			item.IsLatest = false
+			if item.Workflow == "" && item.Tags != nil {
+				if v, ok := item.Tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
+					item.Workflow = v
+					log.Debugf("Hydrated workflow %q from tags for cached record %s", v, item.Name)
+				}
+			}
 			index.Results = append(index.Results, item)
 			knownPaths[item.Path] = true
 		}

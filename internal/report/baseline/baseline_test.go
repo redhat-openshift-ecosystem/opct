@@ -298,6 +298,108 @@ func TestGetLatestSummaryByPlatform_AcceptsLegacyWithMatchingRunMode(t *testing.
 	}
 }
 
+// TestGetLatestSummaryByPlatform_ScopedPathWrongPayload verifies that
+// the workflow-scoped path payload is validated — a payload at the scoped
+// URL that carries a different workflow is rejected.
+func TestGetLatestSummaryByPlatform_ScopedPathWrongPayload(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Scoped path exists but carries the WRONG workflow in its content.
+		if r.URL.Path == "/result/summary/4.20_External_upgrade_latest.json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(makePayloadWithWorkflow("regular")) // wrong!
+			return
+		}
+		// Legacy path also exists but carries wrong workflow — both rejected.
+		if r.URL.Path == "/result/summary/4.20_External_latest.json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(makePayloadWithWorkflow("regular"))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	origURL := reportBaseURL
+	setReportBaseURL(srv.URL)
+	defer setReportBaseURL(origURL)
+
+	brs := NewBaselineReportSummary()
+	err := brs.GetLatestSummaryByPlatform("4.20", "External", "upgrade")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if brs.GetBuffer() != nil {
+		t.Error("scoped path returning wrong workflow payload must be rejected")
+	}
+}
+
+// TestGetLatestSummaryByPlatform_ScopedPathUnknownPayload verifies that
+// the workflow-scoped path payload with no verifiable workflow metadata
+// is rejected.
+func TestGetLatestSummaryByPlatform_ScopedPathUnknownPayload(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/result/summary/4.20_External_upgrade_latest.json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(makePayloadLegacy()) // no workflow evidence
+			return
+		}
+		// Legacy path — also no evidence.
+		if r.URL.Path == "/result/summary/4.20_External_latest.json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(makePayloadLegacy())
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	origURL := reportBaseURL
+	setReportBaseURL(srv.URL)
+	defer setReportBaseURL(origURL)
+
+	brs := NewBaselineReportSummary()
+	err := brs.GetLatestSummaryByPlatform("4.20", "External", "upgrade")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if brs.GetBuffer() != nil {
+		t.Error("scoped path returning unknown-workflow payload must be rejected")
+	}
+}
+
+// TestGetLatestSummaryByPlatform_NoWorkflowAcceptsAny verifies that the
+// admin path with empty --workflow still accepts the first payload (explicit
+// unfiltered lookup for admin compatibility).
+func TestGetLatestSummaryByPlatform_NoWorkflowAcceptsAny(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/result/summary/4.20_External_latest.json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(makePayloadLegacy()) // no workflow evidence
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	origURL := reportBaseURL
+	setReportBaseURL(srv.URL)
+	defer setReportBaseURL(origURL)
+
+	brs := NewBaselineReportSummary()
+	err := brs.GetLatestSummaryByPlatform("4.20", "External", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if brs.GetBuffer() == nil {
+		t.Error("admin lookup with no --workflow should accept any payload")
+	}
+}
+
 // TestSummaryNameIncludesWorkflow verifies that dataPath in metadata
 // includes workflow when present to prevent S3 key collisions.
 func TestSummaryNameIncludesWorkflow(t *testing.T) {

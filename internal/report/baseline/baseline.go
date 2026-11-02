@@ -258,15 +258,25 @@ func (brs *BaselineConfig) GetLatestRawSummaryFromPlatformWithFallback(ocpReleas
 // ocpRelease is the OpenShift major version, like "4.7", "4.8", etc.
 func (brs *BaselineConfig) GetLatestSummaryByPlatform(ocpRelease, platformType, workflow string) error {
 	// Try workflow-scoped path first when a workflow is specified.
+	// Even though the path itself encodes the workflow, the payload
+	// content is validated to guard against S3 copy errors, stale
+	// latest objects, or misconfigured publishing.
 	if workflow != "" {
 		path := fmt.Sprintf("/result/summary/%s_%s_%s_latest.json", ocpRelease, platformType, workflow)
 		buf, err := brs.ReadReportSummaryFromAPI(path)
 		if err == nil {
-			brs.buffer = &BaselineData{}
-			brs.buffer.SetRawData(buf)
-			return nil
+			bd := &BaselineData{}
+			bd.SetRawData(buf)
+			inferredWF, hasEvidence := bd.InferWorkflow()
+			if hasEvidence && inferredWF == workflow {
+				brs.buffer = bd
+				return nil
+			}
+			// Payload at scoped path doesn't match — log and fall through.
+			log.Warnf("Scoped baseline at %s has workflow %q (evidence=%v), need %q — skipping", path, inferredWF, hasEvidence, workflow)
+		} else {
+			log.Debugf("workflow-scoped baseline not found (%s), trying legacy path", path)
 		}
-		log.Debugf("workflow-scoped baseline not found (%s), trying legacy path", path)
 	}
 
 	path := fmt.Sprintf("/result/summary/%s_%s_latest.json", ocpRelease, platformType)

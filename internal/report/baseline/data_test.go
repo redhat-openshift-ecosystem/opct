@@ -225,3 +225,77 @@ func TestInferWorkflow_NoProvider(t *testing.T) {
 		t.Errorf("expected empty workflow, got %q", wf)
 	}
 }
+
+// TestInferWorkflow_NonCanonicalRunMode verifies that a non-canonical
+// run-mode value is returned as-is (caller comparison will reject it)
+// but does NOT silently match "regular" or "upgrade".
+func TestInferWorkflow_NonCanonicalRunMode(t *testing.T) {
+	bd := &BaselineData{}
+	bd.SetRawData(makePayloadWithLegacyMetadata("IfNotPresent", false))
+
+	wf, ok := bd.InferWorkflow()
+	if !ok {
+		t.Fatal("expected InferWorkflow to return ok=true (run-mode was present)")
+	}
+	if wf != "IfNotPresent" {
+		t.Errorf("expected raw value 'IfNotPresent', got %q", wf)
+	}
+	// Verify it is NOT canonical — callers must reject this.
+	if IsCanonicalWorkflow(wf) {
+		t.Error("IfNotPresent must NOT be treated as a canonical workflow")
+	}
+}
+
+func TestInferWorkflow_ConflictingEvidence(t *testing.T) {
+	// Explicit workflow field takes precedence even when
+	// isUpgradeWorkflow contradicts it.
+	api := map[string]interface{}{
+		"openshiftRelease": "4.20",
+		"platformType":     "External",
+		"executionDate":    "2026-01-01T00:00:00Z",
+		"dataPath":         "4.20_External_20260101.json",
+		"workflow":         "regular",
+	}
+	provider := map[string]interface{}{
+		"plugins":           map[string]interface{}{},
+		"isUpgradeWorkflow": true,
+	}
+	obj := map[string]interface{}{
+		"setup":    map[string]interface{}{"api": api},
+		"provider": provider,
+	}
+	b, _ := json.Marshal(obj)
+
+	bd := &BaselineData{}
+	bd.SetRawData(b)
+	wf, ok := bd.InferWorkflow()
+	if !ok {
+		t.Fatal("expected InferWorkflow to succeed")
+	}
+	if wf != "regular" {
+		t.Errorf("explicit workflow 'regular' should take precedence, got %q", wf)
+	}
+}
+
+// --- IsCanonicalWorkflow tests ---
+
+func TestIsCanonicalWorkflow(t *testing.T) {
+	tests := []struct {
+		wf   string
+		want bool
+	}{
+		{"regular", true},
+		{"upgrade", true},
+		{"", false},
+		{"IfNotPresent", false},
+		{"REGULAR", false},
+		{"Upgrade", false},
+		{"conformance", false},
+	}
+	for _, tc := range tests {
+		got := IsCanonicalWorkflow(tc.wf)
+		if got != tc.want {
+			t.Errorf("IsCanonicalWorkflow(%q) = %v, want %v", tc.wf, got, tc.want)
+		}
+	}
+}

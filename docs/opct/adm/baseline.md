@@ -58,7 +58,7 @@ known failures in a regular (non-upgrade) conformance run, or vice versa.
 |-------|-------------|
 | `regular` | The default conformance workflow (non-upgrade). |
 | `upgrade` | The upgrade validation workflow. |
-| *(empty)* | When omitted, the first reachable baseline is accepted regardless of workflow (legacy behavior). |
+| *(empty)* | **Admin `get` only**: when omitted, the first reachable baseline is accepted regardless of workflow. The automatic `report` command always determines the workflow from the archive and never runs unfiltered (see below). |
 
 ### How workflow matching works
 
@@ -66,7 +66,9 @@ When `--workflow` is specified (or when the `report` command discovers the
 workflow from the archive's OPCT runtime configuration):
 
 1. **Workflow-scoped paths** are tried first
-   (e.g. `4.20_External_upgrade_latest.json`).
+   (e.g. `4.20_External_upgrade_latest.json`). Even the scoped-path payload
+   is validated — a payload whose content does not match the expected
+   workflow is rejected (guards against S3 copy errors or stale latest).
 2. **Legacy paths** (e.g. `4.20_External_latest.json`) are tried as fallback.
    The payload is validated using all available metadata:
      - The explicit `setup.api.workflow` field (present in new payloads).
@@ -76,6 +78,22 @@ workflow from the archive's OPCT runtime configuration):
 4. A payload whose inferred workflow **differs** is rejected.
 5. A payload with **no verifiable workflow metadata** is skipped. Unknown
    provenance does not authorize workflow selection.
+6. Non-canonical workflow values (e.g. `IfNotPresent`, empty strings) are
+   never treated as valid matches.
+
+### Automatic report vs admin `get`
+
+The `report` command determines the workflow from the archive being processed:
+
+- If the archive contains the OPCT `run-mode` config, that value is used.
+- If `run-mode` is absent but the upgrade plugin (`05-openshift-cluster-upgrade`)
+  is present, `upgrade` is inferred.
+- If neither source provides evidence, baseline comparison is **skipped** with
+  a diagnostic warning — the report never silently fetches an unfiltered
+  baseline.
+
+The admin `opct adm baseline get` without `--workflow` intentionally runs
+unfiltered to allow manual inspection of any baseline.
 
 ### Listing and indexing
 
@@ -85,9 +103,13 @@ that publishing an upgrade baseline does not displace the conformance
 baseline for the same release and platform.
 
 The `indexer` command reads the `workflow` tag from each summary object's
-`setup.api` metadata. Legacy objects without the tag keep an empty workflow
-field and use the two-part latest key (`release_platform`), preserving
-backward compatibility.
+`setup.api` metadata. During incremental reindex, cached records whose
+top-level `workflow` field is empty are migrated from their `Tags` metadata
+when a canonical value (`regular` or `upgrade`) is present — no full S3
+re-read or destructive wipe is required. Non-canonical tag values (e.g.
+`IfNotPresent`) and records with no tags are left with an empty workflow
+and use the two-part latest key (`release_platform`), preserving backward
+compatibility.
 
 ### Summary name format
 
