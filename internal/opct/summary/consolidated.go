@@ -33,6 +33,10 @@ type ConsolidatedSummary struct {
 	Provider    *ResultSummary
 	Baseline    *ResultSummary
 	BaselineAPI *baseline.BaselineConfig
+
+	// testBaselineURL overrides the baseline API URL for testing.
+	// Zero value uses the production default. Set by tests only.
+	testBaselineURL string
 }
 
 type ConsolidatedSummaryInput struct {
@@ -490,6 +494,9 @@ func (cs *ConsolidatedSummary) loadBaselineFromAPI() error {
 	}
 
 	cs.BaselineAPI = baseline.NewBaselineReportSummary()
+	if cs.testBaselineURL != "" {
+		cs.BaselineAPI.WithBaseURL(cs.testBaselineURL)
+	}
 	if err := cs.BaselineAPI.GetLatestRawSummaryFromPlatformWithFallback(ocpRelease, platformType, workflow); err != nil {
 		return fmt.Errorf("failed to get baseline from API: %w", err)
 	}

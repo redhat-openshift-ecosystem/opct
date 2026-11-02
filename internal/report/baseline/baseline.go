@@ -63,7 +63,19 @@ type BaselineConfig struct {
 	bucketRegion             string
 	cloudfrontDistributionID string
 
+	// apiBaseURL overrides reportBaseURL when non-empty. This allows
+	// consumers to redirect API calls (e.g. to a test server) without
+	// mutating the package-level default. Set via WithBaseURL.
+	apiBaseURL string
+
 	buffer *BaselineData
+}
+
+// WithBaseURL returns the BaselineConfig with API calls redirected to the
+// given base URL. Intended for testing consumers in other packages.
+func (brs *BaselineConfig) WithBaseURL(url string) *BaselineConfig {
+	brs.apiBaseURL = url
+	return brs
 }
 
 // NewBaselineReportSummary creates a new BaselineConfig struct with the default
@@ -142,7 +154,11 @@ func (brs *BaselineConfig) ReadReportSummaryFromAPI(path string) ([]byte, error)
 	retryLogger.SetLevel(log.WarnLevel)
 	retryClient.Logger = retryLogger
 
-	url := fmt.Sprintf("%s%s", reportBaseURL, path)
+	base := reportBaseURL
+	if brs.apiBaseURL != "" {
+		base = brs.apiBaseURL
+	}
+	url := fmt.Sprintf("%s%s", base, path)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %v", err)
