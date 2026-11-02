@@ -122,8 +122,12 @@ func IsCanonicalWorkflow(wf string) bool {
 // payload whose workflow cannot be established when a specific workflow filter
 // is active — doing so risks cross-workflow contamination.
 func (bd *BaselineData) InferWorkflow() (string, bool) {
-	// 1. Explicit workflow field — most authoritative.
-	if wf, ok := bd.GetWorkflow(); ok {
+	// 1. Explicit workflow field — most authoritative, but only when it
+	// holds a canonical value. Legacy payloads carry garbage such as the
+	// image pull policy ("IfNotPresent") leaked into this field; a
+	// non-canonical value is not evidence, so keep checking the other
+	// sources instead of returning it.
+	if wf, ok := bd.GetWorkflow(); ok && IsCanonicalWorkflow(wf) {
 		return wf, true
 	}
 

@@ -510,6 +510,74 @@ func TestFetchObjectMetadata_LegacyNoWorkflow(t *testing.T) {
 	}
 }
 
+// makeSummaryJSONWithRunMode builds a summary payload with no
+// setup.api.workflow but a run-mode entry in provider.runtime.opctConfig,
+// matching legacy archives published before workflow-scoped baselines.
+func makeSummaryJSONWithRunMode(release, platform, date, runMode string) []byte {
+	obj := map[string]interface{}{
+		"setup": map[string]interface{}{
+			"api": map[string]interface{}{
+				"openshiftRelease": release,
+				"platformType":     platform,
+				"executionDate":    date,
+			},
+		},
+		"provider": map[string]interface{}{
+			"runtime": map[string]interface{}{
+				"opctConfig": []map[string]interface{}{
+					{"name": "run-mode", "value": runMode},
+				},
+			},
+		},
+	}
+	b, _ := json.Marshal(obj)
+	return b
+}
+
+func TestFetchObjectMetadata_NonCanonicalTagFallsBackToInference(t *testing.T) {
+	// Legacy payloads carry garbage such as the image pull policy leaked into
+	// the workflow field; the indexer must not publish an unreachable latest
+	// key for it and must fall back to InferWorkflow evidence instead.
+	body := makeSummaryJSONWithWorkflow("4.23", "External", "2026-01-01T00:00:00Z", "IfNotPresent")
+	body = append(body[:len(body)-1], []byte(`,"provider":{"runtime":{"opctConfig":[{"name":"run-mode","value":"upgrade"}]}}}`)...)
+	key := "api/v0/result/summary/4.23_External_20260101.json"
+	objects := map[string][]byte{key: body}
+	mock := newMockS3(objects)
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+
+	size := int64(len(body))
+	obj := s3types.Object{Key: aws.String(key), Size: &size}
+
+	item, err := brs.fetchObjectMetadata(context.Background(), mock, key, "4.23_External_20260101.json", obj)
+	if err != nil {
+		t.Fatalf("fetchObjectMetadata failed: %v", err)
+	}
+	if item.Workflow != "upgrade" {
+		t.Errorf("expected non-canonical tag to fall back to inferred 'upgrade', got %q", item.Workflow)
+	}
+}
+
+func TestFetchObjectMetadata_InfersWorkflowFromRunModeOnFirstPass(t *testing.T) {
+	// A legacy summary with run-mode evidence must be scoped on first
+	// discovery, not only on a later cached-record pass.
+	body := makeSummaryJSONWithRunMode("4.24", "External", "2026-02-01T00:00:00Z", "regular")
+	key := "api/v0/result/summary/4.24_External_20260201.json"
+	objects := map[string][]byte{key: body}
+	mock := newMockS3(objects)
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+
+	size := int64(len(body))
+	obj := s3types.Object{Key: aws.String(key), Size: &size}
+
+	item, err := brs.fetchObjectMetadata(context.Background(), mock, key, "4.24_External_20260201.json", obj)
+	if err != nil {
+		t.Fatalf("fetchObjectMetadata failed: %v", err)
+	}
+	if item.Workflow != "regular" {
+		t.Errorf("expected run-mode 'regular' to be inferred on first pass, got %q", item.Workflow)
+	}
+}
+
 // TestLatestCalculationWorkflowScoped verifies that conformance and upgrade
 // baselines with the same version and platform maintain independent "latest"
 // entries rather than overwriting each other.

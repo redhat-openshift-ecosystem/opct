@@ -332,8 +332,10 @@ func (brs *BaselineConfig) fetchObjectMetadata(ctx context.Context, svc s3API, o
 	}
 
 	workflow := ""
-	if v, ok := tags["workflow"].(string); ok && v != "" {
+	if v, ok := tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
 		workflow = v
+	} else if wf, ok := bd.InferWorkflow(); ok && IsCanonicalWorkflow(wf) {
+		workflow = wf
 	}
 
 	return &baselineIndexItem{
