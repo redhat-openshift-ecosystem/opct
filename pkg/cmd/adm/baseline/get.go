@@ -64,7 +64,13 @@ func baselineGetCmdRun(cmd *cobra.Command, args []string) {
 			log.Errorf("error getting latest summary by platform: %v", err)
 			return
 		}
-		data = rb.GetBuffer().GetRawData()
+		buffer := rb.GetBuffer()
+		if buffer == nil {
+			log.Errorf("no matching baseline found for %s/%s (workflow=%s): all candidates were rejected or unverifiable",
+				baselineGetArgs.release, baselineGetArgs.platform, baselineGetArgs.workflow)
+			return
+		}
+		data = buffer.GetRawData()
 	}
 
 	if err != nil {
