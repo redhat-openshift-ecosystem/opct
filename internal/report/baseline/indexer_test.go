@@ -624,254 +624,212 @@ func TestWorkflowFieldJSONRoundTrip(t *testing.T) {
 	}
 }
 
-// TestIncrementalIndex_HydratesWorkflowFromTags verifies that the indexer
-// carry-over loop migrates cached records whose top-level Workflow field
-// is empty but whose Tags["workflow"] contains a canonical value. This
-// covers the incremental migration path for indexes that were built before
-// workflow-scoped baselines were introduced.
-func TestIncrementalIndex_HydratesWorkflowFromTags(t *testing.T) {
-	// Pre-existing index with two records for the same release/platform:
-	// one with Tags["workflow"]="regular" (newer), one with Tags["workflow"]="upgrade" (older).
-	// Both have empty top-level Workflow fields (legacy cache).
+// TestBuildAndPublishIndex_IncrementalMigration exercises the ACTUAL
+// production buildAndPublishIndex method with a mock S3 client. Fixture:
+// existing index has two records for same release/platform (4.20/External),
+// one regular (newer, 2026-03) and one upgrade (older, 2026-02). Both have
+// empty top-level Workflow but Tags carry canonical values. No new S3
+// objects. Asserts:
+//   - Both records hydrated to correct workflow from Tags
+//   - Two independent latest entries created (4.20_External_regular and 4.20_External_upgrade)
+//   - CopyObject materialized both latest keys with correct source paths
+//   - Newer upgrade does NOT displace regular latest
+//   - PutObject saved updated index with workflow fields populated
+func TestBuildAndPublishIndex_IncrementalMigration(t *testing.T) {
+	regularSummary := makeSummaryJSONWithWorkflow("4.20", "External", "2026-03-01T00:00:00Z", "regular")
+	upgradeSummary := makeSummaryJSONWithWorkflow("4.20", "External", "2026-02-01T00:00:00Z", "upgrade")
+
+	regularPath := "api/v0/result/summary/4.20_External_20260301.json"
+	upgradePath := "api/v0/result/summary/4.20_External_20260201.json"
+
 	existingItems := []*baselineIndexItem{
 		{
-			Name: "4.20_External_20260301", Path: "api/v0/result/summary/4.20_External_20260301.json",
+			Name: "4.20_External_20260301", Path: regularPath,
 			OpenShiftRelease: "4.20", PlatformType: "External", Workflow: "", Date: "2026-03-01T00:00:00Z",
-			Size: "100",
+			Size: fmt.Sprintf("%d", len(regularSummary)),
 			Tags: map[string]interface{}{"workflow": "regular", "openshiftRelease": "4.20", "platformType": "External", "executionDate": "2026-03-01T00:00:00Z"},
 		},
 		{
-			Name: "4.20_External_20260201", Path: "api/v0/result/summary/4.20_External_20260201.json",
+			Name: "4.20_External_20260201", Path: upgradePath,
 			OpenShiftRelease: "4.20", PlatformType: "External", Workflow: "", Date: "2026-02-01T00:00:00Z",
-			Size: "100",
+			Size: fmt.Sprintf("%d", len(upgradeSummary)),
 			Tags: map[string]interface{}{"workflow": "upgrade", "openshiftRelease": "4.20", "platformType": "External", "executionDate": "2026-02-01T00:00:00Z"},
 		},
 	}
 	indexJSON := makeIndexJSON(existingItems)
 
-	// S3 contains only the existing objects and the index — no new objects.
 	objects := map[string][]byte{
-		"api/v0/result/summary/index.json":                  indexJSON,
-		"api/v0/result/summary/4.20_External_20260301.json": makeSummaryJSONWithWorkflow("4.20", "External", "2026-03-01T00:00:00Z", "regular"),
-		"api/v0/result/summary/4.20_External_20260201.json": makeSummaryJSONWithWorkflow("4.20", "External", "2026-02-01T00:00:00Z", "upgrade"),
+		"api/v0/result/summary/index.json": indexJSON,
+		regularPath:                        regularSummary,
+		upgradePath:                        upgradeSummary,
 	}
 	mock := newMockS3(objects)
+
+	// Build the S3 object list (simulates ListObjects output).
+	var s3Objects []s3types.Object
+	for key, body := range objects {
+		k := key
+		size := int64(len(body))
+		s3Objects = append(s3Objects, s3types.Object{Key: &k, Size: &size})
+	}
+
 	brs := &BaselineConfig{bucketName: "test-bucket"}
-
-	idx, err := brs.loadIndexFromS3(context.Background(), mock)
+	err := brs.buildAndPublishIndex(context.Background(), mock, s3Objects)
 	if err != nil {
-		t.Fatalf("loadIndexFromS3 failed: %v", err)
+		t.Fatalf("buildAndPublishIndex failed: %v", err)
 	}
 
-	// Simulate carry-over with workflow hydration (same logic as CreateBaselineIndex).
-	currentPaths := make(map[string]struct{})
-	for key := range objects {
-		currentPaths[key] = struct{}{}
+	// Verify CopyObject calls — should have exactly 2 latest copies.
+	if len(mock.copyCalls) != 2 {
+		t.Fatalf("expected 2 CopyObject calls, got %d", len(mock.copyCalls))
 	}
 
-	var results []*baselineIndexItem
-	for _, item := range idx.Results {
-		if _, ok := currentPaths[item.Path]; !ok {
-			continue
+	// Collect CopyObject destinations and sources for assertion.
+	copyDests := make(map[string]string) // destination key → source
+	for _, call := range mock.copyCalls {
+		dest := aws.ToString(call.Key)
+		src := aws.ToString(call.CopySource)
+		copyDests[dest] = src
+	}
+
+	// Regular latest copy: 4.20_External_regular_latest.json ← regular path
+	regularLatestKey := "api/v0/result/summary/4.20_External_regular_latest.json"
+	if src, ok := copyDests[regularLatestKey]; !ok {
+		t.Errorf("expected CopyObject for %s", regularLatestKey)
+	} else if !strings.Contains(src, "4.20_External_20260301.json") {
+		t.Errorf("regular latest should copy from 20260301, got source %s", src)
+	}
+
+	// Upgrade latest copy: 4.20_External_upgrade_latest.json ← upgrade path
+	upgradeLatestKey := "api/v0/result/summary/4.20_External_upgrade_latest.json"
+	if src, ok := copyDests[upgradeLatestKey]; !ok {
+		t.Errorf("expected CopyObject for %s", upgradeLatestKey)
+	} else if !strings.Contains(src, "4.20_External_20260201.json") {
+		t.Errorf("upgrade latest should copy from 20260201, got source %s", src)
+	}
+
+	// Verify PutObject saved the index with workflow fields populated.
+	if len(mock.putCalls) != 1 {
+		t.Fatalf("expected 1 PutObject call (index), got %d", len(mock.putCalls))
+	}
+	savedKey := aws.ToString(mock.putCalls[0].Key)
+	if savedKey != indexObjectKey {
+		t.Errorf("expected PutObject key %s, got %s", indexObjectKey, savedKey)
+	}
+
+	// Parse the saved index and verify workflow fields.
+	savedBody, _ := io.ReadAll(mock.putCalls[0].Body)
+	var savedIdx baselineIndex
+	if err := json.Unmarshal(savedBody, &savedIdx); err != nil {
+		t.Fatalf("failed to parse saved index: %v", err)
+	}
+	if len(savedIdx.Results) != 2 {
+		t.Fatalf("expected 2 results in saved index, got %d", len(savedIdx.Results))
+	}
+	// Verify hydration — both should have non-empty Workflow.
+	for _, r := range savedIdx.Results {
+		if r.Workflow == "" {
+			t.Errorf("saved index record %s should have hydrated workflow, got empty", r.Name)
 		}
-		item.IsLatest = false
-		if item.Workflow == "" && item.Tags != nil {
-			if v, ok := item.Tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
-				item.Workflow = v
-			}
-		}
-		results = append(results, item)
-	}
-
-	if len(results) != 2 {
-		t.Fatalf("expected 2 results, got %d", len(results))
-	}
-
-	// Verify hydration occurred.
-	if results[0].Workflow != "regular" {
-		t.Errorf("first record should be hydrated to 'regular', got %q", results[0].Workflow)
-	}
-	if results[1].Workflow != "upgrade" {
-		t.Errorf("second record should be hydrated to 'upgrade', got %q", results[1].Workflow)
-	}
-
-	// Verify latest calculation produces independent entries.
-	latest := make(map[string]*baselineIndexItem)
-	for _, res := range results {
-		res.IsLatest = false
-		key := latestKey(res.OpenShiftRelease, res.PlatformType, res.Workflow)
-		existing, ok := latest[key]
-		if !ok {
-			res.IsLatest = true
-			latest[key] = res
-		} else if existing.Date < res.Date {
-			existing.IsLatest = false
-			res.IsLatest = true
-			latest[key] = res
-		}
-	}
-
-	if len(latest) != 2 {
-		t.Fatalf("expected 2 latest entries (one per workflow), got %d", len(latest))
-	}
-	if latest["4.20_External_regular"] == nil {
-		t.Error("expected 4.20_External_regular latest entry")
-	}
-	if latest["4.20_External_upgrade"] == nil {
-		t.Error("expected 4.20_External_upgrade latest entry")
 	}
 }
 
-// TestIncrementalIndex_NonCanonicalWorkflowNotHydrated verifies that
-// tags carrying non-canonical workflow values (like "IfNotPresent") are
-// NOT used to hydrate the top-level Workflow field.
-func TestIncrementalIndex_NonCanonicalWorkflowNotHydrated(t *testing.T) {
+// TestBuildAndPublishIndex_NilTagsFallsBackToS3 exercises buildAndPublishIndex
+// with a cached record that has nil Tags but whose S3 summary contains
+// workflow evidence. Verifies the S3 re-read fallback in production code.
+func TestBuildAndPublishIndex_NilTagsFallsBackToS3(t *testing.T) {
+	summary := makeSummaryJSONWithWorkflow("4.17", "None", "2025-01-01T00:00:00Z", "regular")
+	summaryPath := "api/v0/result/summary/4.17_None_20250101.json"
+
 	existingItems := []*baselineIndexItem{
 		{
-			Name: "4.17_None_20250101", Path: "api/v0/result/summary/4.17_None_20250101.json",
+			Name: "4.17_None_20250101", Path: summaryPath,
 			OpenShiftRelease: "4.17", PlatformType: "None", Workflow: "", Date: "2025-01-01T00:00:00Z",
-			Size: "50",
+			Size: fmt.Sprintf("%d", len(summary)),
+			// Tags intentionally nil — forces S3 re-read.
+		},
+	}
+	indexJSON := makeIndexJSON(existingItems)
+
+	objects := map[string][]byte{
+		"api/v0/result/summary/index.json": indexJSON,
+		summaryPath:                        summary,
+	}
+	mock := newMockS3(objects)
+
+	var s3Objects []s3types.Object
+	for key, body := range objects {
+		k := key
+		size := int64(len(body))
+		s3Objects = append(s3Objects, s3types.Object{Key: &k, Size: &size})
+	}
+
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+	err := brs.buildAndPublishIndex(context.Background(), mock, s3Objects)
+	if err != nil {
+		t.Fatalf("buildAndPublishIndex failed: %v", err)
+	}
+
+	// Verify the saved index has the workflow hydrated from S3 payload.
+	if len(mock.putCalls) != 1 {
+		t.Fatalf("expected 1 PutObject call, got %d", len(mock.putCalls))
+	}
+	savedBody, _ := io.ReadAll(mock.putCalls[0].Body)
+	var savedIdx baselineIndex
+	if err := json.Unmarshal(savedBody, &savedIdx); err != nil {
+		t.Fatalf("failed to parse saved index: %v", err)
+	}
+	if len(savedIdx.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(savedIdx.Results))
+	}
+	if savedIdx.Results[0].Workflow != "regular" {
+		t.Errorf("nil-Tags record should be hydrated to 'regular' via S3 re-read, got %q", savedIdx.Results[0].Workflow)
+	}
+}
+
+// TestBuildAndPublishIndex_NonCanonicalTagNotHydrated exercises
+// buildAndPublishIndex with a cached record whose Tags contain a
+// non-canonical workflow value. Verifies the record stays unhyrated.
+func TestBuildAndPublishIndex_NonCanonicalTagNotHydrated(t *testing.T) {
+	// Summary in S3 has no workflow evidence either.
+	summary := makeSummaryJSON("4.17", "None", "2025-01-01T00:00:00Z")
+	summaryPath := "api/v0/result/summary/4.17_None_20250101.json"
+
+	existingItems := []*baselineIndexItem{
+		{
+			Name: "4.17_None_20250101", Path: summaryPath,
+			OpenShiftRelease: "4.17", PlatformType: "None", Workflow: "", Date: "2025-01-01T00:00:00Z",
+			Size: fmt.Sprintf("%d", len(summary)),
 			Tags: map[string]interface{}{"workflow": "IfNotPresent"},
 		},
 	}
 	indexJSON := makeIndexJSON(existingItems)
+
 	objects := map[string][]byte{
-		"api/v0/result/summary/index.json":              indexJSON,
-		"api/v0/result/summary/4.17_None_20250101.json": makeSummaryJSON("4.17", "None", "2025-01-01T00:00:00Z"),
-	}
-	mock := newMockS3(objects)
-	brs := &BaselineConfig{bucketName: "test-bucket"}
-
-	idx, err := brs.loadIndexFromS3(context.Background(), mock)
-	if err != nil {
-		t.Fatalf("loadIndexFromS3 failed: %v", err)
-	}
-
-	for _, item := range idx.Results {
-		if item.Workflow == "" && item.Tags != nil {
-			if v, ok := item.Tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
-				item.Workflow = v
-			}
-		}
-	}
-
-	if idx.Results[0].Workflow != "" {
-		t.Errorf("non-canonical tag 'IfNotPresent' should NOT hydrate Workflow, got %q", idx.Results[0].Workflow)
-	}
-}
-
-// TestIncrementalIndex_NilTagsFallsBackToS3Read verifies that a cached
-// record with nil Tags has its workflow hydrated from the original S3
-// summary payload via InferWorkflow when the payload has evidence.
-func TestIncrementalIndex_NilTagsFallsBackToS3Read(t *testing.T) {
-	// Summary in S3 has workflow="regular" in its setup.api — but the
-	// cached index record has nil Tags (old pre-tag index format).
-	summary := makeSummaryJSONWithWorkflow("4.17", "None", "2025-01-01T00:00:00Z", "regular")
-	existingItems := []*baselineIndexItem{
-		{
-			Name: "4.17_None_20250101", Path: "api/v0/result/summary/4.17_None_20250101.json",
-			OpenShiftRelease: "4.17", PlatformType: "None", Workflow: "", Date: "2025-01-01T00:00:00Z",
-			Size: fmt.Sprintf("%d", len(summary)),
-			// Tags intentionally nil.
-		},
-	}
-	indexJSON := makeIndexJSON(existingItems)
-	objects := map[string][]byte{
-		"api/v0/result/summary/index.json":              indexJSON,
-		"api/v0/result/summary/4.17_None_20250101.json": summary,
+		"api/v0/result/summary/index.json": indexJSON,
+		summaryPath:                        summary,
 	}
 	mock := newMockS3(objects)
 
-	// Simulate the carry-over loop with S3 fallback (same as CreateBaselineIndex).
+	var s3Objects []s3types.Object
+	for key, body := range objects {
+		k := key
+		size := int64(len(body))
+		s3Objects = append(s3Objects, s3types.Object{Key: &k, Size: &size})
+	}
+
 	brs := &BaselineConfig{bucketName: "test-bucket"}
-	idx, err := brs.loadIndexFromS3(context.Background(), mock)
+	err := brs.buildAndPublishIndex(context.Background(), mock, s3Objects)
 	if err != nil {
-		t.Fatalf("loadIndexFromS3 failed: %v", err)
+		t.Fatalf("buildAndPublishIndex failed: %v", err)
 	}
 
-	currentPaths := make(map[string]struct{})
-	for key := range objects {
-		currentPaths[key] = struct{}{}
+	savedBody, _ := io.ReadAll(mock.putCalls[0].Body)
+	var savedIdx baselineIndex
+	if err := json.Unmarshal(savedBody, &savedIdx); err != nil {
+		t.Fatalf("failed to parse saved index: %v", err)
 	}
-
-	for _, item := range idx.Results {
-		if _, ok := currentPaths[item.Path]; !ok {
-			continue
-		}
-		if item.Workflow == "" {
-			migrated := false
-			if item.Tags != nil {
-				if v, ok := item.Tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
-					item.Workflow = v
-					migrated = true
-				}
-			}
-			if !migrated {
-				body, rerr := readS3Object(context.Background(), mock, "test-bucket", item.Path)
-				if rerr == nil {
-					bd := &BaselineData{}
-					bd.SetRawData(body)
-					if wf, ok := bd.InferWorkflow(); ok && IsCanonicalWorkflow(wf) {
-						item.Workflow = wf
-					}
-				}
-			}
-		}
-	}
-
-	if idx.Results[0].Workflow != "regular" {
-		t.Errorf("nil-Tags record should be hydrated from S3 summary to 'regular', got %q", idx.Results[0].Workflow)
-	}
-}
-
-// TestIncrementalIndex_NilTagsNoEvidenceStaysUnknown verifies that a
-// cached record with nil Tags and a summary payload that has NO workflow
-// evidence (truly legacy) keeps an empty workflow.
-func TestIncrementalIndex_NilTagsNoEvidenceStaysUnknown(t *testing.T) {
-	// Summary with no workflow field AND no run-mode or isUpgradeWorkflow.
-	summary := makeSummaryJSON("4.17", "None", "2025-01-01T00:00:00Z")
-	existingItems := []*baselineIndexItem{
-		{
-			Name: "4.17_None_20250101", Path: "api/v0/result/summary/4.17_None_20250101.json",
-			OpenShiftRelease: "4.17", PlatformType: "None", Workflow: "", Date: "2025-01-01T00:00:00Z",
-			Size: fmt.Sprintf("%d", len(summary)),
-		},
-	}
-	indexJSON := makeIndexJSON(existingItems)
-	objects := map[string][]byte{
-		"api/v0/result/summary/index.json":              indexJSON,
-		"api/v0/result/summary/4.17_None_20250101.json": summary,
-	}
-	mock := newMockS3(objects)
-	brs := &BaselineConfig{bucketName: "test-bucket"}
-	idx, err := brs.loadIndexFromS3(context.Background(), mock)
-	if err != nil {
-		t.Fatalf("loadIndexFromS3 failed: %v", err)
-	}
-
-	for _, item := range idx.Results {
-		if item.Workflow == "" {
-			migrated := false
-			if item.Tags != nil {
-				if v, ok := item.Tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
-					item.Workflow = v
-					migrated = true
-				}
-			}
-			if !migrated {
-				body, rerr := readS3Object(context.Background(), mock, "test-bucket", item.Path)
-				if rerr == nil {
-					bd := &BaselineData{}
-					bd.SetRawData(body)
-					if wf, ok := bd.InferWorkflow(); ok && IsCanonicalWorkflow(wf) {
-						item.Workflow = wf
-					}
-				}
-			}
-		}
-	}
-
-	if idx.Results[0].Workflow != "" {
-		t.Errorf("truly-legacy record with no evidence should keep empty workflow, got %q", idx.Results[0].Workflow)
+	if savedIdx.Results[0].Workflow != "" {
+		t.Errorf("non-canonical tag should NOT hydrate, got %q", savedIdx.Results[0].Workflow)
 	}
 }

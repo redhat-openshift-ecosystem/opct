@@ -61,6 +61,50 @@ func (brs *BaselineConfig) CreateBaselineIndex(ctx context.Context) error {
 		return err
 	}
 
+	if err := brs.buildAndPublishIndex(ctx, svcS3, objects); err != nil {
+		return err
+	}
+
+	// Expire cache from cloudfront distribution — only on the public
+	// CreateBaselineIndex path, not the core logic.
+	svcCloudfront, err := createCloudFrontClient(ctx, brs.bucketRegion)
+	if err != nil {
+		return fmt.Errorf("failed to create cloudfront client: %w", err)
+	}
+	invalidationPathsStr := []string{
+		"/result/summary/index.json",
+		"/result/summary/*_latest.json",
+	}
+	log.Infof("Creating cache invalidation for %v", strings.Join(invalidationPathsStr, " "))
+	_, err = svcCloudfront.CreateInvalidation(ctx, &cloudfront.CreateInvalidationInput{
+		DistributionId: aws.String(brs.cloudfrontDistributionID),
+		InvalidationBatch: &cftypes.InvalidationBatch{
+			CallerReference: aws.String(time.Now().Format(time.RFC3339)),
+			Paths: &cftypes.Paths{
+				Quantity: aws.Int32(int32(len(invalidationPathsStr))),
+				Items:    invalidationPathsStr,
+			},
+		},
+	})
+	if err != nil {
+
+		log.Warnf("failed to create cache invalidation: %v", err)
+		fmt.Printf(`Index updated. Run the following command to invalidate index.cache:
+aws cloudfront create-invalidation \
+	--distribution-id %s \
+	--paths %s`, brs.cloudfrontDistributionID, strings.Join(invalidationPathsStr, " "))
+		fmt.Println()
+	}
+	return nil
+}
+
+// buildAndPublishIndex is the core indexing logic extracted from
+// CreateBaselineIndex so it can be tested with a mock S3 client.
+// It loads the existing index, carries over/hydrates records, fetches
+// metadata for new objects, recalculates per-workflow latest, copies
+// latest objects, and saves the updated index. CloudFront invalidation
+// is handled by the caller (CreateBaselineIndex) after this returns.
+func (brs *BaselineConfig) buildAndPublishIndex(ctx context.Context, svcS3 s3API, objects []s3types.Object) error {
 	// Load existing index from S3 for incremental updates.
 	existingIndex, err := brs.loadIndexFromS3(ctx, svcS3)
 	if err != nil {
@@ -182,7 +226,6 @@ func (brs *BaselineConfig) CreateBaselineIndex(ctx context.Context) error {
 		return fmt.Errorf("unable to save index to json: %w", err)
 	}
 
-	// Save the index to the bucket
 	_, err = svcS3.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(brs.bucketName),
 		Key:    aws.String(indexObjectKey),
@@ -192,35 +235,6 @@ func (brs *BaselineConfig) CreateBaselineIndex(ctx context.Context) error {
 		return fmt.Errorf("failed to upload index to bucket: %w", err)
 	}
 
-	// Expire cache from cloudfront distribution
-	svcCloudfront, err := createCloudFrontClient(ctx, brs.bucketRegion)
-	if err != nil {
-		return fmt.Errorf("failed to create cloudfront client: %w", err)
-	}
-	invalidationPathsStr := []string{
-		"/result/summary/index.json",
-		"/result/summary/*_latest.json",
-	}
-	log.Infof("Creating cache invalidation for %v", strings.Join(invalidationPathsStr, " "))
-	_, err = svcCloudfront.CreateInvalidation(ctx, &cloudfront.CreateInvalidationInput{
-		DistributionId: aws.String(brs.cloudfrontDistributionID),
-		InvalidationBatch: &cftypes.InvalidationBatch{
-			CallerReference: aws.String(time.Now().Format(time.RFC3339)),
-			Paths: &cftypes.Paths{
-				Quantity: aws.Int32(int32(len(invalidationPathsStr))),
-				Items:    invalidationPathsStr,
-			},
-		},
-	})
-	if err != nil {
-
-		log.Warnf("failed to create cache invalidation: %v", err)
-		fmt.Printf(`Index updated. Run the following command to invalidate index.cache:
-aws cloudfront create-invalidation \
-	--distribution-id %s \
-	--paths %s`, brs.cloudfrontDistributionID, strings.Join(invalidationPathsStr, " "))
-		fmt.Println()
-	}
 	return nil
 }
 
