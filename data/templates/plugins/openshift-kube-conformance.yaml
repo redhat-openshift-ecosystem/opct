@@ -221,6 +221,8 @@ spec:
       value: /tmp/shared/kubeconfig
     - name: PLUGIN_NAME
       value: "openshift-kube-conformance"
+    - name: PLUGIN_BLOCKED_BY
+      value: "{{ if .IsUpgradeMode }}05-openshift-cluster-upgrade{{ end }}"
     - name: PLUGIN_ID
       value: "10"
     - name: ENV_NODE_NAME
