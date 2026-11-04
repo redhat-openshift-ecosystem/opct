@@ -151,11 +151,7 @@ func TestGetLatestRawSummaryFromPlatformWithFallback_WorkflowValidation(t *testi
 			}))
 			defer srv.Close()
 
-			origURL := reportBaseURL
-			setReportBaseURL(srv.URL)
-			defer setReportBaseURL(origURL)
-
-			brs := NewBaselineReportSummary()
+			brs := NewBaselineReportSummary().WithBaseURL(srv.URL)
 			err := brs.GetLatestRawSummaryFromPlatformWithFallback("4.20", "External", tt.requestWF)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -215,11 +211,7 @@ func TestGetLatestSummaryByPlatform_RejectsWrongWorkflow(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	origURL := reportBaseURL
-	setReportBaseURL(srv.URL)
-	defer setReportBaseURL(origURL)
-
-	brs := NewBaselineReportSummary()
+	brs := NewBaselineReportSummary().WithBaseURL(srv.URL)
 	err := brs.GetLatestSummaryByPlatform("4.20", "External", "upgrade")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -245,12 +237,8 @@ func TestGetLatestSummaryByPlatform_RejectsUnknownLegacy(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	origURL := reportBaseURL
-	setReportBaseURL(srv.URL)
-	defer setReportBaseURL(origURL)
-
 	// Test rejection for upgrade target.
-	brs := NewBaselineReportSummary()
+	brs := NewBaselineReportSummary().WithBaseURL(srv.URL)
 	err := brs.GetLatestSummaryByPlatform("4.20", "External", "upgrade")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -260,7 +248,7 @@ func TestGetLatestSummaryByPlatform_RejectsUnknownLegacy(t *testing.T) {
 	}
 
 	// Test rejection for regular target.
-	brs2 := NewBaselineReportSummary()
+	brs2 := NewBaselineReportSummary().WithBaseURL(srv.URL)
 	err = brs2.GetLatestSummaryByPlatform("4.20", "External", "regular")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -284,11 +272,7 @@ func TestGetLatestSummaryByPlatform_AcceptsLegacyWithMatchingRunMode(t *testing.
 	}))
 	defer srv.Close()
 
-	origURL := reportBaseURL
-	setReportBaseURL(srv.URL)
-	defer setReportBaseURL(origURL)
-
-	brs := NewBaselineReportSummary()
+	brs := NewBaselineReportSummary().WithBaseURL(srv.URL)
 	err := brs.GetLatestSummaryByPlatform("4.20", "External", "regular")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -321,11 +305,7 @@ func TestGetLatestSummaryByPlatform_ScopedPathWrongPayload(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	origURL := reportBaseURL
-	setReportBaseURL(srv.URL)
-	defer setReportBaseURL(origURL)
-
-	brs := NewBaselineReportSummary()
+	brs := NewBaselineReportSummary().WithBaseURL(srv.URL)
 	err := brs.GetLatestSummaryByPlatform("4.20", "External", "upgrade")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -357,11 +337,7 @@ func TestGetLatestSummaryByPlatform_ScopedPathUnknownPayload(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	origURL := reportBaseURL
-	setReportBaseURL(srv.URL)
-	defer setReportBaseURL(origURL)
-
-	brs := NewBaselineReportSummary()
+	brs := NewBaselineReportSummary().WithBaseURL(srv.URL)
 	err := brs.GetLatestSummaryByPlatform("4.20", "External", "upgrade")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -386,11 +362,7 @@ func TestGetLatestSummaryByPlatform_NoWorkflowAcceptsAny(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	origURL := reportBaseURL
-	setReportBaseURL(srv.URL)
-	defer setReportBaseURL(origURL)
-
-	brs := NewBaselineReportSummary()
+	brs := NewBaselineReportSummary().WithBaseURL(srv.URL)
 	err := brs.GetLatestSummaryByPlatform("4.20", "External", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -411,11 +383,7 @@ func TestGetLatestSummaryByPlatform_NonCanonicalWorkflowRejected(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	origURL := reportBaseURL
-	setReportBaseURL(srv.URL)
-	defer setReportBaseURL(origURL)
-
-	brs := NewBaselineReportSummary()
+	brs := NewBaselineReportSummary().WithBaseURL(srv.URL)
 	_ = brs.GetLatestSummaryByPlatform("4.20", "External", "IfNotPresent")
 	if brs.GetBuffer() != nil {
 		t.Error("non-canonical workflow must never select a baseline")
@@ -436,11 +404,7 @@ func TestGetLatestRawSummaryFromPlatformWithFallback_NonCanonicalRejected(t *tes
 	}))
 	defer srv.Close()
 
-	origURL := reportBaseURL
-	setReportBaseURL(srv.URL)
-	defer setReportBaseURL(origURL)
-
-	brs := NewBaselineReportSummary()
+	brs := NewBaselineReportSummary().WithBaseURL(srv.URL)
 	_ = brs.GetLatestRawSummaryFromPlatformWithFallback("4.20", "External", "IfNotPresent")
 	if brs.GetBuffer() != nil {
 		t.Error("non-canonical workflow must never select a baseline")

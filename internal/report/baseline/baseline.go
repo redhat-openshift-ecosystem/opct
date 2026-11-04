@@ -43,18 +43,8 @@ const (
 	opctStorageBucketRegion = "us-east-1"
 )
 
-// reportBaseURL is the base URL for the CloudFront-served baseline API.
-// It is a package-level variable (not a const) so that tests can override
-// it with httptest servers.
-var reportBaseURL = "https://d23912a6309zf7.cloudfront.net" //nolint:gochecknoglobals
-
-// setReportBaseURL replaces the base URL used by ReadReportSummaryFromAPI.
-// Intended for tests only; returns the old value for deferred restore.
-func setReportBaseURL(url string) string {
-	old := reportBaseURL
-	reportBaseURL = url
-	return old
-}
+// defaultAPIBaseURL is the base URL for the CloudFront-served baseline API.
+const defaultAPIBaseURL = "https://d23912a6309zf7.cloudfront.net"
 
 // BaselineReport is the struct that holds the baseline report data
 // pre-processed and saved in the bucket.
@@ -63,9 +53,9 @@ type BaselineConfig struct {
 	bucketRegion             string
 	cloudfrontDistributionID string
 
-	// apiBaseURL overrides reportBaseURL when non-empty. This allows
-	// consumers to redirect API calls (e.g. to a test server) without
-	// mutating the package-level default. Set via WithBaseURL.
+	// apiBaseURL is the base URL used by ReadReportSummaryFromAPI. When
+	// empty the production default (defaultAPIBaseURL) is used. Tests
+	// redirect API calls to a local server by setting it via WithBaseURL.
 	apiBaseURL string
 
 	buffer *BaselineData
@@ -154,9 +144,9 @@ func (brs *BaselineConfig) ReadReportSummaryFromAPI(path string) ([]byte, error)
 	retryLogger.SetLevel(log.WarnLevel)
 	retryClient.Logger = retryLogger
 
-	base := reportBaseURL
-	if brs.apiBaseURL != "" {
-		base = brs.apiBaseURL
+	base := brs.apiBaseURL
+	if base == "" {
+		base = defaultAPIBaseURL
 	}
 	url := fmt.Sprintf("%s%s", base, path)
 	req, err := http.NewRequest("GET", url, nil)
