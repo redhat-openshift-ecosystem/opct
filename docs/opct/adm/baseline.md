@@ -103,13 +103,8 @@ that publishing an upgrade baseline does not displace the conformance
 baseline for the same release and platform.
 
 The `indexer` command reads the `workflow` tag from each summary object's
-`setup.api` metadata. During incremental reindex, cached records whose
-top-level `workflow` field is empty are migrated from their `Tags` metadata
-when a canonical value (`regular` or `upgrade`) is present — no full S3
-re-read or destructive wipe is required. Non-canonical tag values (e.g.
-`IfNotPresent`) and records with no tags are left with an empty workflow
-and use the two-part latest key (`release_platform`), preserving backward
-compatibility.
+`setup.api` metadata. Records without a recognized workflow keep the legacy
+two-part latest key (`release_platform`), preserving backward compatibility.
 
 ### Summary name format
 
