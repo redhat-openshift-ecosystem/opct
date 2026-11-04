@@ -52,6 +52,11 @@ func baselineGetCmdRun(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	if baselineGetArgs.name != "" && baselineGetArgs.workflow != "" {
+		log.Error("argument --workflow cannot be used with --name. Use --platform and --release to filter by workflow")
+		return
+	}
+
 	var err error
 	var data []byte
 	rb := reb.NewBaselineReportSummary()
@@ -66,7 +71,7 @@ func baselineGetCmdRun(cmd *cobra.Command, args []string) {
 		}
 		buffer := rb.GetBuffer()
 		if buffer == nil {
-			log.Errorf("no matching baseline found for %s/%s (workflow=%s): all candidates were rejected or unverifiable",
+			log.Fatalf("no matching baseline found for %s/%s (workflow=%s): all candidates were rejected or unverifiable",
 				baselineGetArgs.release, baselineGetArgs.platform, baselineGetArgs.workflow)
 			return
 		}
