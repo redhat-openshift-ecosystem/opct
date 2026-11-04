@@ -15,6 +15,7 @@ import (
 type baselineGetInput struct {
 	platform string
 	release  string
+	workflow string
 	name     string
 	dump     bool
 	output   string
@@ -35,6 +36,7 @@ var baselineGetCmd = &cobra.Command{
 func init() {
 	baselineGetCmd.Flags().StringVar(&baselineGetArgs.platform, "platform", "", "Specify the platform type. Require --platform. Example: External")
 	baselineGetCmd.Flags().StringVar(&baselineGetArgs.release, "release", "", "Specify the release to retrieve latest summary. Require --release. Example: 4.15")
+	baselineGetCmd.Flags().StringVar(&baselineGetArgs.workflow, "workflow", "", "Specify the workflow to filter baseline. Example: upgrade")
 	baselineGetCmd.Flags().StringVarP(&baselineGetArgs.name, "name", "n", "", "List result by platform. Require --platform")
 	baselineGetCmd.Flags().BoolVar(&baselineGetArgs.dump, "dump", false, "Enable dump the raw data to stdout.")
 	baselineGetCmd.Flags().StringVarP(&baselineGetArgs.output, "output", "o", "", "Save the baseline to output file.")
@@ -50,6 +52,11 @@ func baselineGetCmdRun(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	if baselineGetArgs.name != "" && baselineGetArgs.workflow != "" {
+		log.Error("argument --workflow cannot be used with --name. Use --platform and --release to filter by workflow")
+		return
+	}
+
 	var err error
 	var data []byte
 	rb := reb.NewBaselineReportSummary()
@@ -57,12 +64,18 @@ func baselineGetCmdRun(cmd *cobra.Command, args []string) {
 		log.Infof("Getting baseline result by name: %s", baselineGetArgs.name)
 		data, err = rb.GetSummaryByName(baselineGetArgs.name)
 	} else {
-		log.Infof("Getting latest baseline result by release and platform: %s/%s", baselineGetArgs.release, baselineGetArgs.platform)
-		if err := rb.GetLatestSummaryByPlatform(baselineGetArgs.release, baselineGetArgs.platform); err != nil {
+		log.Infof("Getting latest baseline result by release and platform: %s/%s (workflow=%s)", baselineGetArgs.release, baselineGetArgs.platform, baselineGetArgs.workflow)
+		if err := rb.GetLatestSummaryByPlatform(baselineGetArgs.release, baselineGetArgs.platform, baselineGetArgs.workflow); err != nil {
 			log.Errorf("error getting latest summary by platform: %v", err)
 			return
 		}
-		data = rb.GetBuffer().GetRawData()
+		buffer := rb.GetBuffer()
+		if buffer == nil {
+			log.Fatalf("no matching baseline found for %s/%s (workflow=%s): all candidates were rejected or unverifiable",
+				baselineGetArgs.release, baselineGetArgs.platform, baselineGetArgs.workflow)
+			return
+		}
+		data = buffer.GetRawData()
 	}
 
 	if err != nil {

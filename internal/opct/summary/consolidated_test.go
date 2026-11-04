@@ -1,10 +1,15 @@
 package summary
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/redhat-openshift-ecosystem/opct/internal/opct/plugin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -342,4 +347,230 @@ func TestSaveUpgradeFailureDetails(t *testing.T) {
 	require.Len(t, entries, 2)
 	assert.Equal(t, "05-openshift-cluster-upgrade-0-failure.txt", entries[0].Name())
 	assert.Equal(t, "05-openshift-cluster-upgrade-0-systemOut.txt", entries[1].Name())
+}
+
+// --- loadBaselineFromAPI consumer-path tests ---
+//
+// These exercise the ACTUAL private loadBaselineFromAPI method using an
+// httptest.Server for deterministic HTTP. The testBaselineURL field on
+// ConsolidatedSummary redirects API calls to the test server via the
+// WithBaseURL seam on BaselineConfig. Tests make ZERO external network
+// calls. Each test gets its own server; no global state mutation.
+
+// requestRecorder is an httptest handler that records request paths and
+// serves canned responses. Unregistered paths return 404.
+type requestRecorder struct {
+	mu       sync.Mutex
+	paths    []string
+	handlers map[string][]byte // URL path → JSON body
+}
+
+func newRecorder(handlers map[string][]byte) *requestRecorder {
+	if handlers == nil {
+		handlers = map[string][]byte{}
+	}
+	return &requestRecorder{handlers: handlers}
+}
+
+func (rr *requestRecorder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	rr.mu.Lock()
+	rr.paths = append(rr.paths, r.URL.Path)
+	rr.mu.Unlock()
+
+	if body, ok := rr.handlers[r.URL.Path]; ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+		return
+	}
+	http.NotFound(w, r)
+}
+
+func (rr *requestRecorder) requestedPaths() []string {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	cp := make([]string, len(rr.paths))
+	copy(cp, rr.paths)
+	return cp
+}
+
+func (rr *requestRecorder) requestCount() int {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	return len(rr.paths)
+}
+
+// makeBaselinePayload builds a minimal valid baseline JSON with the given
+// workflow in setup.api.workflow.
+func makeBaselinePayload(workflow string) []byte {
+	api := map[string]interface{}{
+		"openshiftRelease": "4.20",
+		"platformType":     "None",
+		"executionDate":    "2026-01-01T00:00:00Z",
+		"dataPath":         "4.20_None_20260101.json",
+	}
+	if workflow != "" {
+		api["workflow"] = workflow
+	}
+	obj := map[string]interface{}{
+		"setup":    map[string]interface{}{"api": api},
+		"provider": map[string]interface{}{"plugins": map[string]interface{}{}},
+	}
+	b, _ := json.Marshal(obj)
+	return b
+}
+
+// newMinimalCS builds a ConsolidatedSummary with the minimal OpenShift
+// state needed by loadBaselineFromAPI (cluster version and platform).
+// Infrastructure nil → GetInfrastructurePlatformType returns "None".
+func newMinimalCS() *ConsolidatedSummary {
+	cs := NewConsolidatedSummary(&ConsolidatedSummaryInput{})
+	cs.Provider.OpenShift.ClusterVersion = &configv1.ClusterVersion{
+		Status: configv1.ClusterVersionStatus{
+			Desired: configv1.Release{Version: "4.20.0"},
+		},
+	}
+	return cs
+}
+
+// newMinimalCSWithServer creates a ConsolidatedSummary and httptest server.
+// The CS's testBaselineURL is set to the server URL. Server is closed via
+// t.Cleanup.
+func newMinimalCSWithServer(t *testing.T, rr *requestRecorder) *ConsolidatedSummary {
+	srv := httptest.NewServer(rr)
+	t.Cleanup(srv.Close)
+	cs := newMinimalCS()
+	cs.testBaselineURL = srv.URL
+	return cs
+}
+
+// TestLoadBaselineFromAPI_UnknownWorkflowNoPlugin — archive has no
+// run-mode AND no upgrade plugin. Must return nil (skip), make ZERO
+// HTTP requests, and select no baseline.
+func TestLoadBaselineFromAPI_UnknownWorkflowNoPlugin(t *testing.T) {
+	rr := newRecorder(nil)
+	cs := newMinimalCSWithServer(t, rr)
+	cs.Provider.OpenShift.Workflow = ""
+	cs.Provider.OpenShift.PluginResultConformanceUpgrade = nil
+
+	err := cs.loadBaselineFromAPI()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rr.requestCount(),
+		"unknown workflow must make zero HTTP requests")
+	assert.Nil(t, cs.BaselineAPI.GetBuffer(),
+		"unknown workflow must not select any baseline")
+}
+
+// TestLoadBaselineFromAPI_UnknownWorkflowEmptyPlugin — struct exists
+// but Name="" (never populated). Must NOT treat as positive evidence.
+func TestLoadBaselineFromAPI_UnknownWorkflowEmptyPlugin(t *testing.T) {
+	rr := newRecorder(nil)
+	cs := newMinimalCSWithServer(t, rr)
+	cs.Provider.OpenShift.Workflow = ""
+	cs.Provider.OpenShift.PluginResultConformanceUpgrade = &plugin.OPCTPluginSummary{}
+
+	err := cs.loadBaselineFromAPI()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rr.requestCount(),
+		"empty-Name plugin must make zero HTTP requests")
+	assert.Nil(t, cs.BaselineAPI.GetBuffer(),
+		"empty-Name plugin must not select any baseline")
+}
+
+// TestLoadBaselineFromAPI_UpgradeInferredFromPlugin — no run-mode but
+// genuine upgrade plugin. Must infer "upgrade", request upgrade-scoped
+// URL first, and accept matching payload.
+func TestLoadBaselineFromAPI_UpgradeInferredFromPlugin(t *testing.T) {
+	rr := newRecorder(map[string][]byte{
+		"/result/summary/4.20_None_upgrade_latest.json": makeBaselinePayload("upgrade"),
+	})
+	cs := newMinimalCSWithServer(t, rr)
+	cs.Provider.OpenShift.Workflow = ""
+	cs.Provider.OpenShift.PluginResultConformanceUpgrade = &plugin.OPCTPluginSummary{
+		Name: plugin.PluginNameOpenShiftUpgrade,
+	}
+
+	err := cs.loadBaselineFromAPI()
+	require.NoError(t, err)
+
+	// Must have requested the upgrade-scoped path first.
+	paths := rr.requestedPaths()
+	require.NotEmpty(t, paths)
+	assert.Equal(t, "/result/summary/4.20_None_upgrade_latest.json", paths[0],
+		"first request must be for upgrade-scoped path")
+
+	// Must have selected the matching payload.
+	buf := cs.BaselineAPI.GetBuffer()
+	require.NotNil(t, buf, "must select a baseline when upgrade inferred")
+	wf, ok := buf.InferWorkflow()
+	require.True(t, ok)
+	assert.Equal(t, "upgrade", wf,
+		"selected baseline must carry workflow=upgrade")
+}
+
+// TestLoadBaselineFromAPI_ExplicitRegular — run-mode is "regular". Must
+// request regular-scoped URL and accept matching payload.
+func TestLoadBaselineFromAPI_ExplicitRegular(t *testing.T) {
+	rr := newRecorder(map[string][]byte{
+		"/result/summary/4.20_None_regular_latest.json": makeBaselinePayload("regular"),
+	})
+	cs := newMinimalCSWithServer(t, rr)
+	cs.Provider.OpenShift.Workflow = "regular"
+
+	err := cs.loadBaselineFromAPI()
+	require.NoError(t, err)
+
+	paths := rr.requestedPaths()
+	require.NotEmpty(t, paths)
+	assert.Equal(t, "/result/summary/4.20_None_regular_latest.json", paths[0],
+		"first request must be for regular-scoped path")
+
+	buf := cs.BaselineAPI.GetBuffer()
+	require.NotNil(t, buf, "must select a baseline for explicit regular")
+	wf, ok := buf.InferWorkflow()
+	require.True(t, ok)
+	assert.Equal(t, "regular", wf)
+}
+
+// TestLoadBaselineFromAPI_DisabledEnvVar — OPCT_DISABLE_FILTER_BASELINE=1
+// must skip entirely with zero HTTP requests.
+func TestLoadBaselineFromAPI_DisabledEnvVar(t *testing.T) {
+	t.Setenv("OPCT_DISABLE_FILTER_BASELINE", "1")
+
+	rr := newRecorder(map[string][]byte{
+		"/result/summary/4.20_None_regular_latest.json": makeBaselinePayload("regular"),
+	})
+	cs := newMinimalCSWithServer(t, rr)
+	cs.Provider.OpenShift.Workflow = "regular"
+
+	err := cs.loadBaselineFromAPI()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rr.requestCount(),
+		"disabled env var must make zero HTTP requests")
+	assert.Nil(t, cs.BaselineAPI.GetBuffer(),
+		"disabled env var must not select any baseline")
+}
+
+// TestLoadBaselineFromAPI_RejectsMismatchedPayload — every path serves
+// "regular" but upgrade is inferred. Must reject all and select nothing.
+func TestLoadBaselineFromAPI_RejectsMismatchedPayload(t *testing.T) {
+	wrongPayload := makeBaselinePayload("regular")
+	rr := newRecorder(map[string][]byte{
+		"/result/summary/4.20_None_upgrade_latest.json": wrongPayload,
+		"/result/summary/4.20_None_latest.json":         wrongPayload,
+		"/result/summary/4.20_AWS_upgrade_latest.json":  wrongPayload,
+		"/result/summary/4.20_AWS_latest.json":          wrongPayload,
+	})
+	cs := newMinimalCSWithServer(t, rr)
+	cs.Provider.OpenShift.Workflow = ""
+	cs.Provider.OpenShift.PluginResultConformanceUpgrade = &plugin.OPCTPluginSummary{
+		Name: plugin.PluginNameOpenShiftUpgrade,
+	}
+
+	err := cs.loadBaselineFromAPI()
+	require.NoError(t, err)
+	assert.Nil(t, cs.BaselineAPI.GetBuffer(),
+		"must not select baseline when all payloads carry wrong workflow")
+	assert.Greater(t, rr.requestCount(), 0,
+		"should have attempted HTTP requests before rejecting")
 }

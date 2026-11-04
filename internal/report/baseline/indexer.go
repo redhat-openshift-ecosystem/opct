@@ -33,6 +33,7 @@ type baselineIndexItem struct {
 	OpenShiftRelease string                 `json:"openshift_version"`
 	Provider         string                 `json:"provider"`
 	PlatformType     string                 `json:"platform_type"`
+	Workflow         string                 `json:"workflow,omitempty"`
 	Status           string                 `json:"status"`
 	Size             string                 `json:"size"`
 	IsLatest         bool                   `json:"is_latest"`
@@ -60,6 +61,50 @@ func (brs *BaselineConfig) CreateBaselineIndex(ctx context.Context) error {
 		return err
 	}
 
+	if err := brs.buildAndPublishIndex(ctx, svcS3, objects); err != nil {
+		return err
+	}
+
+	// Expire cache from cloudfront distribution — only on the public
+	// CreateBaselineIndex path, not the core logic.
+	svcCloudfront, err := createCloudFrontClient(ctx, brs.bucketRegion)
+	if err != nil {
+		return fmt.Errorf("failed to create cloudfront client: %w", err)
+	}
+	invalidationPathsStr := []string{
+		"/result/summary/index.json",
+		"/result/summary/*_latest.json",
+	}
+	log.Infof("Creating cache invalidation for %v", strings.Join(invalidationPathsStr, " "))
+	_, err = svcCloudfront.CreateInvalidation(ctx, &cloudfront.CreateInvalidationInput{
+		DistributionId: aws.String(brs.cloudfrontDistributionID),
+		InvalidationBatch: &cftypes.InvalidationBatch{
+			CallerReference: aws.String(time.Now().Format(time.RFC3339)),
+			Paths: &cftypes.Paths{
+				Quantity: aws.Int32(int32(len(invalidationPathsStr))),
+				Items:    invalidationPathsStr,
+			},
+		},
+	})
+	if err != nil {
+
+		log.Warnf("failed to create cache invalidation: %v", err)
+		fmt.Printf(`Index updated. Run the following command to invalidate index.cache:
+aws cloudfront create-invalidation \
+	--distribution-id %s \
+	--paths %s`, brs.cloudfrontDistributionID, strings.Join(invalidationPathsStr, " "))
+		fmt.Println()
+	}
+	return nil
+}
+
+// buildAndPublishIndex is the core indexing logic extracted from
+// CreateBaselineIndex so it can be tested with a mock S3 client.
+// It loads the existing index, carries over/hydrates records, fetches
+// metadata for new objects, recalculates per-workflow latest, copies
+// latest objects, and saves the updated index. CloudFront invalidation
+// is handled by the caller (CreateBaselineIndex) after this returns.
+func (brs *BaselineConfig) buildAndPublishIndex(ctx context.Context, svcS3 s3API, objects []s3types.Object) error {
 	// Load existing index from S3 for incremental updates.
 	existingIndex, err := brs.loadIndexFromS3(ctx, svcS3)
 	if err != nil {
@@ -79,13 +124,42 @@ func (brs *BaselineConfig) CreateBaselineIndex(ctx context.Context) error {
 		Latest:     make(map[string]*baselineIndexItem),
 	}
 
-	// Carry over existing results that still exist in S3.
+	// Carry over existing results that still exist in S3, hydrating the
+	// top-level Workflow field from Tags or the original summary when
+	// missing. This handles incremental migration of indexes created
+	// before workflow-scoped baselines were introduced.
 	if existingIndex != nil {
 		for _, item := range existingIndex.Results {
 			if _, ok := currentPaths[item.Path]; !ok {
 				continue
 			}
 			item.IsLatest = false
+			if item.Workflow == "" {
+				migrated := false
+				// First: try Tags metadata (cheap, no S3 read).
+				if item.Tags != nil {
+					if v, ok := item.Tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
+						item.Workflow = v
+						migrated = true
+						log.Debugf("Hydrated workflow %q from tags for cached record %s", v, item.Name)
+					}
+				}
+				// Second: if tags didn't help, fetch the original summary
+				// from S3 and use InferWorkflow for reliable evidence.
+				if !migrated {
+					body, err := readS3Object(ctx, svcS3, brs.bucketName, item.Path)
+					if err == nil {
+						bd := &BaselineData{}
+						bd.SetRawData(body)
+						if wf, ok := bd.InferWorkflow(); ok && IsCanonicalWorkflow(wf) {
+							item.Workflow = wf
+							log.Debugf("Hydrated workflow %q from summary payload for cached record %s", wf, item.Name)
+						}
+					} else {
+						log.Debugf("Could not re-read %s for workflow inference: %v", item.Path, err)
+					}
+				}
+			}
 			index.Results = append(index.Results, item)
 			knownPaths[item.Path] = true
 		}
@@ -115,10 +189,12 @@ func (brs *BaselineConfig) CreateBaselineIndex(ctx context.Context) error {
 
 	log.Infof("Index update: %d existing, %d new, %d total", len(knownPaths), newCount, len(index.Results))
 
-	// Recalculate latest for all results.
+	// Recalculate latest for all results. The latest key includes the
+	// workflow dimension so that conformance and upgrade baselines maintain
+	// independent "latest" entries per release and platform.
 	for _, res := range index.Results {
 		res.IsLatest = false
-		latestIndexKey := fmt.Sprintf("%s_%s", res.OpenShiftRelease, res.PlatformType)
+		latestIndexKey := latestKey(res.OpenShiftRelease, res.PlatformType, res.Workflow)
 		existing, ok := index.Latest[latestIndexKey]
 		if !ok {
 			res.IsLatest = true
@@ -150,7 +226,6 @@ func (brs *BaselineConfig) CreateBaselineIndex(ctx context.Context) error {
 		return fmt.Errorf("unable to save index to json: %w", err)
 	}
 
-	// Save the index to the bucket
 	_, err = svcS3.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(brs.bucketName),
 		Key:    aws.String(indexObjectKey),
@@ -160,35 +235,6 @@ func (brs *BaselineConfig) CreateBaselineIndex(ctx context.Context) error {
 		return fmt.Errorf("failed to upload index to bucket: %w", err)
 	}
 
-	// Expire cache from cloudfront distribution
-	svcCloudfront, err := createCloudFrontClient(ctx, brs.bucketRegion)
-	if err != nil {
-		return fmt.Errorf("failed to create cloudfront client: %w", err)
-	}
-	invalidationPathsStr := []string{
-		"/result/summary/index.json",
-		"/result/summary/*_latest.json",
-	}
-	log.Infof("Creating cache invalidation for %v", strings.Join(invalidationPathsStr, " "))
-	_, err = svcCloudfront.CreateInvalidation(ctx, &cloudfront.CreateInvalidationInput{
-		DistributionId: aws.String(brs.cloudfrontDistributionID),
-		InvalidationBatch: &cftypes.InvalidationBatch{
-			CallerReference: aws.String(time.Now().Format(time.RFC3339)),
-			Paths: &cftypes.Paths{
-				Quantity: aws.Int32(int32(len(invalidationPathsStr))),
-				Items:    invalidationPathsStr,
-			},
-		},
-	})
-	if err != nil {
-
-		log.Warnf("failed to create cache invalidation: %v", err)
-		fmt.Printf(`Index updated. Run the following command to invalidate index.cache:
-aws cloudfront create-invalidation \
-	--distribution-id %s \
-	--paths %s`, brs.cloudfrontDistributionID, strings.Join(invalidationPathsStr, " "))
-		fmt.Println()
-	}
 	return nil
 }
 
@@ -285,6 +331,13 @@ func (brs *BaselineConfig) fetchObjectMetadata(ctx context.Context, svc s3API, o
 		log.Warnf("missing executionDate tag in metadata, extracting from name: %v", executionDate)
 	}
 
+	workflow := ""
+	if v, ok := tags["workflow"].(string); ok && IsCanonicalWorkflow(v) {
+		workflow = v
+	} else if wf, ok := bd.InferWorkflow(); ok && IsCanonicalWorkflow(wf) {
+		workflow = wf
+	}
+
 	return &baselineIndexItem{
 		Date:             executionDate,
 		Name:             strings.Split(name, ".json")[0],
@@ -292,8 +345,38 @@ func (brs *BaselineConfig) fetchObjectMetadata(ctx context.Context, svc s3API, o
 		Size:             fmt.Sprintf("%d", aws.ToInt64(obj.Size)),
 		OpenShiftRelease: openShiftRelease,
 		PlatformType:     platformType,
+		Workflow:         workflow,
 		Tags:             tags,
 	}, nil
+}
+
+// readS3Object reads a single object from S3 and returns its body bytes.
+func readS3Object(ctx context.Context, svc s3API, bucket, key string) ([]byte, error) {
+	resp, err := svc.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			log.Warnf("failed to close object body: %v", cerr)
+		}
+	}()
+	return io.ReadAll(resp.Body)
+}
+
+// latestKey returns the index key used to track the latest baseline per
+// combination of release, platform and workflow. Legacy entries without a
+// workflow keep the old two-part key so that existing indexes remain
+// compatible — the report processor falls back to the workflow-less key
+// when no workflow-specific entry is found.
+func latestKey(release, platform, workflow string) string {
+	if workflow == "" {
+		return fmt.Sprintf("%s_%s", release, platform)
+	}
+	return fmt.Sprintf("%s_%s_%s", release, platform, workflow)
 }
 
 // ListObjects lists all objects in the bucket, paginating through all results.

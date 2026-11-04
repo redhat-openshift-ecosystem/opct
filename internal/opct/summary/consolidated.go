@@ -33,6 +33,10 @@ type ConsolidatedSummary struct {
 	Provider    *ResultSummary
 	Baseline    *ResultSummary
 	BaselineAPI *baseline.BaselineConfig
+
+	// testBaselineURL overrides the baseline API URL for testing.
+	// Zero value uses the production default. Set by tests only.
+	testBaselineURL string
 }
 
 type ConsolidatedSummaryInput struct {
@@ -467,8 +471,33 @@ func (cs *ConsolidatedSummary) loadBaselineFromAPI() error {
 	}
 	platformType := cs.Provider.OpenShift.GetInfrastructurePlatformType()
 
+	// Discover the workflow from the provider's OPCT runtime config so the
+	// baseline lookup matches the target archive's workflow. This prevents
+	// an upgrade execution from consuming a conformance baseline (or the
+	// reverse), which would produce misleading known-failure filtering.
+	workflow := cs.Provider.OpenShift.GetWorkflow()
+
+	// When the archive lacks an explicit run-mode, try to infer the workflow
+	// from other trustworthy archive evidence. The upgrade plugin is only
+	// present when the user ran `opct run --mode upgrade`, so its existence
+	// is positive evidence. Without any evidence the baseline lookup must
+	// NOT silently become unfiltered — skip it with a diagnostic instead.
+	if workflow == "" {
+		if cs.Provider.OpenShift.PluginResultConformanceUpgrade != nil &&
+			cs.Provider.OpenShift.PluginResultConformanceUpgrade.Name != "" {
+			workflow = plugin.WorkflowUpgrade
+			log.Infof("Archive run-mode absent; inferred workflow %q from upgrade plugin presence", workflow)
+		} else {
+			log.Warnf("Archive has no run-mode and no upgrade plugin — cannot determine workflow; skipping baseline comparison to avoid cross-workflow contamination")
+			return nil
+		}
+	}
+
 	cs.BaselineAPI = baseline.NewBaselineReportSummary()
-	if err := cs.BaselineAPI.GetLatestRawSummaryFromPlatformWithFallback(ocpRelease, platformType); err != nil {
+	if cs.testBaselineURL != "" {
+		cs.BaselineAPI.WithBaseURL(cs.testBaselineURL)
+	}
+	if err := cs.BaselineAPI.GetLatestRawSummaryFromPlatformWithFallback(ocpRelease, platformType, workflow); err != nil {
 		return fmt.Errorf("failed to get baseline from API: %w", err)
 	}
 	return nil

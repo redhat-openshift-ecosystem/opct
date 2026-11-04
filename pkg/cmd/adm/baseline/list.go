@@ -43,19 +43,24 @@ func baselineListCmdRun(cmd *cobra.Command, args []string) {
 	// tbProv.SetStyle(table.StyleLight)
 	// tbProv.SetTitle(title)
 	if !baselineListArgs.all {
-		tb.AppendHeader(table.Row{"ID", "Type", "Release", "PlatformType", "Name"})
+		tb.AppendHeader(table.Row{"ID", "Type", "Release", "PlatformType", "Workflow", "Name"})
 		laltestK := make([]string, 0, len(index.Latest))
 		for lts := range index.Latest {
 			laltestK = append(laltestK, lts)
 		}
 		sort.Strings(laltestK)
 		for _, latest := range laltestK {
+			workflow := index.Latest[latest].Workflow
+			if workflow == "" {
+				workflow = "-"
+			}
 			tb.AppendRow(
 				table.Row{
 					latest,
 					"latest",
 					index.Latest[latest].OpenShiftRelease,
 					index.Latest[latest].PlatformType,
+					workflow,
 					index.Latest[latest].Name,
 				})
 		}
@@ -63,7 +68,7 @@ func baselineListCmdRun(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	tb.AppendHeader(table.Row{"Latest", "Release", "Platform", "Provider", "Name", "Version"})
+	tb.AppendHeader(table.Row{"Latest", "Release", "Platform", "Provider", "Workflow", "Name", "Version"})
 	for i := range index.Results {
 		res := index.Results[i]
 		latest := ""
@@ -78,12 +83,17 @@ func baselineListCmdRun(cmd *cobra.Command, args []string) {
 		if p, ok := res.Tags["openshiftVersion"]; ok {
 			version = p.(string)
 		}
+		workflow := res.Workflow
+		if workflow == "" {
+			workflow = "-"
+		}
 		tb.AppendRow(
 			table.Row{
 				latest,
 				res.OpenShiftRelease,
 				res.PlatformType,
 				provider,
+				workflow,
 				res.Name,
 				version,
 			})
