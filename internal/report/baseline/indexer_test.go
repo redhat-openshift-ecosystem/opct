@@ -11,6 +11,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
 )
 
 // mockS3Client implements the s3API subset used by the indexer.
@@ -524,8 +526,8 @@ func makeSummaryJSONWithRunMode(release, platform, date, runMode string) []byte 
 		},
 		"provider": map[string]interface{}{
 			"runtime": map[string]interface{}{
-				"opctConfig": []map[string]interface{}{
-					{"name": "run-mode", "value": runMode},
+				"opctConfig": []*archive.RuntimeInfoItem{
+					{Name: "run-mode", Value: runMode},
 				},
 			},
 		},
