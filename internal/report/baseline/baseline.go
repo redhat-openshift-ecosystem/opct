@@ -36,15 +36,13 @@ const (
 	// The original bucket[1], must be migrated to another account and the CloudFront URL,
 	// is part of that goal without disrupting the current process.
 	// [1] "https://openshift-provider-certification.s3.us-west-2.amazonaws.com"
+	reportBaseURL            = "https://d23912a6309zf7.cloudfront.net"
 	cloudfrontDistributionID = "E3MJR7MT6EHHJC"
 
 	// To override those values use environment variables OPCT_EXP_BUCKET_NAME and OPCT_EXP_BUCKET_REGION
 	opctStorageBucketName   = "opct-archive"
 	opctStorageBucketRegion = "us-east-1"
 )
-
-// defaultAPIBaseURL is the base URL for the CloudFront-served baseline API.
-const defaultAPIBaseURL = "https://d23912a6309zf7.cloudfront.net"
 
 // BaselineReport is the struct that holds the baseline report data
 // pre-processed and saved in the bucket.
@@ -54,7 +52,7 @@ type BaselineConfig struct {
 	cloudfrontDistributionID string
 
 	// apiBaseURL is the base URL used by ReadReportSummaryFromAPI. When
-	// empty the production default (defaultAPIBaseURL) is used. Tests
+	// empty the production default (reportBaseURL) is used. Tests
 	// redirect API calls to a local server by setting it via WithBaseURL.
 	apiBaseURL string
 
@@ -146,7 +144,7 @@ func (brs *BaselineConfig) ReadReportSummaryFromAPI(path string) ([]byte, error)
 
 	base := brs.apiBaseURL
 	if base == "" {
-		base = defaultAPIBaseURL
+		base = reportBaseURL
 	}
 	url := fmt.Sprintf("%s%s", base, path)
 	req, err := http.NewRequest("GET", url, nil)
