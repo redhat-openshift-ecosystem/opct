@@ -53,8 +53,7 @@ func baselineGetCmdRun(cmd *cobra.Command, args []string) {
 	}
 
 	if baselineGetArgs.name != "" && baselineGetArgs.workflow != "" {
-		log.Error("argument --workflow cannot be used with --name. Use --platform and --release to filter by workflow")
-		return
+		log.Fatal("argument --workflow cannot be used with --name. Use --platform and --release to filter by workflow")
 	}
 
 	var err error
