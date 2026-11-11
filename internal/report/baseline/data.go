@@ -100,10 +100,10 @@ func (bd *BaselineData) GetWorkflow() (string, bool) {
 	return s, true
 }
 
-// IsCanonicalWorkflow returns true when wf is one of the two recognised
+// IsCanonicalWorkflow returns true when wf is one of the two recognized
 // workflow identifiers ("regular" or "upgrade"). Non-canonical values
 // (empty, "IfNotPresent", malformed strings, etc.) return false and MUST
-// NOT be treated as authorised workflow matches.
+// NOT be treated as authorized workflow matches.
 func IsCanonicalWorkflow(wf string) bool {
 	return wf == "regular" || wf == "upgrade"
 }
