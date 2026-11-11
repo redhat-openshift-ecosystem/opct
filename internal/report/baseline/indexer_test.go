@@ -11,6 +11,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+
+	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
 )
 
 // mockS3Client implements the s3API subset used by the indexer.
@@ -71,14 +73,24 @@ func (m *mockS3Client) CopyObject(_ context.Context, input *s3.CopyObjectInput, 
 
 // makeSummaryJSON builds a minimal summary object with setup.api tags.
 func makeSummaryJSON(release, platform, date string) []byte {
+	return makeSummaryJSONWithWorkflow(release, platform, date, "")
+}
+
+// makeSummaryJSONWithWorkflow builds a minimal summary object with setup.api tags
+// including an optional workflow field.
+func makeSummaryJSONWithWorkflow(release, platform, date, workflow string) []byte {
+	api := map[string]interface{}{
+		"openshiftRelease": release,
+		"platformType":     platform,
+		"executionDate":    date,
+		"dataPath":         fmt.Sprintf("%s_%s_%s.json", release, platform, strings.ReplaceAll(date, ":", "")),
+	}
+	if workflow != "" {
+		api["workflow"] = workflow
+	}
 	obj := map[string]interface{}{
 		"setup": map[string]interface{}{
-			"api": map[string]interface{}{
-				"openshiftRelease": release,
-				"platformType":     platform,
-				"executionDate":    date,
-				"dataPath":         fmt.Sprintf("%s_%s_%s.json", release, platform, strings.ReplaceAll(date, ":", "")),
-			},
+			"api": api,
 		},
 	}
 	b, _ := json.Marshal(obj)
@@ -437,5 +449,457 @@ func TestFilterSpecialObjects(t *testing.T) {
 		if included != tc.expected {
 			t.Errorf("object %q: expected included=%v, got %v", tc.name, tc.expected, included)
 		}
+	}
+}
+
+// --- Workflow-scoped baseline tests ---
+
+func TestLatestKey(t *testing.T) {
+	tests := []struct {
+		release  string
+		platform string
+		workflow string
+		want     string
+	}{
+		{"4.17", "None", "", "4.17_None"},
+		{"4.17", "None", "upgrade", "4.17_None_upgrade"},
+		{"4.18", "External", "regular", "4.18_External_regular"},
+		{"4.19", "AWS", "", "4.19_AWS"},
+	}
+	for _, tc := range tests {
+		got := latestKey(tc.release, tc.platform, tc.workflow)
+		if got != tc.want {
+			t.Errorf("latestKey(%q, %q, %q) = %q, want %q", tc.release, tc.platform, tc.workflow, got, tc.want)
+		}
+	}
+}
+
+func TestFetchObjectMetadata_ExtractsWorkflow(t *testing.T) {
+	body := makeSummaryJSONWithWorkflow("4.20", "External", "2026-03-01T00:00:00Z", "upgrade")
+	key := "api/v0/result/summary/4.20_External_20260301.json"
+	objects := map[string][]byte{key: body}
+	mock := newMockS3(objects)
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+
+	size := int64(len(body))
+	obj := s3types.Object{Key: aws.String(key), Size: &size}
+
+	item, err := brs.fetchObjectMetadata(context.Background(), mock, key, "4.20_External_20260301.json", obj)
+	if err != nil {
+		t.Fatalf("fetchObjectMetadata failed: %v", err)
+	}
+	if item.Workflow != "upgrade" {
+		t.Errorf("expected workflow 'upgrade', got %q", item.Workflow)
+	}
+}
+
+func TestFetchObjectMetadata_LegacyNoWorkflow(t *testing.T) {
+	body := makeSummaryJSON("4.17", "None", "2025-01-01T00:00:00Z")
+	key := "api/v0/result/summary/4.17_None_20250101.json"
+	objects := map[string][]byte{key: body}
+	mock := newMockS3(objects)
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+
+	size := int64(len(body))
+	obj := s3types.Object{Key: aws.String(key), Size: &size}
+
+	item, err := brs.fetchObjectMetadata(context.Background(), mock, key, "4.17_None_20250101.json", obj)
+	if err != nil {
+		t.Fatalf("fetchObjectMetadata failed: %v", err)
+	}
+	if item.Workflow != "" {
+		t.Errorf("legacy archive should have empty workflow, got %q", item.Workflow)
+	}
+}
+
+// makeSummaryJSONWithRunMode builds a summary payload with no
+// setup.api.workflow but a run-mode entry in provider.runtime.opctConfig,
+// matching legacy archives published before workflow-scoped baselines.
+func makeSummaryJSONWithRunMode(release, platform, date, runMode string) []byte {
+	obj := map[string]interface{}{
+		"setup": map[string]interface{}{
+			"api": map[string]interface{}{
+				"openshiftRelease": release,
+				"platformType":     platform,
+				"executionDate":    date,
+			},
+		},
+		"provider": map[string]interface{}{
+			"runtime": map[string]interface{}{
+				"opctConfig": []*archive.RuntimeInfoItem{
+					{Name: "run-mode", Value: runMode},
+				},
+			},
+		},
+	}
+	b, _ := json.Marshal(obj)
+	return b
+}
+
+func TestFetchObjectMetadata_NonCanonicalTagFallsBackToInference(t *testing.T) {
+	// Legacy payloads carry garbage such as the image pull policy leaked into
+	// the workflow field; the indexer must not publish an unreachable latest
+	// key for it and must fall back to InferWorkflow evidence instead.
+	body := makeSummaryJSONWithWorkflow("4.23", "External", "2026-01-01T00:00:00Z", "IfNotPresent")
+	body = append(body[:len(body)-1], []byte(`,"provider":{"runtime":{"opctConfig":[{"name":"run-mode","value":"upgrade"}]}}}`)...)
+	key := "api/v0/result/summary/4.23_External_20260101.json"
+	objects := map[string][]byte{key: body}
+	mock := newMockS3(objects)
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+
+	size := int64(len(body))
+	obj := s3types.Object{Key: aws.String(key), Size: &size}
+
+	item, err := brs.fetchObjectMetadata(context.Background(), mock, key, "4.23_External_20260101.json", obj)
+	if err != nil {
+		t.Fatalf("fetchObjectMetadata failed: %v", err)
+	}
+	if item.Workflow != "upgrade" {
+		t.Errorf("expected non-canonical tag to fall back to inferred 'upgrade', got %q", item.Workflow)
+	}
+}
+
+func TestFetchObjectMetadata_InfersWorkflowFromRunModeOnFirstPass(t *testing.T) {
+	// A legacy summary with run-mode evidence must be scoped on first
+	// discovery, not only on a later cached-record pass.
+	body := makeSummaryJSONWithRunMode("4.24", "External", "2026-02-01T00:00:00Z", "regular")
+	key := "api/v0/result/summary/4.24_External_20260201.json"
+	objects := map[string][]byte{key: body}
+	mock := newMockS3(objects)
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+
+	size := int64(len(body))
+	obj := s3types.Object{Key: aws.String(key), Size: &size}
+
+	item, err := brs.fetchObjectMetadata(context.Background(), mock, key, "4.24_External_20260201.json", obj)
+	if err != nil {
+		t.Fatalf("fetchObjectMetadata failed: %v", err)
+	}
+	if item.Workflow != "regular" {
+		t.Errorf("expected run-mode 'regular' to be inferred on first pass, got %q", item.Workflow)
+	}
+}
+
+// TestLatestCalculationWorkflowScoped verifies that conformance and upgrade
+// baselines with the same version and platform maintain independent "latest"
+// entries rather than overwriting each other.
+func TestLatestCalculationWorkflowScoped(t *testing.T) {
+	items := []*baselineIndexItem{
+		{Name: "4.20_None_20260101_conformance", OpenShiftRelease: "4.20", PlatformType: "None", Workflow: "", Date: "2026-01-01T00:00:00Z"},
+		{Name: "4.20_None_20260201_conformance", OpenShiftRelease: "4.20", PlatformType: "None", Workflow: "", Date: "2026-02-01T00:00:00Z"},
+		{Name: "4.20_None_20260101_upgrade", OpenShiftRelease: "4.20", PlatformType: "None", Workflow: "upgrade", Date: "2026-01-01T00:00:00Z"},
+		{Name: "4.20_None_20260301_upgrade", OpenShiftRelease: "4.20", PlatformType: "None", Workflow: "upgrade", Date: "2026-03-01T00:00:00Z"},
+	}
+
+	latest := make(map[string]*baselineIndexItem)
+	for _, res := range items {
+		res.IsLatest = false
+		key := latestKey(res.OpenShiftRelease, res.PlatformType, res.Workflow)
+		existing, ok := latest[key]
+		if !ok {
+			res.IsLatest = true
+			latest[key] = res
+		} else if existing.Date < res.Date {
+			existing.IsLatest = false
+			res.IsLatest = true
+			latest[key] = res
+		}
+	}
+
+	if len(latest) != 2 {
+		t.Fatalf("expected 2 latest entries (one per workflow), got %d", len(latest))
+	}
+
+	// Legacy (empty workflow) latest
+	legacyLatest := latest["4.20_None"]
+	if legacyLatest == nil {
+		t.Fatal("expected 4.20_None latest entry")
+	}
+	if legacyLatest.Name != "4.20_None_20260201_conformance" {
+		t.Errorf("expected legacy latest to be 20260201, got %s", legacyLatest.Name)
+	}
+
+	// Upgrade workflow latest
+	upgradeLatest := latest["4.20_None_upgrade"]
+	if upgradeLatest == nil {
+		t.Fatal("expected 4.20_None_upgrade latest entry")
+	}
+	if upgradeLatest.Name != "4.20_None_20260301_upgrade" {
+		t.Errorf("expected upgrade latest to be 20260301, got %s", upgradeLatest.Name)
+	}
+}
+
+// TestLatestCalculationUpgradeDoesNotOverwriteConformance verifies that
+// publishing a newer upgrade baseline does not displace the conformance
+// baseline's "latest" entry (the core regression this change prevents).
+func TestLatestCalculationUpgradeDoesNotOverwriteConformance(t *testing.T) {
+	// Conformance baseline published first.
+	conformance := &baselineIndexItem{
+		Name: "4.20_External_20260101", OpenShiftRelease: "4.20",
+		PlatformType: "External", Workflow: "", Date: "2026-01-01T00:00:00Z",
+	}
+	// Upgrade baseline published later, same dimensions.
+	upgrade := &baselineIndexItem{
+		Name: "4.20_External_20260301_upgrade", OpenShiftRelease: "4.20",
+		PlatformType: "External", Workflow: "upgrade", Date: "2026-03-01T00:00:00Z",
+	}
+
+	latest := make(map[string]*baselineIndexItem)
+	for _, res := range []*baselineIndexItem{conformance, upgrade} {
+		res.IsLatest = false
+		key := latestKey(res.OpenShiftRelease, res.PlatformType, res.Workflow)
+		existing, ok := latest[key]
+		if !ok {
+			res.IsLatest = true
+			latest[key] = res
+		} else if existing.Date < res.Date {
+			existing.IsLatest = false
+			res.IsLatest = true
+			latest[key] = res
+		}
+	}
+
+	// The conformance entry must still be present as latest.
+	if _, ok := latest["4.20_External"]; !ok {
+		t.Error("conformance baseline was displaced by upgrade publication")
+	}
+	// And the upgrade entry must exist independently.
+	if _, ok := latest["4.20_External_upgrade"]; !ok {
+		t.Error("upgrade baseline was not tracked")
+	}
+}
+
+// TestWorkflowFieldJSONRoundTrip verifies the Workflow field survives
+// serialization and deserialization of the index, preserving backward
+// compatibility (old indexes have no workflow field, omitempty keeps it clean).
+func TestWorkflowFieldJSONRoundTrip(t *testing.T) {
+	items := []*baselineIndexItem{
+		{Name: "legacy", OpenShiftRelease: "4.17", PlatformType: "None", Workflow: ""},
+		{Name: "scoped", OpenShiftRelease: "4.20", PlatformType: "External", Workflow: "upgrade"},
+	}
+	indexJSON := makeIndexJSON(items)
+
+	var idx baselineIndex
+	if err := json.Unmarshal(indexJSON, &idx); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	if len(idx.Results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(idx.Results))
+	}
+	if idx.Results[0].Workflow != "" {
+		t.Errorf("legacy entry should have empty workflow, got %q", idx.Results[0].Workflow)
+	}
+	if idx.Results[1].Workflow != "upgrade" {
+		t.Errorf("scoped entry should have workflow 'upgrade', got %q", idx.Results[1].Workflow)
+	}
+}
+
+// TestBuildAndPublishIndex_IncrementalMigration exercises the ACTUAL
+// production buildAndPublishIndex method with a mock S3 client. Fixture:
+// existing index has two records for same release/platform (4.20/External),
+// one regular (newer, 2026-03) and one upgrade (older, 2026-02). Both have
+// empty top-level Workflow but Tags carry canonical values. No new S3
+// objects. Asserts:
+//   - Both records hydrated to correct workflow from Tags
+//   - Two independent latest entries created (4.20_External_regular and 4.20_External_upgrade)
+//   - CopyObject materialized both latest keys with correct source paths
+//   - Newer upgrade does NOT displace regular latest
+//   - PutObject saved updated index with workflow fields populated
+func TestBuildAndPublishIndex_IncrementalMigration(t *testing.T) {
+	regularSummary := makeSummaryJSONWithWorkflow("4.20", "External", "2026-03-01T00:00:00Z", "regular")
+	upgradeSummary := makeSummaryJSONWithWorkflow("4.20", "External", "2026-02-01T00:00:00Z", "upgrade")
+
+	regularPath := "api/v0/result/summary/4.20_External_20260301.json"
+	upgradePath := "api/v0/result/summary/4.20_External_20260201.json"
+
+	existingItems := []*baselineIndexItem{
+		{
+			Name: "4.20_External_20260301", Path: regularPath,
+			OpenShiftRelease: "4.20", PlatformType: "External", Workflow: "", Date: "2026-03-01T00:00:00Z",
+			Size: fmt.Sprintf("%d", len(regularSummary)),
+			Tags: map[string]interface{}{"workflow": "regular", "openshiftRelease": "4.20", "platformType": "External", "executionDate": "2026-03-01T00:00:00Z"},
+		},
+		{
+			Name: "4.20_External_20260201", Path: upgradePath,
+			OpenShiftRelease: "4.20", PlatformType: "External", Workflow: "", Date: "2026-02-01T00:00:00Z",
+			Size: fmt.Sprintf("%d", len(upgradeSummary)),
+			Tags: map[string]interface{}{"workflow": "upgrade", "openshiftRelease": "4.20", "platformType": "External", "executionDate": "2026-02-01T00:00:00Z"},
+		},
+	}
+	indexJSON := makeIndexJSON(existingItems)
+
+	objects := map[string][]byte{
+		"api/v0/result/summary/index.json": indexJSON,
+		regularPath:                        regularSummary,
+		upgradePath:                        upgradeSummary,
+	}
+	mock := newMockS3(objects)
+
+	// Build the S3 object list (simulates ListObjects output).
+	var s3Objects []s3types.Object
+	for key, body := range objects {
+		k := key
+		size := int64(len(body))
+		s3Objects = append(s3Objects, s3types.Object{Key: &k, Size: &size})
+	}
+
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+	err := brs.buildAndPublishIndex(context.Background(), mock, s3Objects)
+	if err != nil {
+		t.Fatalf("buildAndPublishIndex failed: %v", err)
+	}
+
+	// Verify CopyObject calls — should have exactly 2 latest copies.
+	if len(mock.copyCalls) != 2 {
+		t.Fatalf("expected 2 CopyObject calls, got %d", len(mock.copyCalls))
+	}
+
+	// Collect CopyObject destinations and sources for assertion.
+	copyDests := make(map[string]string) // destination key → source
+	for _, call := range mock.copyCalls {
+		dest := aws.ToString(call.Key)
+		src := aws.ToString(call.CopySource)
+		copyDests[dest] = src
+	}
+
+	// Regular latest copy: 4.20_External_regular_latest.json ← regular path
+	regularLatestKey := "api/v0/result/summary/4.20_External_regular_latest.json"
+	if src, ok := copyDests[regularLatestKey]; !ok {
+		t.Errorf("expected CopyObject for %s", regularLatestKey)
+	} else if !strings.Contains(src, "4.20_External_20260301.json") {
+		t.Errorf("regular latest should copy from 20260301, got source %s", src)
+	}
+
+	// Upgrade latest copy: 4.20_External_upgrade_latest.json ← upgrade path
+	upgradeLatestKey := "api/v0/result/summary/4.20_External_upgrade_latest.json"
+	if src, ok := copyDests[upgradeLatestKey]; !ok {
+		t.Errorf("expected CopyObject for %s", upgradeLatestKey)
+	} else if !strings.Contains(src, "4.20_External_20260201.json") {
+		t.Errorf("upgrade latest should copy from 20260201, got source %s", src)
+	}
+
+	// Verify PutObject saved the index with workflow fields populated.
+	if len(mock.putCalls) != 1 {
+		t.Fatalf("expected 1 PutObject call (index), got %d", len(mock.putCalls))
+	}
+	savedKey := aws.ToString(mock.putCalls[0].Key)
+	if savedKey != indexObjectKey {
+		t.Errorf("expected PutObject key %s, got %s", indexObjectKey, savedKey)
+	}
+
+	// Parse the saved index and verify workflow fields.
+	savedBody, _ := io.ReadAll(mock.putCalls[0].Body)
+	var savedIdx baselineIndex
+	if err := json.Unmarshal(savedBody, &savedIdx); err != nil {
+		t.Fatalf("failed to parse saved index: %v", err)
+	}
+	if len(savedIdx.Results) != 2 {
+		t.Fatalf("expected 2 results in saved index, got %d", len(savedIdx.Results))
+	}
+	// Verify hydration — both should have non-empty Workflow.
+	for _, r := range savedIdx.Results {
+		if r.Workflow == "" {
+			t.Errorf("saved index record %s should have hydrated workflow, got empty", r.Name)
+		}
+	}
+}
+
+// TestBuildAndPublishIndex_NilTagsFallsBackToS3 exercises buildAndPublishIndex
+// with a cached record that has nil Tags but whose S3 summary contains
+// workflow evidence. Verifies the S3 re-read fallback in production code.
+func TestBuildAndPublishIndex_NilTagsFallsBackToS3(t *testing.T) {
+	summary := makeSummaryJSONWithWorkflow("4.17", "None", "2025-01-01T00:00:00Z", "regular")
+	summaryPath := "api/v0/result/summary/4.17_None_20250101.json"
+
+	existingItems := []*baselineIndexItem{
+		{
+			Name: "4.17_None_20250101", Path: summaryPath,
+			OpenShiftRelease: "4.17", PlatformType: "None", Workflow: "", Date: "2025-01-01T00:00:00Z",
+			Size: fmt.Sprintf("%d", len(summary)),
+			// Tags intentionally nil — forces S3 re-read.
+		},
+	}
+	indexJSON := makeIndexJSON(existingItems)
+
+	objects := map[string][]byte{
+		"api/v0/result/summary/index.json": indexJSON,
+		summaryPath:                        summary,
+	}
+	mock := newMockS3(objects)
+
+	var s3Objects []s3types.Object
+	for key, body := range objects {
+		k := key
+		size := int64(len(body))
+		s3Objects = append(s3Objects, s3types.Object{Key: &k, Size: &size})
+	}
+
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+	err := brs.buildAndPublishIndex(context.Background(), mock, s3Objects)
+	if err != nil {
+		t.Fatalf("buildAndPublishIndex failed: %v", err)
+	}
+
+	// Verify the saved index has the workflow hydrated from S3 payload.
+	if len(mock.putCalls) != 1 {
+		t.Fatalf("expected 1 PutObject call, got %d", len(mock.putCalls))
+	}
+	savedBody, _ := io.ReadAll(mock.putCalls[0].Body)
+	var savedIdx baselineIndex
+	if err := json.Unmarshal(savedBody, &savedIdx); err != nil {
+		t.Fatalf("failed to parse saved index: %v", err)
+	}
+	if len(savedIdx.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(savedIdx.Results))
+	}
+	if savedIdx.Results[0].Workflow != "regular" {
+		t.Errorf("nil-Tags record should be hydrated to 'regular' via S3 re-read, got %q", savedIdx.Results[0].Workflow)
+	}
+}
+
+// TestBuildAndPublishIndex_NonCanonicalTagNotHydrated exercises
+// buildAndPublishIndex with a cached record whose Tags contain a
+// non-canonical workflow value. Verifies the record stays unhyrated.
+func TestBuildAndPublishIndex_NonCanonicalTagNotHydrated(t *testing.T) {
+	// Summary in S3 has no workflow evidence either.
+	summary := makeSummaryJSON("4.17", "None", "2025-01-01T00:00:00Z")
+	summaryPath := "api/v0/result/summary/4.17_None_20250101.json"
+
+	existingItems := []*baselineIndexItem{
+		{
+			Name: "4.17_None_20250101", Path: summaryPath,
+			OpenShiftRelease: "4.17", PlatformType: "None", Workflow: "", Date: "2025-01-01T00:00:00Z",
+			Size: fmt.Sprintf("%d", len(summary)),
+			Tags: map[string]interface{}{"workflow": "IfNotPresent"},
+		},
+	}
+	indexJSON := makeIndexJSON(existingItems)
+
+	objects := map[string][]byte{
+		"api/v0/result/summary/index.json": indexJSON,
+		summaryPath:                        summary,
+	}
+	mock := newMockS3(objects)
+
+	var s3Objects []s3types.Object
+	for key, body := range objects {
+		k := key
+		size := int64(len(body))
+		s3Objects = append(s3Objects, s3types.Object{Key: &k, Size: &size})
+	}
+
+	brs := &BaselineConfig{bucketName: "test-bucket"}
+	err := brs.buildAndPublishIndex(context.Background(), mock, s3Objects)
+	if err != nil {
+		t.Fatalf("buildAndPublishIndex failed: %v", err)
+	}
+
+	savedBody, _ := io.ReadAll(mock.putCalls[0].Body)
+	var savedIdx baselineIndex
+	if err := json.Unmarshal(savedBody, &savedIdx); err != nil {
+		t.Fatalf("failed to parse saved index: %v", err)
+	}
+	if savedIdx.Results[0].Workflow != "" {
+		t.Errorf("non-canonical tag should NOT hydrate, got %q", savedIdx.Results[0].Workflow)
 	}
 }
