@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -115,7 +117,11 @@ func (a *SippyAPI) QueryTests(in *SippyTestsRequestInput) (*SippyTestsRequestOut
 		return nil, fmt.Errorf("couldn't call URL %s: %+v", baseUrl.String(), err)
 
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Warnf("failed to close response body from %s: %v", baseUrl.String(), err)
+		}
+	}()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {

@@ -58,7 +58,11 @@ func (d *TestDocumentation) Load() error {
 	if err != nil {
 		return fmt.Errorf("failed to make request to %s: %w", app, err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Warnf("failed to close response body from %s: %v", app, err)
+		}
+	}()
 
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected HTTP status code to %s", app)

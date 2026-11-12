@@ -60,7 +60,11 @@ func createFakeJUnitXMLFileForOpenShiftTests() string {
 	if err != nil {
 		panic(err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			panic(err)
+		}
+	}()
 
 	// Case 1: Write the fake JUnit XML content to the file
 	content := `<?xml version="1.0" encoding="UTF-8"?>

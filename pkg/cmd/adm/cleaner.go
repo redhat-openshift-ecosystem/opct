@@ -66,12 +66,17 @@ func cleanerRun(cmd *cobra.Command, args []string) {
 	if err != nil {
 		panic(err)
 	}
-	defer file.Close()
 
-	// Write the cleaned data to the file
-	_, err = io.Copy(file, cleaned)
-	if err != nil {
-		panic(err)
+	// Write the cleaned data to the file, then close it explicitly before
+	// reporting success: a close failure means the cleaned archive may not
+	// have been fully persisted.
+	_, copyErr := io.Copy(file, cleaned)
+	closeErr := file.Close()
+	if copyErr != nil {
+		panic(copyErr)
+	}
+	if closeErr != nil {
+		panic(closeErr)
 	}
 
 	log.Infof("Data successfully written to %s", cleanerArgs.output)
