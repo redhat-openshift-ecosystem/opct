@@ -617,10 +617,7 @@ func showSummaryPlugin(re *report.ReportResult, pluginName string, bProcessed bo
 	// }
 
 	// checking for runtime failures
-	runtimeFailed := false
-	if stat.Total == stat.Failed {
-		runtimeFailed = true
-	}
+	runtimeFailed := stat.Total == stat.Failed
 
 	// rewrite the original status when pass on all filters and not failed on runtime
 	status := stat.Status

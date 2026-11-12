@@ -183,28 +183,29 @@ func (f *FilterApplyTookTooLong) insertBucket(v float64, ts string) {
 	var group *bucketGroup
 	var aggrKey string
 
-	if f.GroupBy == "hour" {
+	switch f.GroupBy {
+	case "hour":
 		aggrValue := "all"
 		if match := f.reTsHour.MatchString(ts); match {
 			matches := f.reTsHour.FindStringSubmatch(ts)
 			aggrValue = matches[1]
 		}
 		aggrKey = aggrValue
-	} else if f.GroupBy == "day" {
+	case "day":
 		aggrValue := "all"
 		if match := f.reTsDay.MatchString(ts); match {
 			matches := f.reTsDay.FindStringSubmatch(ts)
 			aggrValue = matches[1]
 		}
 		aggrKey = aggrValue
-	} else if f.GroupBy == "minute" || f.GroupBy == "min" {
+	case "minute", "min":
 		aggrValue := "all"
 		if match := f.reTsMin.MatchString(ts); match {
 			matches := f.reTsMin.FindStringSubmatch(ts)
 			aggrValue = matches[1]
 		}
 		aggrKey = aggrValue
-	} else {
+	default:
 		aggrKey = f.GroupBy
 	}
 

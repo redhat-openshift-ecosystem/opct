@@ -570,7 +570,7 @@ func (rs *ResultSummary) extractAndLoadData() error {
 		// extract install-config
 		if len(kubeSystemConfigMapList.Items) > 0 {
 			for _, config := range kubeSystemConfigMapList.Items {
-				if config.ObjectMeta.Name == "cluster-config-v1" {
+				if config.Name == "cluster-config-v1" {
 					dest := fmt.Sprintf("%s/install-config.txt", rs.SavePath)
 					err := os.WriteFile(dest, []byte(config.Data["install-config"]), 0644)
 					if err != nil {

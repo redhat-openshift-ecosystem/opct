@@ -28,15 +28,15 @@ func ParseOpctConfig(cms *v1.ConfigMapList) []*RuntimeInfoItem {
 	cmpMap := make(map[string]*RuntimeInfoItem)
 	var keys []string
 	for _, cm := range cms.Items {
-		switch cm.ObjectMeta.Name {
+		switch cm.Name {
 		case "openshift-provider-certification-version", "opct-version", "plugins-config":
 		default:
 			continue
 		}
 
 		for k, v := range cm.Data {
-			key := fmt.Sprintf("%s_%s", cm.ObjectMeta.Name, k)
-			cmpMap[key] = &RuntimeInfoItem{Config: cm.ObjectMeta.Name, Name: k, Value: v}
+			key := fmt.Sprintf("%s_%s", cm.Name, k)
+			cmpMap[key] = &RuntimeInfoItem{Config: cm.Name, Name: k, Value: v}
 			keys = append(keys, key)
 		}
 	}

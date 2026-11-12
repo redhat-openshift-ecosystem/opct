@@ -516,10 +516,7 @@ func (cs *ConsolidatedSummary) applyFilterBaselineAPIForPlugin(pluginName string
 	// OPCT_DISABLE_EXP_BASELINE_API can be set to use the local file.
 	// Default method is to use the API to get the baseline.
 
-	skipFilter := false
-	if os.Getenv("OPCT_DISABLE_FILTER_BASELINE") == "1" {
-		skipFilter = true
-	}
+	skipFilter := os.Getenv("OPCT_DISABLE_FILTER_BASELINE") == "1"
 
 	doneFilter := func() {
 		log.Debugf("Filter (BaselineAPI) results: plugin=%s in=filter(%d) inApi=(%d) out=filter(%d) excluded(%d)",

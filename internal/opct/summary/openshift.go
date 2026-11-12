@@ -364,7 +364,7 @@ func (os *OpenShiftSummary) ExtractOpenShiftConfigMap(in *v1.ConfigMapList) erro
 
 	// Extract desired data from ConfigMaps
 	for _, cm := range in.Items {
-		if cm.ObjectMeta.Name != "openshift-install-manifests" {
+		if cm.Name != "openshift-install-manifests" {
 			continue
 		}
 		// Extract only required information: invoker

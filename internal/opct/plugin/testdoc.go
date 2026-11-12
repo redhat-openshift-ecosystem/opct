@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strings"
 
-	
 	log "github.com/sirupsen/logrus"
 )
 
@@ -103,9 +102,9 @@ func (d *TestDocumentation) BuildIndex() error {
 				fragment := match[1]
 				// mount the fragment removing undesired symbols.
 				for _, c := range []string{":", "-", ".", ",", "="} {
-					fragment = strings.Replace(fragment, c, "", -1)
+					fragment = strings.ReplaceAll(fragment, c, "")
 				}
-				fragment = strings.Replace(fragment, " ", "-", -1)
+				fragment = strings.ReplaceAll(fragment, " ", "-")
 				fragment = strings.ToLower(fragment)
 				d.Tests[testName].URLFragment = fmt.Sprintf("%s#%s", *d.UserBaseURL, fragment)
 			}
