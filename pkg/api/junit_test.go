@@ -54,6 +54,39 @@ func TestNewJUnitXMLParser(t *testing.T) {
 	assert.Equal(t, 1, parser.Counters.Pass)
 }
 
+// TestNewJUnitXMLParserFromBytesRedactionMarker covers JUnit files from
+// archives redacted by the OPCT cleaner: the raw, unescaped
+// "<REDACTED_BY_OPCT>" marker inside system-out must not prevent parsing, and
+// the retry must not keep test cases appended by the failed first attempt.
+func TestNewJUnitXMLParserFromBytesRedactionMarker(t *testing.T) {
+	content := `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="openshift-tests-upgrade" tests="2" skipped="1" failures="0" time="1">
+	<testcase name="test_case_name_1" time="1">
+		<system-out>secret is <REDACTED_BY_OPCT> here</system-out>
+	</testcase>
+	<testcase name="test_case_name_2" time="1">
+		<skipped message="skipped"/>
+	</testcase>
+</testsuite>`
+
+	parser, err := NewJUnitXMLParserFromBytes([]byte(content))
+	assert.NoError(t, err)
+	assert.NotNil(t, parser)
+	assert.Equal(t, 2, parser.Counters.Total,
+		"test cases appended by the failed first parse attempt must not be counted twice")
+	assert.Equal(t, 1, parser.Counters.Skipped)
+	assert.Equal(t, 0, parser.Counters.Failures)
+	assert.Equal(t, 1, parser.Counters.Pass)
+	assert.Len(t, parser.Cases, 2)
+	assert.Contains(t, parser.Cases[0].SystemOut, "<REDACTED_BY_OPCT>")
+}
+
+func TestNewJUnitXMLParserFromBytesBroken(t *testing.T) {
+	parser, err := NewJUnitXMLParserFromBytes([]byte(`<testsuite name="x" tests="1"`))
+	assert.Error(t, err)
+	assert.Nil(t, parser)
+}
+
 func createFakeJUnitXMLFileForOpenShiftTests() string {
 	// Create a temporary file
 	file, err := os.CreateTemp("", "opct-e2e.xml")
