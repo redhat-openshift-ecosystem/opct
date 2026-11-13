@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strings"
 
-	
 	log "github.com/sirupsen/logrus"
 )
 
@@ -59,7 +58,11 @@ func (d *TestDocumentation) Load() error {
 	if err != nil {
 		return fmt.Errorf("failed to make request to %s: %w", app, err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Warnf("failed to close response body from %s: %v", app, err)
+		}
+	}()
 
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected HTTP status code to %s", app)
@@ -103,9 +106,9 @@ func (d *TestDocumentation) BuildIndex() error {
 				fragment := match[1]
 				// mount the fragment removing undesired symbols.
 				for _, c := range []string{":", "-", ".", ",", "="} {
-					fragment = strings.Replace(fragment, c, "", -1)
+					fragment = strings.ReplaceAll(fragment, c, "")
 				}
-				fragment = strings.Replace(fragment, " ", "-", -1)
+				fragment = strings.ReplaceAll(fragment, " ", "-")
 				fragment = strings.ToLower(fragment)
 				d.Tests[testName].URLFragment = fmt.Sprintf("%s#%s", *d.UserBaseURL, fragment)
 			}

@@ -43,9 +43,9 @@ func ParseMetaLogs(logs []string) []*RuntimeInfoItem {
 	// convert from ISO8601 [returning errors] to:
 	dateFormat := "2006/01/02 15:04:05"
 	convertDate := func(t string) string {
-		new := strings.Replace(t, "-", "/", -1)
-		new = strings.Replace(new, "T", " ", -1)
-		new = strings.Replace(new, "Z", "", -1)
+		new := strings.ReplaceAll(t, "-", "/")
+		new = strings.ReplaceAll(new, "T", " ")
+		new = strings.ReplaceAll(new, "Z", "")
 		return new
 	}
 	diffDate := func(strStart string, strEnd string) string {

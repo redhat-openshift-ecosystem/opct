@@ -74,7 +74,14 @@ func ScanPatchTarGzipReaderFor(r io.Reader) (resp io.Reader, size int, err error
 	if err != nil {
 		return nil, size, fmt.Errorf("unable to open gzip file: %w", err)
 	}
-	defer gzipReader.Close()
+	defer func() {
+		// Read-side close: a failure here cannot affect the produced artifact.
+		// Report it only when the scan itself succeeded; otherwise it just
+		// repeats the error already being returned.
+		if cerr := gzipReader.Close(); cerr != nil && err == nil {
+			log.Warnf("unable to close gzip reader: %v", cerr)
+		}
+	}()
 
 	// Create a tar reader
 	tarReader := tar.NewReader(gzipReader)

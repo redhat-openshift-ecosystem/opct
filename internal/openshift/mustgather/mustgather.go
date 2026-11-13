@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	
 	"github.com/redhat-openshift-ecosystem/opct/internal/opct/archive"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -265,10 +264,14 @@ func (mg *MustGather) extract(tarball *tar.Reader) error {
 				if err != nil {
 					return err
 				}
-				if _, err := io.Copy(f, tarball); err != nil {
-					return err
+				_, copyErr := io.Copy(f, tarball)
+				closeErr := f.Close()
+				if copyErr != nil {
+					return fmt.Errorf("unable to extract %s: %w", targetLocal, copyErr)
 				}
-				f.Close()
+				if closeErr != nil {
+					return fmt.Errorf("unable to close file %s: %w", targetLocal, closeErr)
+				}
 
 			case patternNameRawFile:
 				log.Debugf("Must-gather extracting file %s", targetAlias)

@@ -159,7 +159,11 @@ func (brs *BaselineConfig) ReadReportSummaryFromAPI(path string) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("error sending request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Warnf("failed to close BaselineAPI response body (%s): %v", path, err)
+		}
+	}()
 
 	log.Debugf("Summary Report API (%s) response code: %s", path, resp.Status)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
