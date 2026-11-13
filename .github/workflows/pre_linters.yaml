@@ -10,8 +10,6 @@ on:
 permissions:
   # Required for analysis.
   contents: read
-  # Used by `only-new-issues``.
-  pull-requests: read
   # Allow access to checks to annotate code in the PR.
   checks: write
 
@@ -58,12 +56,15 @@ jobs:
              go.sum
 
       # https://github.com/golangci/golangci-lint-action
+      # Lint the full repository on every event. `only-new-issues` limited
+      # pull requests to the diff, so existing issues were only reported on
+      # pushes without a usable diff base (new branches, tags), failing the
+      # release pipeline instead of the pull request that could fix them.
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
           args: --timeout=10m
-          only-new-issues: true
 
   go_static:
     runs-on: ubuntu-latest

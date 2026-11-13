@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"github.com/redhat-openshift-ecosystem/opct/internal/opct/summary"
 	"github.com/redhat-openshift-ecosystem/opct/internal/report"
 	log "github.com/sirupsen/logrus"
+	"github.com/vmware-tanzu/sonobuoy/pkg/discovery"
 	"github.com/vmware-tanzu/sonobuoy/pkg/errlog"
 )
 
@@ -139,7 +141,9 @@ func processResult(input *Input) error {
 
 	if input.skipBaselineAPI {
 		log.Warnf("THIS IS NOT RECOMMENDED: detected flag --skip-baseline-api, setting OPCT_DISABLE_FILTER_BASELINE=1 to skip the failure filter in the pipeline")
-		os.Setenv("OPCT_DISABLE_FILTER_BASELINE", "1")
+		if err := os.Setenv("OPCT_DISABLE_FILTER_BASELINE", "1"); err != nil {
+			return fmt.Errorf("unable to set OPCT_DISABLE_FILTER_BASELINE to honor --skip-baseline-api: %w", err)
+		}
 	}
 
 	// Show deprecation warnings when using --baseline.
@@ -476,19 +480,37 @@ func showReportAggregatedSummary(re *report.ReportData) error {
 	}
 
 	// Section: Failed pods counter (using old table version [tabwritter])
-	newLineWithTab := "\t\t\n"
-	tbWriter := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', tabwriter.AlignRight)
-	fmt.Fprint(tbWriter, newLineWithTab)
-	if len(re.Provider.ClusterHealth.PodHealthDetails) > 0 {
-		fmt.Fprintf(tbWriter, " Failed pods:\n")
-		fmt.Fprintf(tbWriter, "  %s/%s\t%s\t%s\t%s\t%s\n", "Namespace", "PodName", "Healthy", "Ready", "Reason", "Message")
-		for _, podDetails := range re.Provider.ClusterHealth.PodHealthDetails {
-			fmt.Fprintf(tbWriter, "  %s/%s\t%t\t%s\t%s\t%s\n", podDetails.Namespace, podDetails.Name, podDetails.Healthy, podDetails.Ready, podDetails.Reason, podDetails.Message)
-		}
+	// The CLI summary is informational and is shown before the results are
+	// saved, so a terminal write error must not prevent saving them.
+	if err := writeFailedPods(os.Stdout, re.Provider.ClusterHealth.PodHealthDetails); err != nil {
+		log.Warnf("unable to write failed pods section: %v", err)
 	}
-	tbWriter.Flush()
 
 	return nil
+}
+
+// writeFailedPods renders the failed pods section with tabwriter to out,
+// returning the first write or flush error.
+func writeFailedPods(out io.Writer, pods []discovery.HealthInfoDetails) error {
+	newLineWithTab := "\t\t\n"
+	tbWriter := tabwriter.NewWriter(out, 0, 8, 1, '\t', tabwriter.AlignRight)
+	if _, err := fmt.Fprint(tbWriter, newLineWithTab); err != nil {
+		return err
+	}
+	if len(pods) > 0 {
+		if _, err := fmt.Fprintf(tbWriter, " Failed pods:\n"); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(tbWriter, "  %s/%s\t%s\t%s\t%s\t%s\n", "Namespace", "PodName", "Healthy", "Ready", "Reason", "Message"); err != nil {
+			return err
+		}
+		for _, podDetails := range pods {
+			if _, err := fmt.Fprintf(tbWriter, "  %s/%s\t%t\t%s\t%s\t%s\n", podDetails.Namespace, podDetails.Name, podDetails.Healthy, podDetails.Ready, podDetails.Reason, podDetails.Message); err != nil {
+				return err
+			}
+		}
+	}
+	return tbWriter.Flush()
 }
 
 // pluginSummaryRows builds the provider/baseline row pair for a plugin's
@@ -617,10 +639,7 @@ func showSummaryPlugin(re *report.ReportResult, pluginName string, bProcessed bo
 	// }
 
 	// checking for runtime failures
-	runtimeFailed := false
-	if stat.Total == stat.Failed {
-		runtimeFailed = true
-	}
+	runtimeFailed := stat.Total == stat.Failed
 
 	// rewrite the original status when pass on all filters and not failed on runtime
 	status := stat.Status
