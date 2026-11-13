@@ -516,10 +516,7 @@ func (cs *ConsolidatedSummary) applyFilterBaselineAPIForPlugin(pluginName string
 	// OPCT_DISABLE_EXP_BASELINE_API can be set to use the local file.
 	// Default method is to use the API to get the baseline.
 
-	skipFilter := false
-	if os.Getenv("OPCT_DISABLE_FILTER_BASELINE") == "1" {
-		skipFilter = true
-	}
+	skipFilter := os.Getenv("OPCT_DISABLE_FILTER_BASELINE") == "1"
 
 	doneFilter := func() {
 		log.Debugf("Filter (BaselineAPI) results: plugin=%s in=filter(%d) inApi=(%d) out=filter(%d) excluded(%d)",
@@ -1029,16 +1026,14 @@ func (cs *ConsolidatedSummary) SaveResults(path string) error {
 }
 
 // writeFileTestList saves the list of test names to a new text file
-func writeFileTestList(filename string, data []string) error {
+func writeFileTestList(filename string, data []string) (err error) {
 	fd, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
 	}
-	defer fd.Close()
+	defer closeWrittenFile(fd, &err)
 
 	writer := bufio.NewWriter(fd)
-	defer writer.Flush()
-
 	for _, line := range data {
 		_, err = writer.WriteString(line + "\n")
 		if err != nil {
@@ -1046,6 +1041,9 @@ func writeFileTestList(filename string, data []string) error {
 		}
 	}
 
+	if err = writer.Flush(); err != nil {
+		return fmt.Errorf("failed to flush file %s: %w", filename, err)
+	}
 	return nil
 }
 
@@ -1072,22 +1070,32 @@ func extractSaveTestErrors(prefix string, items plugin.Tests, failures []string)
 }
 
 // writeErrorToFile save the entire buffer to individual file.
-func writeErrorToFile(file, data string) error {
+func writeErrorToFile(file, data string) (err error) {
 	fd, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
 	}
-	defer fd.Close()
+	defer closeWrittenFile(fd, &err)
 
 	writer := bufio.NewWriter(fd)
-	defer writer.Flush()
-
 	_, err = writer.WriteString(data)
 	if err != nil {
 		return err
 	}
 
+	if err = writer.Flush(); err != nil {
+		return fmt.Errorf("failed to flush file %s: %w", file, err)
+	}
 	return nil
+}
+
+// closeWrittenFile closes a file that has been written to, reporting the
+// close error through errp when no earlier error was returned. A failed close
+// can mean buffered data was not persisted, so it must not be ignored.
+func closeWrittenFile(fd *os.File, errp *error) {
+	if cerr := fd.Close(); cerr != nil && *errp == nil {
+		*errp = fmt.Errorf("failed to close file %s: %w", fd.Name(), cerr)
+	}
 }
 
 // createDir checks if the directory exists, if not creates it, otherwise log and return error

@@ -23,7 +23,7 @@ func (brs *BaselineConfig) UploadBaseline(ctx context.Context, filePath, resPath
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filePath, err)
 	}
-	defer fdArchive.Close()
+	defer closeUploadFile(fdArchive)
 
 	// Object names and paths
 	filenameArtifact := filepath.Base(filePath)
@@ -63,7 +63,7 @@ func (brs *BaselineConfig) UploadBaseline(ctx context.Context, filePath, resPath
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filenameSummary, err)
 	}
-	defer fdArchive.Close()
+	defer closeUploadFile(fdSummary)
 
 	log.Debugf("UploadBaseline(): uploading baseline summary to %q", objectKeySummary)
 	s3ObjectURI = "s3://" + brs.bucketName + "/" + objectKeySummary
@@ -84,4 +84,12 @@ func (brs *BaselineConfig) UploadBaseline(ctx context.Context, filePath, resPath
 	}
 
 	return nil
+}
+
+// closeUploadFile closes a file opened read-only for upload. The upload
+// result is already known at this point, so a close failure is only logged.
+func closeUploadFile(fd *os.File) {
+	if err := fd.Close(); err != nil {
+		log.Warnf("UploadBaseline(): failed to close file %s: %v", fd.Name(), err)
+	}
 }

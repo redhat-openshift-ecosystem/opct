@@ -99,7 +99,7 @@ func applyTaintToNode(kclient kubernetes.Interface, nodeName string) error {
 		return fmt.Errorf("failed to get node %s: %v", nodeName, err)
 	}
 
-	node.ObjectMeta.Labels[types.DedicatedNodeRoleLabel] = ""
+	node.Labels[types.DedicatedNodeRoleLabel] = ""
 	node.Spec.Taints = append(node.Spec.Taints, v1.Taint{
 		Key:    types.DedicatedNodeRoleLabel,
 		Value:  "",

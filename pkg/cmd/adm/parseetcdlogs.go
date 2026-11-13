@@ -3,6 +3,7 @@ package adm
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,15 +36,30 @@ func init() {
 	parseEtcdLogsCmd.Flags().BoolVar(&parseEtcdLogsArgs.skipErrorCounters, "skip-error-counter", false, "Skip calculation of error counter. Increase speed. Default: false")
 }
 
-func printTable(table [][]string) {
-	writer := tabwriter.NewWriter(os.Stdout, 0, 4, 0, '\t', 0)
+// printTable renders the table as tab-aligned columns to out, returning
+// the first write or flush error.
+func printTable(out io.Writer, table [][]string) error {
+	writer := tabwriter.NewWriter(out, 0, 4, 0, '\t', 0)
 	for _, row := range table {
 		for _, col := range row {
-			fmt.Fprintf(writer, "%s\t", col)
+			if _, err := fmt.Fprintf(writer, "%s\t", col); err != nil {
+				return err
+			}
 		}
-		fmt.Fprintf(writer, "\n")
+		if _, err := fmt.Fprintf(writer, "\n"); err != nil {
+			return err
+		}
 	}
-	writer.Flush()
+	return writer.Flush()
+}
+
+// printTableOrExit prints the table to stdout, exiting on failure so a
+// truncated report is not mistaken for a complete one.
+func printTableOrExit(table [][]string) {
+	if err := printTable(os.Stdout, table); err != nil {
+		log.Errorf("Unable to print table: %v", err)
+		os.Exit(1)
+	}
 }
 
 func check(e error) {
@@ -161,13 +177,13 @@ func parseEtcdLogsRun(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Printf("\n=== Summary ===\n")
-	printTable(tbSummary)
+	printTableOrExit(tbSummary)
 
 	fmt.Printf("\n=== Buckets (ms) ===\n")
-	printTable(tbBuckets)
+	printTableOrExit(tbBuckets)
 
 	fmt.Printf("\n=== Timers ===\n")
-	printTable(tbTimers)
+	printTableOrExit(tbTimers)
 
 	if !parseEtcdLogsArgs.skipErrorCounters {
 		fmt.Printf("\n=== Log error counters ===\n")
@@ -180,6 +196,6 @@ func parseEtcdLogsRun(cmd *cobra.Command, args []string) {
 				fmt.Sprintf("%-60s", k),
 				fmt.Sprintf(": %d", v)})
 		}
-		printTable(tbErrors)
+		printTableOrExit(tbErrors)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func createTestTarGz(files map[string]string) ([]byte, error) {
@@ -94,8 +95,8 @@ func TestScanPatchTarGzipReaderFor(t *testing.T) {
 
 			// Read the response tar.gz
 			gzipReader, err := gzip.NewReader(resp)
-			assert.NoError(t, err)
-			defer gzipReader.Close()
+			require.NoError(t, err)
+			defer func() { assert.NoError(t, gzipReader.Close()) }()
 
 			tarReader := tar.NewReader(gzipReader)
 			for {
