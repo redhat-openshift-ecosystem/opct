@@ -104,6 +104,23 @@ Checklist:
 - [ ] Blocking issues triaged — be explicit about what blocks GA vs what blocks the RC. They are different lists.
 - [ ] Both repos' `main` is green.
 - [ ] You can push branches/tags to both repos. You will **not** have push rights to `openshift/release` — Step 4 is fork-based.
+- [ ] Base/tools image has no open Quay Security Scan findings (see below). Do this before tagging — a flagged base image ships into every plugin build on that tag.
+
+**Base image security scan** (carried over from the old devel guide checklist,
+not CI-enforced anywhere):
+
+```bash
+# build a dev tag and check its Quay scan results
+cd opct-plugins && make build-dev   # or: cd opct && make linux-amd64-container IMG=quay.io/my-user/opct && podman push quay.io/my-user/opct:latest
+# review results at https://quay.io/repository/opct/opct?tab=tags (or your fork's repo)
+```
+
+If the base image has findings:
+1. Bump the base image version with the fix (example: [opct-plugins#41](https://github.com/redhat-openshift-ecosystem/opct-plugins/pull/41)).
+2. Rebuild and push the tools image: `./hack/build-image.sh build-tools` then
+   `podman push quay.io/opct/tools:v0.0.0-<version>`.
+3. Re-check the scan; once clean, promote: `podman push quay.io/opct/tools:latest`.
+4. Rebuild the plugin images against the new base before continuing to Step 2.
 
 ## Step 1 — Not a step: confirm the plan with the maintainer
 
