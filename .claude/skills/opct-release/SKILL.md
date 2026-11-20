@@ -9,6 +9,12 @@ allowed-tools: Bash, Read, Edit, Write, Grep, Glob, WebFetch
 End-to-end runbook for shipping an OPCT version. Written so an engineer who has
 never cut an OPCT release can do it without tribal knowledge.
 
+> **This skill guides the release process — it does not execute it.**
+> Claude prepares commands, validates state, and drafts artifacts. The human
+> executes every privileged action. Steps marked with ⛔ **HUMAN GATE** are
+> irreversible operations that Claude must never run autonomously, even in
+> auto-mode — always stop and present the command for the human to execute.
+
 ## Scope and vocabulary
 
 Two repositories ship together:
@@ -130,6 +136,8 @@ questions that have required a round-trip on every release so far.
 
 ## Step 2 — Plugins repo (`opct-plugins`)
 
+⛔ **HUMAN GATE — branch creation and tag push are irreversible.**
+
 ```bash
 cd <opct-plugins>
 git fetch origin
@@ -205,6 +213,9 @@ MustGatherMonitoringImage = "must-gather-monitoring:v0.7.0-rc.0"
    direct pushes are not allowed). Title it with the Jira key, e.g.
    `OPCT-505: pin image versions to v0.7.0-rc.0 for release candidate`.
    `verify-images` fails until Step 2's images are on quay — re-run CI after.
+
+⛔ **HUMAN GATE — PR merge and tag push are irreversible.**
+
 4. Merge (merge commit, not rebase), then tag the merge commit by SHA and push:
 
 ```bash
@@ -247,6 +258,8 @@ their own `OPCT_CLI_IMAGE: quay.io/opct/opct:latest` override. Leave those
 alone unless the release ticket says otherwise — versions without an override
 inherit the workflow default and switch automatically.
 
+⛔ **HUMAN GATE — cryptographic signing, push to fork, and PR creation.**
+
 Procedure:
 
 ```bash
@@ -288,6 +301,8 @@ Then, in order:
 4. Any force-push to the branch **aborts in-flight rehearsals** — they run against
    the head SHA at trigger time. Finish amending/signing before triggering.
 5. Confirm each rehearsal actually used the new image (grep the init step log).
+⛔ **HUMAN GATE — rehearse ack and hold cancel trigger the merge.**
+
 6. Post a results table comment, then `/pj-rehearse ack` — the merge gate is this
    human ack, not a check. `/hold cancel`.
 
@@ -299,6 +314,8 @@ The workflow publishes the release automatically but gets two things wrong
 Step 4 left you in the `openshift/release` checkout — read the tag from the OPCT
 clone explicitly, or you will write an empty notes file and wipe the release body:
 
+⛔ **HUMAN GATE — release page edit is public-facing and hard to undo.**
+
 ```bash
 git -C <opct> tag -l --format='%(contents)' v0.7.0-rc.0 > /tmp/notes.md
 [ -s /tmp/notes.md ] || { echo "empty notes — wrong repo or wrong tag"; exit 1; }
@@ -308,6 +325,8 @@ gh release edit v0.7.0-rc.0 --repo redhat-openshift-ecosystem/opct --notes-file 
 
 Use `--notes-file`. `gh release edit --notes "$(cat <<EOF ...)"` fails on macOS's
 bash 3.2.
+
+⛔ **HUMAN GATE — GA promotion flips the public Latest badge.**
 
 Then:
 - **GA**: `gh release edit vX.Y.Z --repo redhat-openshift-ecosystem/opct --prerelease=false --latest`.
@@ -340,6 +359,9 @@ A tag build can fail before publishing anything. Decision rule:
 
 - **Nothing was consumed** — no quay image, no GitHub release, no downstream
   reference: delete the tag and re-push it on the fixed commit, same version.
+
+  ⛔ **HUMAN GATE — tag deletion is irreversible.**
+
   ```bash
   git push origin :refs/tags/v0.7.0-rc.0 && git tag -d v0.7.0-rc.0
   # fix, then re-tag on the new SHA and push
