@@ -625,8 +625,12 @@ $ grep -B 5 'Creating failed JUnit' \
 				// nothing to evaluate. Only an explicitly known regular run is
 				// skipped: an unset workflow keeps the failure to avoid hiding a
 				// genuinely missing plugin in upgrade executions.
-				if re.Setup != nil && re.Setup.API != nil && re.Setup.API.Workflow == plugin.WorkflowRegular {
-					return CheckResult{Name: CheckResultNameSkip, Target: "passed", Actual: "regular mode"}
+				if re.Setup != nil && re.Setup.API != nil &&
+					(re.Setup.API.Workflow == plugin.WorkflowRegular || re.Setup.API.Workflow == plugin.WorkflowDisconnected) {
+					return CheckResult{
+						Name:   CheckResultNameSkip,
+						Target: "passed",
+						Actual: fmt.Sprintf("%s mode", re.Setup.API.Workflow)}
 				}
 				return res
 			}

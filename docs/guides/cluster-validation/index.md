@@ -353,7 +353,7 @@ The `upgrade` mode upgrades the cluster to a specified 4.Y+1 release, monitoring
 *Steps*:
 
 ```sh
-./opct run --mode=upgrade --upgrade-to-image=$(oc adm release info 4.Y+1.Z -o jsonpath={.image})
+./opct run --workflow=upgrade --upgrade-to-image=$(oc adm release info 4.Y+1.Z -o jsonpath={.image})
 ```
 
 #### Default in disconnected environments<a name="usage-run-disconnected"></a>
@@ -367,7 +367,7 @@ If you have a disconnected mirror registry configured
 *Steps*:
 
 ```sh
-./opct run --image-repository ${TARGET_REPO}
+./opct run --workflow=disconnected --image-repository ${TARGET_REPO}
 ```
 
 ### Check status <a name="usage-check"></a>
