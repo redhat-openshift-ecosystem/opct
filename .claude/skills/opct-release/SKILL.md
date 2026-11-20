@@ -153,9 +153,8 @@ git tag -a v0.7.0-rc.0 -m "Release v0.7.0-rc.0
 git push origin v0.7.0-rc.0
 ```
 
-Write the tag message carefully — it is the source material for the GitHub
-release notes in Step 5, because the auto-generated changelog is unusable
-(see [Known CI bugs](#known-ci-bugs)).
+The plugins tag message is for traceability only — Step 5 reads the **CLI**
+tag (Step 3), not this one.
 
 **Two CI runs will appear** when you created a new branch: a branch-push run
 (builds, pushes nothing) and the tag-push run. Only the tag run publishes
@@ -196,6 +195,10 @@ RC images never expire (`EXPIRATION: never`), so an RC tag is permanent.
 
 ## Step 3 — CLI repo (`opct`)
 
+```bash
+cd <opct>
+```
+
 1. Seed or update `release-X.Y` as decided above.
 2. Branch off `release-X.Y`, pin all four constants in `pkg/types.go`:
 
@@ -220,9 +223,16 @@ MustGatherMonitoringImage = "must-gather-monitoring:v0.7.0-rc.0"
 
 ```bash
 git fetch origin && git log --oneline -1 origin/release-0.7   # take the SHA
-git tag -a v0.7.0-rc.0 -m "Release v0.7.0-rc.0 ..." <full-sha>
+git tag -a v0.7.0-rc.0 -m "Release v0.7.0-rc.0
+
+- OPCT-505: pin image versions (#270)
+- ..." <full-sha>
 git push origin v0.7.0-rc.0
 ```
+
+   Write this tag message carefully — it is the source material for the GitHub
+   release notes in Step 5, because the auto-generated changelog is unusable
+   (see [Known CI bugs](#known-ci-bugs)).
 
 5. Verify what the tag build produced:
 
