@@ -54,10 +54,15 @@ If `make test-lint` fails, verify that each failure predates your change. Do not
 - Do NOT add `toolchain` directive to go.mod (CI compatibility issue)
 
 ### Release Process
-- Manual tag creation (not automated workflows)
-- Release plugins BEFORE CLI (CLI references plugin image versions in `pkg/types.go`)
-- Release branches: `release-X.Y` (CLI), `release-vX.Y` (plugins)
-- See CLAUDE.md "Release Process" section for full procedure
+**Use the `opct-release` skill** (`.claude/skills/opct-release/`) — authoritative runbook for both RC (`vX.Y.Z-rc.N`) and GA (`vX.Y.Z`) releases, covering both repos, the `openshift/release` CI bump, release-page fixes and failed-tag recovery.
+
+Invariants worth knowing before you read it:
+- Manual annotated tags pinned to an explicit SHA. No release automation.
+- Release plugins BEFORE the CLI — the `verify-images` job checks that the three plugin tags pinned in `pkg/types.go` (`PluginsImage`, `CollectorImage`, `MustGatherMonitoringImage`) already exist on quay. `ControllerImage` is not existence-checked.
+- Release branches are `release-X.Y` in **both** repos (no `v` prefix): `release-0.7`, not `release-v0.7`.
+- `main` always carries `:latest` in `pkg/types.go`; pinning happens only on release branches, where CI blocks `:latest`.
+- Merge into release branches, never rebase — a rebase orphans previously tagged commits.
+- Bumping `OPCT_CLI_IMAGE` in `openshift/release` is part of the release, not a follow-up.
 
 ## Important Files
 
@@ -89,6 +94,7 @@ rm -rf "${REPORT_DIR:?}"/*
 
 ## Related Skills
 
+- **`opct-release`** — RC and GA release runbook (both repos, openshift/release bump, release page, recovery). Use for anything release-related.
 - **`opct-runtime`** — Plugin runtime architecture (execution order, dependency chain, timing delays). Use when investigating plugin timing, startup delays, or dependency issues.
 - **`jira-ops`** — Jira operations with MCP-first + REST API fallback. Use when filing bugs or comments.
 - **`ci-triage`** — CI job failure triage workflow. Use when investigating periodic job failures.

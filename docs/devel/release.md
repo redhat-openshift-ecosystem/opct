@@ -1,6 +1,12 @@
 # Dev Guide - Release components
 
-This guide describes how to release a new version of OPCT considering all the project dependencies.
+This guide describes the build pipeline behind an OPCT release.
+
+> **Cutting a release?** Follow the step-by-step runbook in the `opct-release`
+> skill (`.claude/skills/opct-release/SKILL.md`), which covers release candidates
+> and GA across both repositories, the `openshift/release` CI image bump, the
+> GitHub release page, and recovery from a failed tag build. This page only
+> documents how the plugin images are built.
 
 
 ### Plugins images
@@ -31,7 +37,7 @@ pipeline [ci.yaml](https://github.com/redhat-openshift-ecosystem/opct-plugins/bl
 when:
 
 - a push in the `main` branch, the `latest` image will be published in the image registry
-- a tag is created from any `release-v*`, the same tag will be published in the image registry
+- a tag is created on a `release-X.Y` branch (e.g. `release-0.7` — no `v` prefix), the same tag will be published in the image registry
 
 The production images are built by default for `linux/amd64` and `linux/arm64` in the same manifest
 for the following components:

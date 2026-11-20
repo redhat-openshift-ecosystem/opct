@@ -11,8 +11,8 @@ This document provides structured instructions for common development activities
   - [Adding Retry Logic to Validations](#adding-retry-logic-to-validations)
 - [Release Process](#release-process)
   - [Release Overview](#release-overview)
-  - [OPCT CLI Release](#opct-cli-release)
-  - [Plugins Release](#plugins-release)
+  - [Release Invariants](#release-invariants)
+  - [Release Checklist](#release-checklist)
 - [Validation Procedures](#validation-procedures)
 - [Web UI Report Development](#web-ui-report-development)
 - [AI Agent Ecosystem](#ai-agent-ecosystem)
@@ -532,440 +532,75 @@ The same pattern can be applied to:
 
 ## Release Process
 
-**Reference**: [docs/devel/release.md](docs/devel/release.md) and [docs/devel/update.md](docs/devel/update.md)
+**Authoritative runbook: the `opct-release` skill** (`.claude/skills/opct-release/SKILL.md`).
+It covers release candidates and GA, both repositories, the `openshift/release`
+CI image bump, the GitHub release-page fixes, and recovery from a failed tag
+build. Follow it rather than improvising from this section.
+
+**Background**: [docs/devel/release.md](docs/devel/release.md) (plugin build pipeline),
+[docs/devel/update.md](docs/devel/update.md).
 
 ### Release Overview
 
-OPCT project consists of two main repositories that need to be released independently but in coordination:
-
-1. **OPCT CLI** ([github.com/redhat-openshift-ecosystem/opct](https://github.com/redhat-openshift-ecosystem/opct))
-   - Client-side CLI tool
-   - Delivered as binary and container image
-   - Repository: `quay.io/opct/opct`
-
-2. **OPCT Plugins** ([github.com/redhat-openshift-ecosystem/opct-plugins](https://github.com/redhat-openshift-ecosystem/opct-plugins))
-   - Container-based workflow steps
-   - Plugin images: openshift-tests, artifacts-collector, must-gather-monitoring, tools
-   - Repository: `quay.io/opct/plugin-*`
-
-**Release branches**:
-- CLI: `release-X.Y` (e.g., `release-0.6`)
-- Plugins: `release-vX.Y` (e.g., `release-v0.6`)
-
-**Version format**: `vX.Y.Z` (e.g., `v0.6.1`)
-
-### OPCT CLI Release
-
-**Goal**: Release a new patch version (e.g., `v0.6.1`) of the OPCT CLI.
-
-#### Prerequisites
-
-- Changes are merged to `main` branch
-- Local `main` branch is up to date
-- You have write access to the repository
-
-#### Step-by-Step Process
-
-**1. Update main branch with latest changes**
-
-```bash
-git checkout main
-git pull origin main
-```
-
-**2. Create version bump PR**
-
-Update plugin image versions in `pkg/types.go`:
-
-```go
-// pkg/types.go (lines 23-25)
-PluginsImage              = "plugin-openshift-tests:v0.6.1"      // Change v0.6.0 → v0.6.1
-CollectorImage            = "plugin-artifacts-collector:v0.6.1"  // Change v0.6.0 → v0.6.1
-MustGatherMonitoringImage = "must-gather-monitoring:v0.6.1"      // Change v0.6.0 → v0.6.1
-```
-
-**Why update pkg/types.go?**
-- The CLI references specific plugin image versions
-- This PR tests that the new version works correctly in CI
-- Merging to `main` ensures the release tag will reference correct plugin versions
-
-**Create and push PR**:
-
-```bash
-# Create feature branch
-git checkout -b release/bump-v0.6.1
-
-# Edit pkg/types.go
-# Update the three image version strings
-
-# Commit changes
-git add pkg/types.go
-git commit -m "chore: bump version to v0.6.1
-
-Prepare for v0.6.1 release by updating plugin image versions
-in pkg/types.go. This ensures the CLI will reference the correct
-plugin images when v0.6.1 is released.
-
-Changes:
-- PluginsImage: v0.6.0 → v0.6.1
-- CollectorImage: v0.6.0 → v0.6.1
-- MustGatherMonitoringImage: v0.6.0 → v0.6.1
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
-
-# Push and create PR
-git push origin release/bump-v0.6.1
-# Create PR via GitHub UI or gh CLI
-```
-
-**3. Wait for PR review and merge**
-
-- Ensure all CI checks pass
-- Request review from maintainers
-- Wait for approval and merge to `main`
-
-**4. Update main branch after merge**
-
-```bash
-git checkout main
-git pull origin main
-```
-
-**5. Update release branch from main**
-
-```bash
-# Checkout the release branch (e.g., release-0.6 for v0.6.x releases)
-git checkout release-0.6
-git pull origin release-0.6
-
-# Rebase from main to include latest changes
-git rebase main
-
-# Push updated release branch
-git push origin release-0.6
-```
-
-**6. Create and push release tag**
-
-```bash
-# Ensure you're on the updated release branch
-git checkout release-0.6
-
-# Verify the branch includes the version bump
-git log --oneline -5
-# Should show the version bump commit
-
-# Create annotated tag
-git tag -a v0.6.1 -m "Release v0.6.1
-
-This release includes:
-- [Brief description of changes]
-- [Bug fixes]
-- [New features]
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
-
-# Push tag to origin
-git push origin v0.6.1
-```
-
-**7. CI automatically builds and publishes**
-
-Once the tag is pushed:
-- GitHub Actions workflow `.github/workflows/ci.yaml` triggers
-- Builds are created for `linux/amd64` and `linux/arm64`
-- Images are pushed to `quay.io/opct/opct:v0.6.1`
-- Binaries are attached to GitHub release
-
-**8. Verify release**
-
-```bash
-# Check image was published
-skopeo list-tags docker://quay.io/opct/opct | grep v0.6.1
-
-# Check GitHub release
-# Visit: https://github.com/redhat-openshift-ecosystem/opct/releases/tag/v0.6.1
-```
-
-#### Release Branch Strategy
-
-**When to create a new release branch**:
-- For new minor versions (e.g., `v0.7.0` → create `release-0.7`)
-- Release branches track major.minor versions (e.g., `release-0.6` for all `v0.6.x`)
-
-**For patch releases**:
-- Use existing release branch (e.g., `release-0.6` for `v0.6.1`, `v0.6.2`, etc.)
-- Rebase from `main` to pick up latest changes
-- Create new tag from updated release branch
-
-### Plugins Release
-
-**Goal**: Release new plugin container images (e.g., `v0.6.1`).
-
-**Repository**: [github.com/redhat-openshift-ecosystem/opct-plugins](https://github.com/redhat-openshift-ecosystem/opct-plugins)
-
-#### Release Process
-
-The plugin release process is **identical** to the CLI release process:
-
-**1. Update main branch**
-
-```bash
-git checkout main
-git pull origin main
-```
-
-**2. Update release branch from main**
-
-```bash
-# Checkout the release branch (e.g., release-v0.6 for v0.6.x releases)
-git checkout release-v0.6
-git pull origin release-v0.6
-
-# Rebase from main to include latest changes
-git rebase main
-
-# Push updated release branch
-git push origin release-v0.6
-```
-
-**3. Create and push release tag**
-
-```bash
-# Ensure you're on the updated release branch
-git checkout release-v0.6
-
-# Create annotated tag
-git tag -a v0.6.1 -m "Release v0.6.1
-
-This release includes:
-- [Brief description of plugin changes]
-- [Bug fixes]
-- [New features]
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
-
-# Push tag to origin
-git push origin v0.6.1
-```
-
-**4. CI automatically builds and publishes**
-
-Once the tag is pushed:
-- GitHub Actions workflow `.github/workflows/ci.yaml` triggers
-- Builds all plugin images for `linux/amd64` and `linux/arm64`
-- Images are pushed to:
-  - `quay.io/opct/plugin-openshift-tests:v0.6.1`
-  - `quay.io/opct/plugin-artifacts-collector:v0.6.1`
-  - `quay.io/opct/must-gather-monitoring:v0.6.1`
-  - `quay.io/opct/tools:v0.6.1`
-
-**5. Verify release**
-
-```bash
-# Check images were published
-skopeo list-tags docker://quay.io/opct/plugin-openshift-tests | grep v0.6.1
-skopeo list-tags docker://quay.io/opct/plugin-artifacts-collector | grep v0.6.1
-skopeo list-tags docker://quay.io/opct/must-gather-monitoring | grep v0.6.1
-```
-
-#### Key Differences from CLI Release
-
-- **No version bump PR needed**: Plugins don't have a central version file like CLI's `pkg/types.go`
-- **Release branch naming**: Uses `release-vX.Y` format (with `v` prefix)
-- **Multiple images**: Single tag publishes 4 different container images
-- **Must be released BEFORE CLI**: CLI references plugin image versions in `pkg/types.go`
-
-### Release Coordination
-
-**Recommended release order**:
-
-1. **Plugins first**: Release plugins with new tag (e.g., `v0.6.1`)
-2. **Verify plugins**: Ensure all plugin images are published
-3. **CLI second**: Update `pkg/types.go` to reference new plugin versions, then release CLI
-
-**Why this order?**
-- CLI references specific plugin image versions in `pkg/types.go`
-- If CLI is released first, it would reference plugin versions that don't exist yet
-- This order ensures all referenced images are available
-
-### Common Release Scenarios
-
-#### Scenario 1: Patch release with bug fixes in both CLI and plugins
-
-```bash
-# 1. Release plugins
-cd opct-plugins
-git checkout main && git pull
-git checkout release-v0.6 && git rebase main && git push
-git tag -a v0.6.1 -m "Release v0.6.1" && git push origin v0.6.1
-
-# 2. Wait for plugin images to build (check CI)
-
-# 3. Release CLI
-cd opct
-git checkout -b release/bump-v0.6.1
-# Edit pkg/types.go to reference v0.6.1 plugin images
-git commit -m "chore: bump version to v0.6.1"
-git push origin release/bump-v0.6.1
-# Create PR, get reviewed, merge
-
-# 4. After PR merged
-git checkout main && git pull
-git checkout release-0.6 && git rebase main && git push
-git tag -a v0.6.1 -m "Release v0.6.1" && git push origin v0.6.1
-```
-
-#### Scenario 2: CLI-only changes (no plugin changes)
-
-```bash
-# 1. No plugin release needed
-
-# 2. Release CLI (referencing existing plugin version, e.g., v0.6.0)
-cd opct
-git checkout -b release/bump-v0.6.1
-# Edit pkg/types.go - plugin versions may stay at v0.6.0
-# Only update if you want to ensure latest plugins are used
-git commit -m "chore: bump version to v0.6.1"
-# Continue with normal CLI release process
-```
-
-#### Scenario 3: New minor version (v0.7.0)
-
-```bash
-# 1. Create new release branches
-cd opct-plugins
-git checkout main
-git checkout -b release-v0.7
-git push origin release-v0.7
-
-cd opct
-git checkout main
-git checkout -b release-0.7
-git push origin release-0.7
-
-# 2. Follow normal release process with new branches
-```
+Two repositories ship together:
+
+1. **OPCT CLI** ([redhat-openshift-ecosystem/opct](https://github.com/redhat-openshift-ecosystem/opct)) — binaries + `quay.io/opct/opct`
+2. **OPCT Plugins** ([redhat-openshift-ecosystem/opct-plugins](https://github.com/redhat-openshift-ecosystem/opct-plugins)) — `quay.io/opct/plugin-openshift-tests`, `plugin-artifacts-collector`, `must-gather-monitoring`
+
+**Release branches**: `release-X.Y` in **both** repos — no `v` prefix (e.g. `release-0.7`).
+
+**Version format**: `vX.Y.Z` for GA, `vX.Y.Z-rc.N` for release candidates.
+
+### Release Invariants
+
+These are enforced by CI or by hard-won experience; the skill explains each in
+context.
+
+- **Plugins are released before the CLI.** The `verify-images` job in
+  `.github/workflows/go.yaml` checks that every plugin tag pinned in
+  `pkg/types.go` already exists on quay.
+- **`main` is permanently `:latest`.** All four image constants in `pkg/types.go`
+  stay at `:latest` on main. Pinning happens only on a release branch, where CI
+  **blocks** `:latest`. (This replaced the old pre-OPCT-437 "version bump PR to
+  main" flow as of v0.6.6 — if you find docs describing that flow, they are stale.)
+- **Merge into release branches, never rebase.** A rebase rewrites history and
+  orphans previously tagged commits; this already happened to `v0.6.4-rc.0` and
+  `v0.6.4-rc.1`.
+- **Tags are manual, annotated, and pinned to an explicit SHA**
+  (`git tag -a vX.Y.Z -m "..." <full-sha>`). There is no release automation.
+- **Minor vs patch**: a minor bump creates a fresh `release-X.Y` from main (no
+  merge PR needed to seed it); a patch bump merges main into the existing branch
+  via PR, expecting a `pkg/types.go` conflict.
+- **Bumping `OPCT_CLI_IMAGE` in `openshift/release`** (3 step-registry workflow
+  files, fork-based PR, signed commits, `/pj-rehearse` + ack) is part of the
+  release, not a follow-up.
+- **Release-branch fixes need a PR, a Jira issue, and a path to `main`.** A
+  direct-pushed, untracked lint hotfix on `release-0.6` broke the `v0.7.0-rc.0`
+  tag build a year later.
+- **RC releases** keep `prerelease: true` and leave the Latest badge on the
+  previous GA.
 
 ### Release Checklist
 
-**Pre-release**:
-- [ ] All changes merged to `main` in both repositories
-- [ ] CI passing on `main` branch
-- [ ] Version numbers decided (e.g., `v0.6.1`)
+**Pre-release**
+- [ ] Release Jira issue exists and states the exact version string
+- [ ] Blockers triaged — RC blockers and GA blockers are different lists
+- [ ] Both repos' `main` green; maintainer agreed on version and branch plan
 
-**Plugins release**:
-- [ ] Update `main` branch: `git checkout main && git pull`
-- [ ] Update release branch: `git checkout release-v0.6 && git pull origin release-v0.6`
-- [ ] Rebase from main: `git rebase main`
-- [ ] Push release branch: `git push origin release-v0.6`
-- [ ] Create annotated tag with comprehensive changelog (see tag creation example above)
-- [ ] Push tag: `git push origin v0.6.1`
-- [ ] Monitor CI build: `gh run watch`
-- [ ] Verify images in registry: `skopeo list-tags docker://quay.io/opct/plugin-openshift-tests | grep v0.6.1`
+**Plugins** (first)
+- [ ] `release-X.Y` seeded or merged up to date
+- [ ] Annotated tag on an explicit SHA, pushed; **tag** CI run green (the branch-push run publishes nothing)
+- [ ] All 3 images present on quay
 
-**CLI release**:
-- [ ] Create version bump PR updating `pkg/types.go` with new plugin versions
-- [ ] Get PR reviewed and merged to `main`
-- [ ] Update `main` branch: `git checkout main && git pull`
-- [ ] Update release branch: `git checkout release-0.6 && git pull origin release-0.6`
-- [ ] Rebase from main: `git rebase main`
-- [ ] Push release branch: `git push origin release-0.6`
-- [ ] Create annotated tag with comprehensive changelog (see tag creation example above)
-- [ ] Push tag: `git push origin v0.6.1`
-- [ ] Monitor CI build: `gh run watch`
-- [ ] Verify CLI image in registry: `skopeo list-tags docker://quay.io/opct/opct | grep v0.6.1`
-- [ ] Verify GitHub release created with binaries
+**CLI** (second)
+- [ ] PR to `release-X.Y` pinning all 4 constants in `pkg/types.go`; `verify-images` green
+- [ ] Merged (merge commit), tag pushed on the merge SHA, tag CI green
+- [ ] `quay.io/opct/opct:<version>` present; GitHub release has binaries
 
-### Lessons Learned from v0.6.1 Release
-
-**Date**: 2025-12-06
-
-#### What Went Wrong
-
-1. **Automated tag creation workflow was unreliable**
-   - `.github/workflows/auto-release-tag.yaml` had multiple issues
-   - Complex workflow with security guardrails that were difficult to debug
-   - Failed silently when PR description didn't match expected format
-   - Required specific PR format that was easy to forget
-
-2. **golangci-lint-action@v7 broke tag builds**
-   - Upgrade from v6 to v7 introduced breaking change with `only-new-issues` flag
-   - Flag fails on tag builds (no base commit to compare against)
-   - Error: `failed to fetch push patch: RequestError [HttpError]: Not Found`
-   - Blocked release for several hours while troubleshooting
-
-3. **Over-engineering solutions**
-   - Attempted conditional `only-new-issues` logic: `${{ !startsWith(github.ref, 'refs/tags/') }}`
-   - Created multiple PRs trying to fix the same issue
-   - Added complexity instead of simplifying
-
-4. **Force-pushing to release branches caused confusion**
-   - Multiple force-pushes to `release-0.6` during troubleshooting
-   - Lost track of which commits were in which branch
-   - Made it harder to understand the actual state
-
-#### What Worked
-
-1. **Manual tag creation is simple and reliable**
-   - Direct `git tag -a` with comprehensive changelog
-   - No complex workflows to debug
-   - Immediate feedback if something fails
-
-2. **Rebase workflow for release branches**
-   - `git rebase main` on release branches works well
-   - Keeps release branch clean and up-to-date
-   - Easy to understand what changes are being released
-
-3. **Plugin images released successfully**
-   - Plugins v0.6.1 built and published without issues
-   - Simpler workflow, fewer dependencies
-
-#### Key Takeaways
-
-1. **Keep it simple**: Manual processes are better than complex automation for infrequent tasks (releases happen ~monthly)
-2. **Don't change what works**: The v0.6.0 release process worked fine with manual tags
-3. **Test workflows thoroughly before relying on them**: Automated workflows need extensive testing
-4. **Understand root causes before implementing fixes**: golangci-lint-action version upgrade was the real issue
-5. **Use `continue-on-error` for non-critical CI steps**: Prevents one failing linter from blocking entire release
-
-#### Recommended Approach Going Forward
-
-**Manual tag creation** (current approach):
-```bash
-# 1. Update and rebase release branch
-git checkout release-X.Y
-git rebase main
-git push origin release-X.Y
-
-# 2. Create annotated tag with changelog
-git tag -a vX.Y.Z -m "Release vX.Y.Z
-
-[Comprehensive changelog here]
-
-🤖 Claude Code Assistant
-Co-Authored-By: Claude <noreply@anthropic.com>"
-
-# 3. Push tag to trigger CI
-git push origin vX.Y.Z
-```
-
-**Advantages**:
-- ✅ Simple and predictable
-- ✅ Full control over changelog content
-- ✅ Easy to troubleshoot if CI fails
-- ✅ No dependencies on complex workflows
-- ✅ Works the same way for both CLI and Plugins
-
-**Disadvantages**:
-- ⚠️ Requires manual steps (but releases are infrequent)
-- ⚠️ Requires git knowledge (but maintainers should have this)
+**CI and close-out**
+- [ ] `openshift/release` PR merged with rehearsals acked
+- [ ] Release notes rewritten from the tag message; prerelease/Latest flags correct for RC vs GA
+- [ ] Periodics observed on the new image, results recorded on the ticket
 
 ---
 
