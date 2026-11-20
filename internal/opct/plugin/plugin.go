@@ -22,6 +22,9 @@ const (
 	// WorkflowRegular is the run mode/workflow name for the default
 	// conformance path, where the upgrade plugin (05) is not loaded.
 	WorkflowRegular = "regular"
+
+	// WorkflowDisconnected is the conformance disconnected workflow.
+	WorkflowDisconnected = "disconnected"
 )
 
 type PluginDefinition struct {

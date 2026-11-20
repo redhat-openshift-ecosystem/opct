@@ -15,6 +15,7 @@ import (
 	"github.com/redhat-openshift-ecosystem/opct/pkg/version"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/vmware-tanzu/sonobuoy/pkg/buildinfo"
 	sonobuoyclient "github.com/vmware-tanzu/sonobuoy/pkg/client"
 	"github.com/vmware-tanzu/sonobuoy/pkg/config"
@@ -186,7 +187,7 @@ func NewCmdRun() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&o.mode, "mode", defaultRunMode, "Run mode: Availble: regular, upgrade")
+	cmd.Flags().StringVar(&o.mode, "workflow", defaultRunMode, "Workflow. Choose one: regular, upgrade, disconnected")
 	cmd.Flags().StringVar(&o.upgradeImage, "upgrade-to-image", defaultUpgradeImage, "Target OpenShift Release Image. Example: oc adm release info 4.11.18 -o jsonpath={.image}")
 	cmd.Flags().StringVar(&o.imageRepository, "image-repository", "", "Image repository containing required images test environment. Example: --mirror-repository mirror.repository.net/opct")
 
@@ -233,6 +234,15 @@ func NewCmdRun() *cobra.Command {
 	hideOptionalFlags(cmd, "collector-image")
 	hideOptionalFlags(cmd, "must-gather-monitoring-image")
 	hideOptionalFlags(cmd, "openshift-tests-image")
+
+	// Alias flags
+	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
+		if name == "mode" {
+			name = "workflow"
+			log.Warnf("--mode is deprecated and will be removed soon, use --workflow instead")
+		}
+		return pflag.NormalizedName(name)
+	})
 
 	return cmd
 }
