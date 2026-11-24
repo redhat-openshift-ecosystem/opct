@@ -641,8 +641,16 @@ func (r *RunOptions) Run(cli *client.Client) error {
 	// consistent with the executed command.
 	testProvider, err := r.resolveTestProvider(cli)
 	if err != nil {
-		// Non-fatal: the plugin falls back to detecting the platform from
-		// the cluster when TEST_PROVIDER is not set.
+		if r.mode == plugin.WorkflowDisconnected {
+			// The disconnected flag can only be delivered through the
+			// provider configuration: without it, tests tagged
+			// [Skipped:Disconnected] would silently run and fail on an
+			// offline cluster. Abort instead; the lookup happens before
+			// any resource is created, so the run is cleanly retryable.
+			return fmt.Errorf("resolving provider configuration for disconnected workflow: %w", err)
+		}
+		// Non-fatal for other workflows: the plugin falls back to detecting
+		// the platform from the cluster when TEST_PROVIDER is not set.
 		log.Warnf("unable to resolve the openshift-tests provider configuration: %v", err)
 	} else if len(testProvider) > 0 {
 		configPlugins.Data["test-provider"] = testProvider
