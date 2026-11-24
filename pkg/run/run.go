@@ -498,21 +498,49 @@ func (r *RunOptions) resolveTestProvider(cli *client.Client) (string, error) {
 		platform = string(infra.Spec.PlatformSpec.Type)
 	}
 
+	return providerJSONForPlatform(platform, r.mode), nil
+}
+
+// providerJSONForPlatform returns the openshift-tests --provider JSON for the
+// given infrastructure platform and workflow mode. External and None return
+// an explicit provider; other platforms return an empty string so
+// openshift-tests auto-discovers the provider — except in the disconnected
+// workflow, where the Disconnected flag can only be delivered through the
+// provider JSON, so the provider discovery would resolve to is emitted with
+// the flag merged in.
+func providerJSONForPlatform(platform, mode string) string {
 	var provider string
 	switch {
 	case strings.EqualFold(platform, "external"):
 		provider = `{"type":"external"}`
 	case platform == "" || strings.EqualFold(platform, "none"):
 		provider = `{"type":"skeleton"}`
-	default:
+	case mode != plugin.WorkflowDisconnected:
 		// Other platforms are auto-discovered by openshift-tests.
-		return "", nil
+		return ""
+	default:
+		provider = fmt.Sprintf(`{"type":%q}`, canonicalProviderName(platform))
 	}
-
-	if r.mode == plugin.WorkflowDisconnected {
+	if mode == plugin.WorkflowDisconnected {
 		provider = withDisconnectedFlag(provider)
 	}
-	return provider, nil
+	return provider
+}
+
+// canonicalProviderName maps an infrastructure platform type to the provider
+// name openshift-tests cluster discovery resolves it to, so overriding the
+// discovery with an explicit provider does not change test selection. GCP is
+// named "gce" by discovery; platforms discovery leaves unnamed (baremetal,
+// nutanix, kubevirt, ...) resolve to the skeleton provider.
+func canonicalProviderName(platform string) string {
+	switch strings.ToLower(platform) {
+	case "aws", "vsphere", "azure", "ibmcloud":
+		return strings.ToLower(platform)
+	case "gcp":
+		return "gce"
+	default:
+		return "skeleton"
+	}
 }
 
 // withDisconnectedFlag returns providerJSON with Disconnected set to true.

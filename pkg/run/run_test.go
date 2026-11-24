@@ -79,6 +79,74 @@ func TestValidateWorkflow(t *testing.T) {
 	}
 }
 
+func TestProviderJSONForPlatform(t *testing.T) {
+	tests := []struct {
+		name     string
+		platform string
+		mode     string
+		want     string
+	}{
+		{
+			name:     "external regular keeps provider",
+			platform: "External",
+			mode:     plugin.WorkflowRegular,
+			want:     `{"type":"external"}`,
+		},
+		{
+			name:     "external disconnected merges flag",
+			platform: "External",
+			mode:     plugin.WorkflowDisconnected,
+			want:     `{"Disconnected":true,"type":"external"}`,
+		},
+		{
+			name:     "none resolves to skeleton",
+			platform: "None",
+			mode:     plugin.WorkflowRegular,
+			want:     `{"type":"skeleton"}`,
+		},
+		{
+			name:     "aws regular emits nothing",
+			platform: "AWS",
+			mode:     plugin.WorkflowRegular,
+			want:     "",
+		},
+		{
+			name:     "aws disconnected emits provider with flag",
+			platform: "AWS",
+			mode:     plugin.WorkflowDisconnected,
+			want:     `{"Disconnected":true,"type":"aws"}`,
+		},
+		{
+			name:     "gcp disconnected maps to gce",
+			platform: "GCP",
+			mode:     plugin.WorkflowDisconnected,
+			want:     `{"Disconnected":true,"type":"gce"}`,
+		},
+		{
+			name:     "baremetal disconnected maps to skeleton",
+			platform: "BareMetal",
+			mode:     plugin.WorkflowDisconnected,
+			want:     `{"Disconnected":true,"type":"skeleton"}`,
+		},
+		{
+			name:     "vsphere disconnected emits provider with flag",
+			platform: "VSphere",
+			mode:     plugin.WorkflowDisconnected,
+			want:     `{"Disconnected":true,"type":"vsphere"}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := providerJSONForPlatform(tc.platform, tc.mode)
+			if got != tc.want {
+				t.Errorf("providerJSONForPlatform(%q, %q) = %q, want %q",
+					tc.platform, tc.mode, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestWithDisconnectedFlag(t *testing.T) {
 	tests := []struct {
 		name       string
