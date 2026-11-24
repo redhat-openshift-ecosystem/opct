@@ -58,6 +58,11 @@ type RunOptions struct {
 	mode         string
 	upgradeImage string
 
+	// testProvider is the openshift-tests --provider configuration resolved
+	// from the cluster before any resource is created; exposed to the plugins
+	// via the plugins-config ConfigMap.
+	testProvider string
+
 	// Pre-run validation retry/timeout configuration
 	validationTimeout       int
 	validationRetryInterval int
@@ -143,6 +148,13 @@ func NewCmdRun() *cobra.Command {
 
 			// Validate the workflow selection and its required inputs (OPCT-512).
 			if err := o.validateWorkflow(); err != nil {
+				return err
+			}
+
+			// Resolve the openshift-tests provider configuration before any
+			// resource is created, so a failed lookup (fatal in the
+			// disconnected workflow) leaves no partial state behind.
+			if err := o.resolveProviderConfig(cli); err != nil {
 				return err
 			}
 
@@ -470,6 +482,28 @@ func (r *RunOptions) createConfigMap(kclient kubernetes.Interface, cm *v1.Config
 	return nil
 }
 
+// resolveProviderConfig resolves the openshift-tests provider configuration
+// for the target cluster and stores it for the plugins-config ConfigMap. It
+// runs in the pre-run phase, before any resource is created, so a failed
+// lookup leaves no partial state behind. In the disconnected workflow the
+// lookup is fatal: the disconnected flag can only be delivered through the
+// provider configuration, and without it tests tagged
+// [Skipped:Disconnected] would silently run and fail on an offline cluster.
+// Other workflows keep the warning-only fallback, where the provider flag is
+// an optimization and openshift-tests auto-discovery suffices.
+func (r *RunOptions) resolveProviderConfig(cli *client.Client) error {
+	testProvider, err := r.resolveTestProvider(cli)
+	if err != nil {
+		if r.mode == plugin.WorkflowDisconnected {
+			return fmt.Errorf("resolving provider configuration for disconnected workflow: %w", err)
+		}
+		log.Warnf("unable to resolve the openshift-tests provider configuration: %v", err)
+		return nil
+	}
+	r.testProvider = testProvider
+	return nil
+}
+
 // resolveTestProvider returns the openshift-tests --provider configuration
 // for the target cluster and workflow. Platform External and None return an
 // explicit provider (external / skeleton, matching what openshift-tests
@@ -638,23 +672,11 @@ func (r *RunOptions) Run(cli *client.Client) error {
 	// TEST_PROVIDER environment variable to render the --provider flag on the
 	// run command, and openshift-tests itself uses the same variable as the
 	// default for --provider, which keeps the dry-run suite inventory
-	// consistent with the executed command.
-	testProvider, err := r.resolveTestProvider(cli)
-	if err != nil {
-		if r.mode == plugin.WorkflowDisconnected {
-			// The disconnected flag can only be delivered through the
-			// provider configuration: without it, tests tagged
-			// [Skipped:Disconnected] would silently run and fail on an
-			// offline cluster. Abort instead; the lookup happens before
-			// any resource is created, so the run is cleanly retryable.
-			return fmt.Errorf("resolving provider configuration for disconnected workflow: %w", err)
-		}
-		// Non-fatal for other workflows: the plugin falls back to detecting
-		// the platform from the cluster when TEST_PROVIDER is not set.
-		log.Warnf("unable to resolve the openshift-tests provider configuration: %v", err)
-	} else if len(testProvider) > 0 {
-		configPlugins.Data["test-provider"] = testProvider
-		log.Infof("Setting openshift-tests provider configuration: %s", testProvider)
+	// consistent with the executed command. Resolved in the pre-run phase,
+	// before any resource is created.
+	if len(r.testProvider) > 0 {
+		configPlugins.Data["test-provider"] = r.testProvider
+		log.Infof("Setting openshift-tests provider configuration: %s", r.testProvider)
 	}
 	configPlugins.Data["suiteNameKubernetesConformance"] = suiteNameKubernetesConformance
 	log.Debugf("Setting configMapData[suiteNameKubernetesConformance] to %s", suiteNameKubernetesConformance)
@@ -754,7 +776,7 @@ func (r *RunOptions) Run(cli *client.Client) error {
 		return nil
 	}
 
-	err = cli.SClient.Run(runConfig)
+	err := cli.SClient.Run(runConfig)
 	return err
 }
 
