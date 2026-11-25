@@ -316,11 +316,11 @@ configuration (execution mode).
 
 The following are valid execution modes:
 
-| Mode | Required options | Description |
+| Workflow | Required options | Description |
 | -- | -- | -- |
 | `default` | (no extra parameters) | Validate connected clusters |
-| `upgrade` | `--mode=upgrade` and `--upgrade-to-image` | Validate upgrade on connected clusters |
-| `disconnected` | `--image-repository` | Validate disconnected clusters |
+| `upgrade` | `--workflow=upgrade` and `--upgrade-to-image` | Validate upgrade on connected clusters |
+| `disconnected` | `--workflow=disconnected` and `--image-repository` | Validate disconnected clusters |
 
 **Requirements:**
 
