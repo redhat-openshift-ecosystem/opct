@@ -99,10 +99,22 @@ func TestProviderJSONForPlatform(t *testing.T) {
 			want:     `{"Disconnected":true,"type":"external"}`,
 		},
 		{
-			name:     "none resolves to skeleton",
+			name:     "none regular is auto-discovered",
 			platform: "None",
 			mode:     plugin.WorkflowRegular,
-			want:     `{"type":"skeleton"}`,
+			want:     "",
+		},
+		{
+			name:     "none disconnected resolves to skeleton with flag",
+			platform: "None",
+			mode:     plugin.WorkflowDisconnected,
+			want:     `{"Disconnected":true,"type":"skeleton"}`,
+		},
+		{
+			name:     "undetected platform disconnected resolves to skeleton with flag",
+			platform: "",
+			mode:     plugin.WorkflowDisconnected,
+			want:     `{"Disconnected":true,"type":"skeleton"}`,
 		},
 		{
 			name:     "aws regular emits nothing",
@@ -111,28 +123,16 @@ func TestProviderJSONForPlatform(t *testing.T) {
 			want:     "",
 		},
 		{
-			name:     "aws disconnected emits provider with flag",
+			name:     "aws disconnected emits nothing",
 			platform: "AWS",
 			mode:     plugin.WorkflowDisconnected,
-			want:     `{"Disconnected":true,"type":"aws"}`,
+			want:     "",
 		},
 		{
-			name:     "gcp disconnected maps to gce",
-			platform: "GCP",
-			mode:     plugin.WorkflowDisconnected,
-			want:     `{"Disconnected":true,"type":"gce"}`,
-		},
-		{
-			name:     "baremetal disconnected maps to skeleton",
-			platform: "BareMetal",
-			mode:     plugin.WorkflowDisconnected,
-			want:     `{"Disconnected":true,"type":"skeleton"}`,
-		},
-		{
-			name:     "vsphere disconnected emits provider with flag",
+			name:     "vsphere disconnected emits nothing",
 			platform: "VSphere",
 			mode:     plugin.WorkflowDisconnected,
-			want:     `{"Disconnected":true,"type":"vsphere"}`,
+			want:     "",
 		},
 	}
 

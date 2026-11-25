@@ -370,6 +370,11 @@ If you have a disconnected mirror registry configured
 ./opct run --workflow=disconnected --image-repository ${TARGET_REPO}
 ```
 
+!!! note
+    Tests tagged `[Skipped:Disconnected]` are currently excluded on platform
+    types `External` and `None` only. On other platform types the workflow
+    runs, but those tests are still scheduled.
+
 ### Check status <a name="usage-check"></a>
 
 ```sh

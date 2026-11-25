@@ -68,6 +68,12 @@ podSpec:
           value: "none"
         - name: OT_RUN_COMMAND
           value: "run-upgrade"
+        - name: TEST_PROVIDER
+          valueFrom:
+            configMapKeyRef:
+              name: plugins-config
+              key: test-provider
+              optional: true
         - name: PLUGIN_NAME
           value: "openshift-cluster-upgrade"
 
@@ -124,6 +130,12 @@ spec:
         configMapKeyRef:
           name: plugins-config
           key: run-mode
+    - name: TEST_PROVIDER
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: test-provider
+          optional: true
     - name: MIRROR_IMAGE_REPOSITORY
       valueFrom:
         configMapKeyRef:

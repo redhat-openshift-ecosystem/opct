@@ -505,12 +505,7 @@ func (r *RunOptions) resolveProviderConfig(cli *client.Client) error {
 }
 
 // resolveTestProvider returns the openshift-tests --provider configuration
-// for the target cluster and workflow. Platform External and None return an
-// explicit provider (external / skeleton, matching what openshift-tests
-// auto-discovery resolves to); other platforms return an empty string so
-// openshift-tests auto-discovers the provider. When the disconnected
-// workflow is selected, Disconnected:true is merged in so tests tagged
-// [Skipped:Disconnected] are excluded.
+// for the target cluster and workflow. See providerJSONForPlatform.
 func (r *RunOptions) resolveTestProvider(cli *client.Client) (string, error) {
 	oc, err := coclient.NewForConfig(cli.RestConfig)
 	if err != nil {
@@ -536,45 +531,36 @@ func (r *RunOptions) resolveTestProvider(cli *client.Client) (string, error) {
 }
 
 // providerJSONForPlatform returns the openshift-tests --provider JSON for the
-// given infrastructure platform and workflow mode. External and None return
-// an explicit provider; other platforms return an empty string so
-// openshift-tests auto-discovers the provider — except in the disconnected
-// workflow, where the Disconnected flag can only be delivered through the
-// provider JSON, so the provider discovery would resolve to is emitted with
-// the flag merged in.
+// given infrastructure platform and workflow mode.
+//
+// Platform External always returns an explicit provider, so tests configured
+// to skip on that platform are ignored instead of scheduled as known failures
+// (OPCT-357). Platform None returns the skeleton provider that auto-discovery
+// resolves it to, but only in the disconnected workflow, which needs a
+// provider JSON as the vehicle for the flag; connected runs keep relying on
+// auto-discovery. Every other platform returns an empty string and is
+// auto-discovered, so a disconnected cluster there is not filtered — tracked
+// as a follow-up rather than guessing a provider name on its behalf.
 func providerJSONForPlatform(platform, mode string) string {
+	disconnected := mode == plugin.WorkflowDisconnected
+
 	var provider string
 	switch {
 	case strings.EqualFold(platform, "external"):
 		provider = `{"type":"external"}`
-	case platform == "" || strings.EqualFold(platform, "none"):
+	case disconnected && (platform == "" || strings.EqualFold(platform, "none")):
 		provider = `{"type":"skeleton"}`
-	case mode != plugin.WorkflowDisconnected:
-		// Other platforms are auto-discovered by openshift-tests.
-		return ""
 	default:
-		provider = fmt.Sprintf(`{"type":%q}`, canonicalProviderName(platform))
+		if disconnected {
+			log.Warnf("disconnected workflow on platform %q: openshift-tests auto-discovers the provider on this platform, so tests tagged [Skipped:Disconnected] will not be filtered", platform)
+		}
+		return ""
 	}
-	if mode == plugin.WorkflowDisconnected {
+
+	if disconnected {
 		provider = withDisconnectedFlag(provider)
 	}
 	return provider
-}
-
-// canonicalProviderName maps an infrastructure platform type to the provider
-// name openshift-tests cluster discovery resolves it to, so overriding the
-// discovery with an explicit provider does not change test selection. GCP is
-// named "gce" by discovery; platforms discovery leaves unnamed (baremetal,
-// nutanix, kubevirt, ...) resolve to the skeleton provider.
-func canonicalProviderName(platform string) string {
-	switch strings.ToLower(platform) {
-	case "aws", "vsphere", "azure", "ibmcloud":
-		return strings.ToLower(platform)
-	case "gcp":
-		return "gce"
-	default:
-		return "skeleton"
-	}
 }
 
 // withDisconnectedFlag returns providerJSON with Disconnected set to true.
