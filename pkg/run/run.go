@@ -538,9 +538,12 @@ func (r *RunOptions) resolveTestProvider(cli *client.Client) (string, error) {
 // (OPCT-357). Platform None returns the skeleton provider that auto-discovery
 // resolves it to, but only in the disconnected workflow, which needs a
 // provider JSON as the vehicle for the flag; connected runs keep relying on
-// auto-discovery. Every other platform returns an empty string and is
-// auto-discovered, so a disconnected cluster there is not filtered — tracked
-// as a follow-up rather than guessing a provider name on its behalf.
+// auto-discovery.
+//
+// Disconnected validation is supported on External and None only, so every
+// other platform returns an empty string and is left to auto-discovery. The
+// disconnected workflow still runs there, with a warning that the
+// [Skipped:Disconnected] tests are not filtered.
 func providerJSONForPlatform(platform, mode string) string {
 	disconnected := mode == plugin.WorkflowDisconnected
 

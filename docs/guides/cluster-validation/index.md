@@ -371,9 +371,9 @@ If you have a disconnected mirror registry configured
 ```
 
 !!! note
-    Tests tagged `[Skipped:Disconnected]` are currently excluded on platform
-    types `External` and `None` only. On other platform types the workflow
-    runs, but those tests are still scheduled.
+    Disconnected validation is supported on platform types `External` and
+    `None`. On other platform types the workflow still runs, but tests tagged
+    `[Skipped:Disconnected]` are not excluded.
 
 ### Check status <a name="usage-check"></a>
 
