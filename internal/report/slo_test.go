@@ -352,3 +352,47 @@ func TestCheckOPCT002UpgradePluginAbsent(t *testing.T) {
 			"a present and passing upgrade plugin must still pass")
 	})
 }
+
+// TestCheckOPCT023BMinimumTestCount asserts the OpenShift Conformance sanity check
+// (OPCT-023B) fails only when the suite reports fewer than 2500 tests. The floor
+// tolerates the smaller 5.1.0-ec.2+ inventory (~2,880 tests) while still catching
+// severe test-count losses.
+func TestCheckOPCT023BMinimumTestCount(t *testing.T) {
+	runOPCT023B := func(total int64) CheckResult {
+		re := &ReportData{
+			Provider: &ReportResult{
+				Plugins: map[string]*ReportPlugin{
+					plugin.PluginNameOpenShiftConformance: {
+						ID:   plugin.PluginNameOpenShiftConformance,
+						Stat: &ReportPluginStat{Total: total},
+					},
+				},
+			},
+		}
+		for _, check := range NewCheckSummary(re).Checks {
+			if check.ID == CheckID023B {
+				return check.Test()
+			}
+		}
+		t.Fatalf("check %s not found", CheckID023B)
+		return CheckResult{}
+	}
+
+	for _, tc := range []struct {
+		total int64
+		want  CheckResultName
+	}{
+		{total: 999, want: CheckResultNameFail},  // severe drop below 1,000
+		{total: 2499, want: CheckResultNameFail}, // just below the floor
+		{total: 2500, want: CheckResultNamePass}, // floor is inclusive for passing
+		{total: 2880, want: CheckResultNamePass}, // representative 5.1.0-ec.2+ count
+		{total: 2917, want: CheckResultNamePass}, // count reported by the failing 5.1 rehearsal
+		{total: 3000, want: CheckResultNamePass}, // former floor no longer fails
+		{total: 5058, want: CheckResultNamePass}, // pre-cleanup 5.1.0-ec.1 count
+	} {
+		res := runOPCT023B(tc.total)
+		assert.Equal(t, tc.want, res.Name, "total=%d", tc.total)
+		assert.Equal(t, "F:<2500", res.Target, "total=%d", tc.total)
+		assert.Equal(t, fmt.Sprintf("Total==%d", tc.total), res.Actual, "total=%d", tc.total)
+	}
+}
