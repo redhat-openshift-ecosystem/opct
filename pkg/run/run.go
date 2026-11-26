@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -15,6 +17,7 @@ import (
 	"github.com/redhat-openshift-ecosystem/opct/pkg/version"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/vmware-tanzu/sonobuoy/pkg/buildinfo"
 	sonobuoyclient "github.com/vmware-tanzu/sonobuoy/pkg/client"
 	"github.com/vmware-tanzu/sonobuoy/pkg/config"
@@ -54,6 +57,11 @@ type RunOptions struct {
 	watch        bool
 	mode         string
 	upgradeImage string
+
+	// testProvider is the openshift-tests --provider configuration resolved
+	// from the cluster before any resource is created; exposed to the plugins
+	// via the plugins-config ConfigMap.
+	testProvider string
 
 	// Pre-run validation retry/timeout configuration
 	validationTimeout       int
@@ -101,6 +109,19 @@ func newRunOptions() *RunOptions {
 	}
 }
 
+// validateWorkflow checks the workflow selection and its required inputs.
+func (r *RunOptions) validateWorkflow() error {
+	switch r.mode {
+	case plugin.WorkflowRegular, plugin.WorkflowUpgrade, plugin.WorkflowDisconnected:
+	default:
+		return fmt.Errorf("invalid --workflow %q: choose one: regular, upgrade, disconnected", r.mode)
+	}
+	if r.mode == plugin.WorkflowDisconnected && r.imageRepository == "" {
+		return fmt.Errorf("--workflow=disconnected requires --image-repository with the disconnected mirror registry, see the disconnected installation guide")
+	}
+	return nil
+}
+
 func hideOptionalFlags(cmd *cobra.Command, flag string) {
 	err := cmd.Flags().MarkHidden(flag)
 	if err != nil {
@@ -122,6 +143,18 @@ func NewCmdRun() *cobra.Command {
 			cli, err = client.NewClient()
 			if err != nil {
 				log.WithError(err).Error("pre-run failed when creating clients")
+				return err
+			}
+
+			// Validate the workflow selection and its required inputs (OPCT-512).
+			if err := o.validateWorkflow(); err != nil {
+				return err
+			}
+
+			// Resolve the openshift-tests provider configuration before any
+			// resource is created, so a failed lookup (fatal in the
+			// disconnected workflow) leaves no partial state behind.
+			if err := o.resolveProviderConfig(cli); err != nil {
 				return err
 			}
 
@@ -186,7 +219,7 @@ func NewCmdRun() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&o.mode, "mode", defaultRunMode, "Run mode: Availble: regular, upgrade")
+	cmd.Flags().StringVar(&o.mode, "workflow", defaultRunMode, "Workflow. Choose one: regular, upgrade, disconnected")
 	cmd.Flags().StringVar(&o.upgradeImage, "upgrade-to-image", defaultUpgradeImage, "Target OpenShift Release Image. Example: oc adm release info 4.11.18 -o jsonpath={.image}")
 	cmd.Flags().StringVar(&o.imageRepository, "image-repository", "", "Image repository containing required images test environment. Example: --mirror-repository mirror.repository.net/opct")
 
@@ -233,6 +266,20 @@ func NewCmdRun() *cobra.Command {
 	hideOptionalFlags(cmd, "collector-image")
 	hideOptionalFlags(cmd, "must-gather-monitoring-image")
 	hideOptionalFlags(cmd, "openshift-tests-image")
+
+	// Alias flags
+	// The normalize function runs for every flag lookup, so the deprecation
+	// warning is emitted at most once per invocation.
+	var warnModeDeprecated sync.Once
+	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
+		if name == "mode" {
+			name = "workflow"
+			warnModeDeprecated.Do(func() {
+				log.Warn("--mode is deprecated and will be removed soon, use --workflow instead")
+			})
+		}
+		return pflag.NormalizedName(name)
+	})
 
 	return cmd
 }
@@ -435,6 +482,108 @@ func (r *RunOptions) createConfigMap(kclient kubernetes.Interface, cm *v1.Config
 	return nil
 }
 
+// resolveProviderConfig resolves the openshift-tests provider configuration
+// for the target cluster and stores it for the plugins-config ConfigMap. It
+// runs in the pre-run phase, before any resource is created, so a failed
+// lookup leaves no partial state behind. In the disconnected workflow the
+// lookup is fatal: the disconnected flag can only be delivered through the
+// provider configuration, and without it tests tagged
+// [Skipped:Disconnected] would silently run and fail on an offline cluster.
+// Other workflows keep the warning-only fallback, where the provider flag is
+// an optimization and openshift-tests auto-discovery suffices.
+func (r *RunOptions) resolveProviderConfig(cli *client.Client) error {
+	testProvider, err := r.resolveTestProvider(cli)
+	if err != nil {
+		if r.mode == plugin.WorkflowDisconnected {
+			return fmt.Errorf("resolving provider configuration for disconnected workflow: %w", err)
+		}
+		log.Warnf("unable to resolve the openshift-tests provider configuration: %v", err)
+		return nil
+	}
+	r.testProvider = testProvider
+	return nil
+}
+
+// resolveTestProvider returns the openshift-tests --provider configuration
+// for the target cluster and workflow. See providerJSONForPlatform.
+func (r *RunOptions) resolveTestProvider(cli *client.Client) (string, error) {
+	oc, err := coclient.NewForConfig(cli.RestConfig)
+	if err != nil {
+		return "", fmt.Errorf("creating config client: %w", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	infra, err := oc.ConfigV1().Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("reading infrastructure cluster: %w", err)
+	}
+	// Prefer status.platformStatus.type, falling back to spec.platformSpec.type
+	// when status is not yet populated.
+	platform := ""
+	if infra.Status.PlatformStatus != nil {
+		platform = string(infra.Status.PlatformStatus.Type)
+	}
+	if platform == "" {
+		platform = string(infra.Spec.PlatformSpec.Type)
+	}
+
+	return providerJSONForPlatform(platform, r.mode), nil
+}
+
+// providerJSONForPlatform returns the openshift-tests --provider JSON for the
+// given infrastructure platform and workflow mode.
+//
+// Platform External always returns an explicit provider, so tests configured
+// to skip on that platform are ignored instead of scheduled as known failures
+// (OPCT-357). Platform None returns the skeleton provider that auto-discovery
+// resolves it to, but only in the disconnected workflow, which needs a
+// provider JSON as the vehicle for the flag; connected runs keep relying on
+// auto-discovery.
+//
+// Disconnected validation is supported on External and None only, so every
+// other platform returns an empty string and is left to auto-discovery. The
+// disconnected workflow still runs there, with a warning that the
+// [Skipped:Disconnected] tests are not filtered.
+func providerJSONForPlatform(platform, mode string) string {
+	disconnected := mode == plugin.WorkflowDisconnected
+
+	var provider string
+	switch {
+	case strings.EqualFold(platform, "external"):
+		provider = `{"type":"external"}`
+	case disconnected && (platform == "" || strings.EqualFold(platform, "none")):
+		provider = `{"type":"skeleton"}`
+	default:
+		if disconnected {
+			log.Warnf("disconnected workflow on platform %q: openshift-tests auto-discovers the provider on this platform, so tests tagged [Skipped:Disconnected] will not be filtered", platform)
+		}
+		return ""
+	}
+
+	if disconnected {
+		provider = withDisconnectedFlag(provider)
+	}
+	return provider
+}
+
+// withDisconnectedFlag returns providerJSON with Disconnected set to true.
+// A config that already carries the flag is returned unchanged.
+func withDisconnectedFlag(providerJSON string) string {
+	cfg := map[string]interface{}{}
+	if err := json.Unmarshal([]byte(providerJSON), &cfg); err != nil {
+		return providerJSON
+	}
+	if disconnected, ok := cfg["Disconnected"].(bool); ok && disconnected {
+		return providerJSON
+	}
+	cfg["Disconnected"] = true
+	out, err := json.Marshal(cfg)
+	if err != nil {
+		return providerJSON
+	}
+	return string(out)
+}
+
 // Run setup and provision the certification environment.
 func (r *RunOptions) Run(cli *client.Client) error {
 	var manifests []*manifest.Manifest
@@ -506,6 +655,17 @@ func (r *RunOptions) Run(cli *client.Client) error {
 	}
 	if len(r.imageRepository) > 0 {
 		configPlugins.Data["mirror-registry"] = r.imageRepository
+	}
+	// OPCT-512: expose the openshift-tests provider configuration to the
+	// plugins via the plugins-config ConfigMap. The plugins read it as the
+	// TEST_PROVIDER environment variable to render the --provider flag on the
+	// run command, and openshift-tests itself uses the same variable as the
+	// default for --provider, which keeps the dry-run suite inventory
+	// consistent with the executed command. Resolved in the pre-run phase,
+	// before any resource is created.
+	if len(r.testProvider) > 0 {
+		configPlugins.Data["test-provider"] = r.testProvider
+		log.Infof("Setting openshift-tests provider configuration: %s", r.testProvider)
 	}
 	configPlugins.Data["suiteNameKubernetesConformance"] = suiteNameKubernetesConformance
 	log.Debugf("Setting configMapData[suiteNameKubernetesConformance] to %s", suiteNameKubernetesConformance)

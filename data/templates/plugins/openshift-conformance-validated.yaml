@@ -68,6 +68,12 @@ podSpec:
           value: "openshift/conformance"
         - name: OT_RUN_COMMAND
           value: "run"
+        - name: TEST_PROVIDER
+          valueFrom:
+            configMapKeyRef:
+              name: plugins-config
+              key: test-provider
+              optional: true
         - name: PLUGIN_NAME
           value: "openshift-conformance-validated"
 
@@ -119,6 +125,12 @@ spec:
         configMapKeyRef:
           name: plugins-config
           key: run-mode
+    - name: TEST_PROVIDER
+      valueFrom:
+        configMapKeyRef:
+          name: plugins-config
+          key: test-provider
+          optional: true
     - name: DEV_MODE_COUNT
       valueFrom:
         configMapKeyRef:

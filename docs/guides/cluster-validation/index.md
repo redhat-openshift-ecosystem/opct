@@ -316,11 +316,11 @@ configuration (execution mode).
 
 The following are valid execution modes:
 
-| Mode | Required options | Description |
+| Workflow | Required options | Description |
 | -- | -- | -- |
 | `default` | (no extra parameters) | Validate connected clusters |
-| `upgrade` | `--mode=upgrade` and `--upgrade-to-image` | Validate upgrade on connected clusters |
-| `disconnected` | `--image-repository` | Validate disconnected clusters |
+| `upgrade` | `--workflow=upgrade` and `--upgrade-to-image` | Validate upgrade on connected clusters |
+| `disconnected` | `--workflow=disconnected` and `--image-repository` | Validate disconnected clusters |
 
 **Requirements:**
 
@@ -353,7 +353,7 @@ The `upgrade` mode upgrades the cluster to a specified 4.Y+1 release, monitoring
 *Steps*:
 
 ```sh
-./opct run --mode=upgrade --upgrade-to-image=$(oc adm release info 4.Y+1.Z -o jsonpath={.image})
+./opct run --workflow=upgrade --upgrade-to-image=$(oc adm release info 4.Y+1.Z -o jsonpath={.image})
 ```
 
 #### Default in disconnected environments<a name="usage-run-disconnected"></a>
@@ -367,8 +367,13 @@ If you have a disconnected mirror registry configured
 *Steps*:
 
 ```sh
-./opct run --image-repository ${TARGET_REPO}
+./opct run --workflow=disconnected --image-repository ${TARGET_REPO}
 ```
+
+!!! note
+    Disconnected validation is supported on platform types `External` and
+    `None`. On other platform types the workflow still runs, but tests tagged
+    `[Skipped:Disconnected]` are not excluded.
 
 ### Check status <a name="usage-check"></a>
 
