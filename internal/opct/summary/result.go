@@ -17,6 +17,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	configv1 "github.com/openshift/api/config/v1"
+	opctapi "github.com/redhat-openshift-ecosystem/opct/pkg/api"
 	"github.com/vmware-tanzu/sonobuoy/pkg/client/results"
 	"github.com/vmware-tanzu/sonobuoy/pkg/discovery"
 )
@@ -236,6 +237,34 @@ func (rs *ResultSummary) processPluginResult(obj *results.Item) error {
 	for _, v := range statusCounts {
 		total += v
 	}
+	passed := statusCounts[results.StatusPassed]
+	failed := statusCounts[results.StatusFailed] + statusCounts[results.StatusTimeout]
+	skipped := statusCounts[results.StatusSkipped]
+	status := obj.Status
+
+	// The plugin status and the test counters are by default derived from the
+	// sonobuoy results file, whose item status is derived from the
+	// testsuite-level attributes of the JUnit file. Those attributes may not
+	// match the test cases when openshift-tests retries a flaky test: the
+	// stale failures="N" attribute remains while the retried test cases pass,
+	// producing a report with "Status: failed" and "Failed: 0". Re-count the
+	// results from the JUnit test cases when available, falling back to the
+	// sonobuoy counts when the plugin does not produce JUnit files or they
+	// cannot be parsed.
+	junitCounters, err := rs.junitCountersFromArchive(obj.Name)
+	switch {
+	case err != nil:
+		log.Warnf("Falling back to sonobuoy results to summarize plugin '%s': %v", obj.Name, err)
+	case junitCounters != nil && junitCounters.Total > 0:
+		status = results.StatusPassed
+		if junitCounters.Failures > 0 || statusCounts[results.StatusTimeout] > 0 {
+			status = results.StatusFailed
+		}
+		total = junitCounters.Total
+		passed = junitCounters.Pass
+		failed = junitCounters.Failures + statusCounts[results.StatusTimeout]
+		skipped = junitCounters.Skipped
+	}
 
 	testItems := make(map[string]*plugin.TestItem, len(tests))
 	for idx, item := range tests {
@@ -276,12 +305,12 @@ func (rs *ResultSummary) processPluginResult(obj *results.Item) error {
 
 	if err := rs.GetOpenShift().SetPluginResult(&plugin.OPCTPluginSummary{
 		Name:       obj.Name,
-		Status:     obj.Status,
+		Status:     status,
 		Total:      int64(total),
-		Passed:     int64(statusCounts[results.StatusPassed]),
-		Failed:     int64(statusCounts[results.StatusFailed] + statusCounts[results.StatusTimeout]),
+		Passed:     int64(passed),
+		Failed:     int64(failed),
 		Timeout:    int64(statusCounts[results.StatusTimeout]),
-		Skipped:    int64(statusCounts[results.StatusSkipped]),
+		Skipped:    int64(skipped),
 		FailedList: failures,
 		Tests:      testItems,
 	}); err != nil {
@@ -294,6 +323,57 @@ func (rs *ResultSummary) processPluginResult(obj *results.Item) error {
 	delete(statusCounts, results.StatusSkipped)
 
 	return nil
+}
+
+// junitCountersFromArchive walks the plugin's results directory in the archive
+// and aggregates the JUnit counters from the XML test cases. It returns nil
+// (with no error) when the plugin did not produce any JUnit file, and an error
+// when a JUnit file was found but could not be extracted or parsed, so callers
+// can fall back to the sonobuoy results.
+func (rs *ResultSummary) junitCountersFromArchive(pluginName string) (*opctapi.JUnitCounter, error) {
+	if rs.Archive == "" {
+		if rs.reader == nil {
+			return nil, nil
+		}
+	} else {
+		// The archive reader wraps a single-pass stream which was already
+		// consumed to load the plugin results item, so open a fresh reader
+		// before walking the archive again.
+		cleanup, err := rs.openReader()
+		defer cleanup()
+		if err != nil {
+			return nil, fmt.Errorf("reopening the results archive: %w", err)
+		}
+	}
+	prefix := "plugins/" + pluginName + "/results/"
+	var counters *opctapi.JUnitCounter
+
+	err := rs.reader.WalkFiles(func(p string, info os.FileInfo, e error) error {
+		if e != nil || info == nil || info.IsDir() {
+			return nil
+		}
+		if !strings.HasPrefix(p, prefix) || !strings.HasSuffix(p, ".xml") {
+			return nil
+		}
+		var buf bytes.Buffer
+		if err := results.ExtractBytes(p, p, info, &buf); err != nil {
+			return fmt.Errorf("extracting JUnit file '%s': %w", p, err)
+		}
+		parser, err := opctapi.NewJUnitXMLParserFromBytes(buf.Bytes())
+		if err != nil {
+			return fmt.Errorf("parsing JUnit file '%s': %w", p, err)
+		}
+		if counters == nil {
+			counters = &opctapi.JUnitCounter{}
+		}
+		counters.Total += parser.Counters.Total
+		counters.Skipped += parser.Counters.Skipped
+		counters.Failures += parser.Counters.Failures
+		counters.Pass += parser.Counters.Pass
+		return nil
+	})
+
+	return counters, err
 }
 
 // extractDataFromTarball load all files from archive reader and extract desired
